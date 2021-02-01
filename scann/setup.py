@@ -73,7 +73,7 @@ setuptools.setup(
     long_description_content_type="text/markdown",
     packages=setuptools.find_packages(),
     include_package_data=True,
-    install_requires=pathlib.Path("requirements.txt").read_text().splitlines(),
+    #install_requires=pathlib.Path("requirements.txt").read_text().splitlines(),
     zip_safe=False,
     distclass=BinaryDistribution,
     cmdclass={"install": InstallPlatlib},
