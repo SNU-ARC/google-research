@@ -230,6 +230,7 @@ class LUT16Interface {
   }
 
 void LUT16Interface::GetDistances(LUT16Args<int16_t> args) {
+  std::cout << "[YJ] GetDistances" << std::endl;
   const size_t batch_size = args.lookups.size();
   const auto prefetch_strategy = args.prefetch_strategy;
   const bool enable_avx512_codepath = args.enable_avx512_codepath;

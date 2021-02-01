@@ -29,6 +29,7 @@
 namespace research_scann {
 namespace {
 
+
 int GetNumCPUs() { return std::max(absl::base_internal::NumCPUs(), 1); }
 
 }  // namespace
@@ -51,6 +52,7 @@ Status ScannInterface::Initialize(
     ConstSpan<uint8_t> hashed_dataset, ConstSpan<int8_t> int8_dataset,
     ConstSpan<float> int8_multipliers, ConstSpan<float> dp_norms,
     DatapointIndex n_points, const std::string& artifacts_dir) {
+  std::cout << "[YJ] Initialize 1 end" << std::endl;
   ScannConfig config;
   SCANN_RETURN_IF_ERROR(
       ReadProtobufFromFile(artifacts_dir + "/scann_config.pb", &config));
@@ -66,9 +68,11 @@ Status ScannInterface::Initialize(
         ReadProtobufFromFile(artifacts_dir + "/serialized_partitioner.pb",
                              opts.serialized_partitioner.get()));
   }
+  std::cout << "[YJ] Initialize 1 end" << std::endl;
   return Initialize(config, opts, dataset, datapoint_to_token, hashed_dataset,
                     int8_dataset, int8_multipliers, dp_norms, n_points);
 }
+
 
 Status ScannInterface::Initialize(
     ScannConfig config, SingleMachineFactoryOptions opts,
@@ -76,6 +80,7 @@ Status ScannInterface::Initialize(
     ConstSpan<uint8_t> hashed_dataset, ConstSpan<int8_t> int8_dataset,
     ConstSpan<float> int8_multipliers, ConstSpan<float> dp_norms,
     DatapointIndex n_points) {
+  std::cout << "[YJ] Initialize 2 start" << std::endl;
   config_ = config;
   if (opts.ah_codebook != nullptr) {
     vector<uint8_t> hashed_db(hashed_dataset.data(),
@@ -94,6 +99,7 @@ Status ScannInterface::Initialize(
     for (auto [dp_idx, token] : Enumerate(datapoint_to_token))
       opts.datapoints_by_token->at(token).push_back(dp_idx);
   }
+  std::cout << "[YJ] Initialize 2 end" << std::endl;
   if (!int8_dataset.empty()) {
     auto int8_data = std::make_shared<PreQuantizedFixedPoint>();
     vector<int8_t> int8_vec(int8_dataset.data(),
@@ -115,6 +121,7 @@ Status ScannInterface::Initialize(ConstSpan<float> dataset,
                                   DatapointIndex n_points,
                                   const std::string& config,
                                   int training_threads) {
+  std::cout << "[YJ] Initialize 3 start" << std::endl;
   ParseTextProto(&config_, config);
   if (training_threads < 0)
     return InvalidArgumentError("training_threads must be non-negative");
@@ -123,19 +130,25 @@ Status ScannInterface::Initialize(ConstSpan<float> dataset,
 
   opts.parallelization_pool =
       StartThreadPool("scann_threadpool", training_threads - 1);
+  std::cout << "[YJ] Initialize 3 end" << std::endl;
   return Initialize(InitDataset(dataset, n_points), opts);
 }
 
 Status ScannInterface::Initialize(shared_ptr<DenseDataset<float>> dataset,
                                   SingleMachineFactoryOptions opts) {
+
+  std::cout << "[YJ] Initialize 4 start" << std::endl;
   TF_ASSIGN_OR_RETURN(dimensionality_, opts.ComputeConsistentDimensionality(
                                            config_.hash(), dataset.get()));
   TF_ASSIGN_OR_RETURN(n_points_, opts.ComputeConsistentSize(dataset.get()));
+  std::cout << "[YJ] Number of vectors: " << n_points_ << " / dimension : " << dimensionality_ << std::endl;
 
   if (dataset && config_.has_partitioning() &&
       config_.partitioning().partitioning_type() ==
           PartitioningConfig::SPHERICAL)
     dataset->set_normalization_tag(research_scann::UNITL2NORM);
+  std::cout << "[YJ] Initialize, SingleMachineFactoryNoSparse end" << std::endl;
+  
   TF_ASSIGN_OR_RETURN(scann_, SingleMachineFactoryScann<float>(
                                   config_, dataset, std::move(opts)));
 
@@ -154,12 +167,14 @@ Status ScannInterface::Initialize(shared_ptr<DenseDataset<float>> dataset,
     else
       min_batch_size_ = 256;
   }
+  std::cout << "[YJ] Initialize 4 end" << std::endl;
   return OkStatus();
 }
 
 Status ScannInterface::Search(const DatapointPtr<float> query,
                               NNResultsVector* res, int final_nn,
                               int pre_reorder_nn, int leaves) const {
+  std::cout << "[YJ] Search" << std::endl;
   if (query.dimensionality() != dimensionality_)
     return InvalidArgumentError("Query doesn't match dataset dimsensionality");
   bool has_reordering =

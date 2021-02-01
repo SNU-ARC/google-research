@@ -308,6 +308,8 @@ Status KMeansTree::Tokenize(const DatapointPtr<T>& query,
   Datapoint<float> converted_values;
   const DatapointPtr<float> query_float = ToFloat(query, &converted_values);
   if (opts.tokenization_type == FLOAT) {
+    // [YJ] comes here
+    std::cout << "[YJ] Tokenize, float" << std::endl;
     status = TokenizeImpl<float>(query_float, dist, opts, result);
   } else if (opts.tokenization_type == FIXED_POINT_INT8) {
     status = TokenizeImpl<int8_t>(query_float, dist, opts, result);
@@ -327,17 +329,21 @@ Status KMeansTree::TokenizeImpl(
     std::vector<KMeansTreeSearchResult>* result) const {
   switch (opts.spilling_type) {
     case TokenizationOptions::NONE:
+      // std::cout << "[YJ] TokenizeImpl, None" << std::endl;
       result->resize(1);
       return TokenizeWithoutSpillingImpl<CentersType>(
           query, dist, &root_, result->data(), opts.populate_residual_stdev);
     case TokenizationOptions::LEARNED:
+      // std::cout << "[YJ] TokenizeImpl, LEARNED" << std::endl;
       return TokenizeWithSpillingImpl<CentersType>(
           query, dist,
           static_cast<QuerySpillingConfig::SpillingType>(
               learned_spilling_type_),
           NAN, max_spill_centers_, &root_, result,
           opts.populate_residual_stdev);
+    // [YJ] comes here
     case TokenizationOptions::USER_SPECIFIED:
+      std::cout << "[YJ] TokenizeImpl, USER_SPECIFIED" << std::endl;
       return TokenizeWithSpillingImpl<CentersType>(
           query, dist, opts.user_specified_spilling_type,
           opts.spilling_threshold, opts.max_spilling_centers, &root_, result,
@@ -406,7 +412,7 @@ Status KMeansTree::TokenizeWithSpillingImpl(
     bool populate_residual_stdev) const {
   DCHECK(results);
   DCHECK(current_node);
-
+  std::cout << "[YJ] TokenizeWithSpillingImpl" << std::endl;
   if (current_node->IsLeaf()) {
     KMeansTreeSearchResult result;
     result.node = current_node;

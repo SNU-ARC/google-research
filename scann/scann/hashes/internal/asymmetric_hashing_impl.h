@@ -342,6 +342,7 @@ ABSL_ATTRIBUTE_NOINLINE void
 GetNeighborsViaAsymmetricDistanceWithCompileTimeNumCenters(
     ConstSpan<LookupElement> lookup, size_t runtime_num_centers,
     const DatasetView* __restrict__ hashed_database, IndexIterator it) {
+  std::cout << "[YJ] GetNeighborsViaAsymmetricDistanceWithCompileTimeNumCenters" << std::endl;
   using Dist = typename DistanceType<LookupElement>::type;
   using UnsignedDist = make_unsigned_if_int_t<Dist>;
   static_assert(IndexIterator::kUnrollFactor == 6,

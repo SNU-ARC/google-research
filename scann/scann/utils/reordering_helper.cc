@@ -292,18 +292,25 @@ class SetLimitedInnerTop1Functor {
 
 }  // namespace one_to_many_low_level
 
+// [YJ] This is the one
 template <typename T>
 Status ExactReorderingHelper<T>::ComputeDistancesForReordering(
     const DatapointPtr<T>& query, NNResultsVector* result) const {
+  // std::cout << "[YJ] ComputeDistancesForReordering777" << std::endl;
+  
   DCHECK(exact_reordering_dataset_);
+  std::cout << "[YJ] ComputeDistancesForReordering dataset : " << (exact_reordering_dataset_->size()) << std::endl;
 
+  // [YJ] Comes here
   if (query.IsDense() && exact_reordering_dataset_->IsDense()) {
+    // std::cout << "[YJ] Dense query" << std::endl;
     const auto& dense_dataset =
         *down_cast<const DenseDataset<T>*>(exact_reordering_dataset_.get());
     DenseDistanceOneToMany<T, pair<DatapointIndex, float>>(
         *exact_reordering_distance_, query, dense_dataset,
         MakeMutableSpan(*result));
   } else if (query.IsSparse() && exact_reordering_dataset_->IsSparse()) {
+    // std::cout << "[YJ] Sparse query" << std::endl;
     const auto& sparse_dataset =
         *down_cast<const SparseDataset<T>*>(exact_reordering_dataset_.get());
     for (auto& elem : *result) {
@@ -311,6 +318,7 @@ Status ExactReorderingHelper<T>::ComputeDistancesForReordering(
           query, sparse_dataset[elem.first]);
     }
   } else {
+    // std::cout << "[YJ] Else query" << std::endl;
     for (auto& elem : *result) {
       elem.second = exact_reordering_distance_->GetDistanceHybrid(
           query, (*exact_reordering_dataset_)[elem.first]);
@@ -324,7 +332,9 @@ template <typename T>
 StatusOr<std::pair<DatapointIndex, float>>
 ExactReorderingHelper<T>::ComputeTop1ReorderingDistance(
     const DatapointPtr<T>& query, NNResultsVector* result) const {
+  // std::cout << "[YJ] ComputeTop1ReorderingDistance111" << std::endl;
   if (query.IsDense() && exact_reordering_dataset_->IsDense()) {
+    // std::cout << "[YJ] Dense Query" << std::endl;
     const auto& dense_dataset =
         *down_cast<const DenseDataset<T>*>(exact_reordering_dataset_.get());
     return DenseDistanceOneToManyTop1<T, float, pair<DatapointIndex, float>>(
@@ -332,6 +342,7 @@ ExactReorderingHelper<T>::ComputeTop1ReorderingDistance(
         MakeMutableSpan(*result));
   }
   if (query.IsSparse() && exact_reordering_dataset_->IsSparse()) {
+    // std::cout << "[YJ] Sparse Query" << std::endl;
     const auto& sparse_dataset =
         *down_cast<const SparseDataset<T>*>(exact_reordering_dataset_.get());
     float smallest = std::numeric_limits<float>::max();
@@ -358,6 +369,8 @@ ExactReorderingHelper<T>::ComputeTop1ReorderingDistance(
 template <typename T>
 Status CompressedReorderingHelper<T>::ComputeDistancesForReordering(
     const DatapointPtr<T>& query, NNResultsVector* result) const {
+  // std::cout << "[YJ] ComputeDistancesForReordering111" << std::endl;
+  
   DCHECK(compressed_dataset_);
   asymmetric_hashing2::QueryerOptions<> opts;
   if (compressed_dataset_) {
@@ -374,6 +387,8 @@ template <typename T>
 StatusOr<std::pair<DatapointIndex, float>>
 CompressedReorderingHelper<T>::ComputeTop1ReorderingDistance(
     const DatapointPtr<T>& query, NNResultsVector* result) const {
+  // std::cout << "[YJ] ComputeTop1ReorderingDistance222" << std::endl;
+  
   DCHECK(compressed_dataset_);
   asymmetric_hashing2::QueryerOptions<> opts;
   if (compressed_dataset_) {
@@ -397,6 +412,8 @@ CompressedReorderingHelper<T>::ComputeTop1ReorderingDistance(
 template <typename T>
 Status CompressedResidualReorderingHelper<T>::ComputeDistancesForReordering(
     const DatapointPtr<T>& query, NNResultsVector* result) const {
+  // std::cout << "[YJ] ComputeDistancesForReordering888" << std::endl;
+  
   DCHECK(compressed_dataset_);
   asymmetric_hashing2::QueryerOptions<> opts;
   if (compressed_dataset_) {
@@ -418,6 +435,8 @@ template <typename T>
 StatusOr<std::pair<DatapointIndex, float>>
 CompressedResidualReorderingHelper<T>::ComputeTop1ReorderingDistance(
     const DatapointPtr<T>& query, NNResultsVector* result) const {
+  // std::cout << "[YJ] ComputeTop1ReorderingDistance333" << std::endl;
+  
   DCHECK(compressed_dataset_);
   asymmetric_hashing2::QueryerOptions<> opts;
   if (compressed_dataset_) {
@@ -469,6 +488,8 @@ FixedPointFloatDenseDotProductReorderingHelper::
 Status
 FixedPointFloatDenseDotProductReorderingHelper::ComputeDistancesForReordering(
     const DatapointPtr<float>& query, NNResultsVector* result) const {
+  // std::cout << "[YJ] ComputeDistancesForReordering222" << std::endl;
+  
   auto preprocessed = PrepareForAsymmetricScalarQuantizedDotProduct(
       query, inverse_multipliers_);
   DenseDotProductDistanceOneToManyInt8Float(
@@ -483,6 +504,8 @@ Status
 FixedPointFloatDenseDotProductReorderingHelper::ComputeDistancesForReordering(
     const DatapointPtr<float>& query, NNResultsVector* result,
     CallbackFunctor* __restrict__ callback) const {
+  // std::cout << "[YJ] ComputeDistancesForReordering333" << std::endl;
+  
   auto preprocessed = PrepareForAsymmetricScalarQuantizedDotProduct(
       query, inverse_multipliers_);
   one_to_many_low_level::DenseDotProductDistanceOneToManyInt8FloatDispatch(
@@ -494,6 +517,8 @@ FixedPointFloatDenseDotProductReorderingHelper::ComputeDistancesForReordering(
 StatusOr<std::pair<DatapointIndex, float>>
 FixedPointFloatDenseDotProductReorderingHelper::ComputeTop1ReorderingDistance(
     const DatapointPtr<float>& query, NNResultsVector* result) const {
+  // std::cout << "[YJ] ComputeTop1ReorderingDistance444" << std::endl;
+  
   one_to_many_low_level::SetTop1Functor<std::pair<DatapointIndex, float>, float>
       set_top1_functor;
   SCANN_RETURN_IF_ERROR(
@@ -537,6 +562,8 @@ FixedPointFloatDenseCosineReorderingHelper::
 Status
 FixedPointFloatDenseCosineReorderingHelper::ComputeDistancesForReordering(
     const DatapointPtr<float>& query, NNResultsVector* result) const {
+  // std::cout << "[YJ] ComputeDistancesForReordering444" << std::endl;
+  
   one_to_many_low_level::SetCosineDistanceFunctor set_cosine_dist_functor(
       MakeMutableSpan(*result));
   return dot_product_helper_.ComputeDistancesForReordering(
@@ -546,6 +573,8 @@ FixedPointFloatDenseCosineReorderingHelper::ComputeDistancesForReordering(
 StatusOr<std::pair<DatapointIndex, float>>
 FixedPointFloatDenseCosineReorderingHelper::ComputeTop1ReorderingDistance(
     const DatapointPtr<float>& query, NNResultsVector* result) const {
+  // std::cout << "[YJ] ComputeTop1ReorderingDistance555" << std::endl;
+  
   one_to_many_low_level::SetCosineTop1Functor set_cosine_top1_functor;
   SCANN_RETURN_IF_ERROR(dot_product_helper_.ComputeDistancesForReordering(
       query, result, &set_cosine_top1_functor));
@@ -584,6 +613,8 @@ Status
 FixedPointFloatDenseSquaredL2ReorderingHelper::ComputeDistancesForReordering(
     const DatapointPtr<float>& query, NNResultsVector* result) const {
   const float query_norm = SquaredL2Norm(query);
+  // std::cout << "[YJ] ComputeDistancesForReordering555" << std::endl;
+  
   one_to_many_low_level::SetSquaredL2DistanceFunctor set_sql2_dist(
       MakeMutableSpan(*result), *database_squared_l2_norms_, query_norm);
   return dot_product_helper_.ComputeDistancesForReordering(query, result,
@@ -593,6 +624,8 @@ FixedPointFloatDenseSquaredL2ReorderingHelper::ComputeDistancesForReordering(
 StatusOr<std::pair<DatapointIndex, float>>
 FixedPointFloatDenseSquaredL2ReorderingHelper::ComputeTop1ReorderingDistance(
     const DatapointPtr<float>& query, NNResultsVector* result) const {
+  // std::cout << "[YJ] ComputeTop1ReorderingDistance666" << std::endl;
+  
   const float query_norm = SquaredL2Norm(query);
   one_to_many_low_level::SetSquaredL2Top1Functor set_sql2_top1(
       *result, *database_squared_l2_norms_, query_norm);
@@ -619,6 +652,8 @@ FixedPointFloatDenseLimitedInnerReorderingHelper::
 Status
 FixedPointFloatDenseLimitedInnerReorderingHelper::ComputeDistancesForReordering(
     const DatapointPtr<float>& query, NNResultsVector* result) const {
+  // std::cout << "[YJ] ComputeDistancesForReordering666" << std::endl;
+
   const float inverse_query_norm = 1.0 / std::sqrt(SquaredL2Norm(query));
   one_to_many_low_level::SetLimitedInnerDistanceFunctor set_limited_dist(
       MakeMutableSpan(*result), inverse_database_l2_norms_, inverse_query_norm);
@@ -629,6 +664,8 @@ FixedPointFloatDenseLimitedInnerReorderingHelper::ComputeDistancesForReordering(
 StatusOr<std::pair<DatapointIndex, float>>
 FixedPointFloatDenseLimitedInnerReorderingHelper::ComputeTop1ReorderingDistance(
     const DatapointPtr<float>& query, NNResultsVector* result) const {
+  // std::cout << "[YJ] ComputeTop1ReorderingDistance777" << std::endl;
+
   const float inverse_query_norm = 1.0 / std::sqrt(SquaredL2Norm(query));
   one_to_many_low_level::SetLimitedInnerTop1Functor top1_functor(
       *result, inverse_database_l2_norms_, inverse_query_norm);

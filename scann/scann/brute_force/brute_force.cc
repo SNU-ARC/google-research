@@ -317,6 +317,7 @@ Status BruteForceSearcher<T>::FindNeighborsImpl(const DatapointPtr<T>& query,
                                                 const SearchParameters& params,
                                                 NNResultsVector* result) const {
   DCHECK(result);
+  std::cout << "[YJ] Bruteforce, findneighborimpl" << std::endl;
   if (params.pre_reordering_crowding_enabled()) {
     return FailedPreconditionError("Crowding is not supported.");
   } else {

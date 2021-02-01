@@ -43,6 +43,7 @@ template <typename T, typename ProjectionType = double>
 unique_ptr<Partitioner<T>> MakeProjectingDecorator(
     shared_ptr<const Projection<T>> projection,
     unique_ptr<Partitioner<ProjectionType>> partitioner) {
+  std::cout << "[YJ] MakeProjectingDecorator" << std::endl;
   Partitioner<T>* result;
   if (dynamic_cast<KMeansTreeLikePartitioner<ProjectionType>*>(
           partitioner.get())) {

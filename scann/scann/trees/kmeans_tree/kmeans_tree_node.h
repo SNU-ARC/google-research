@@ -130,6 +130,7 @@ inline Status GetAllDistances(const DistanceMeasure& dist,
                               ConstSpan<float> inv_int8_multipliers,
                               std::vector<OutT>* distances) {
   if (query.IsDense()) {
+    std::cout << "[YJ] GetAllDistances, DenseDistanceOneToMany" << std::endl;
     DenseDistanceOneToMany<Real, OutT>(dist, query, centers,
                                        MakeMutableSpan(*distances));
   } else {
@@ -212,6 +213,12 @@ inline StatusOr<Real> ComputeThreshold(
   return max_dist_to_consider;
 }
 
+// [YJ] 
+// kmeans_tree_internal::FindChildrenWithSpilling<QueryType, CentersType>(
+//     query, spilling_type, possibly_learned_spilling_threshold,
+//     max_centers, dist, current_node_centers,
+//     current_node->fixed_point_multiplier_, &children_to_search);
+
 template <typename Real, typename DataType>
 Status FindChildrenWithSpilling(
     const DatapointPtr<Real>& query,
@@ -220,12 +227,15 @@ Status FindChildrenWithSpilling(
     const DenseDataset<DataType>& centers, ConstSpan<float> center_sq_l2_norms,
     ConstSpan<float> inv_int8_multipliers,
     std::vector<pair<DatapointIndex, float>>* child_centers) {
+  std::cout << "[YJ] FindChildrenWithSpilling, kmeans_tree_node.h" << std::endl;
   DCHECK_GT(centers.size(), 0);
   DCHECK(child_centers);
   SCANN_RET_CHECK(query.IsFinite());
 
   std::vector<float> distances(centers.size());
   DCHECK(centers.IsDense());
+
+  // [YJ] calculate all distance from the query and the current_node_centers
   SCANN_RETURN_IF_ERROR(GetAllDistances(dist, query, centers,
                                         center_sq_l2_norms,
                                         inv_int8_multipliers, &distances));
@@ -233,6 +243,7 @@ Status FindChildrenWithSpilling(
   float epsilon = std::numeric_limits<float>::infinity();
   if (spilling_type != QuerySpillingConfig::NO_SPILLING &&
       spilling_type != QuerySpillingConfig::FIXED_NUMBER_OF_CENTERS) {
+    // [YJ] get nearest center
     const size_t nearest_center_index =
         std::distance(distances.begin(),
                       std::min_element(distances.begin(), distances.end()));

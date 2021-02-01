@@ -29,7 +29,6 @@ def _factory_decorator(key):
       kwargs.update(zip(f.__code__.co_varnames[1:], args))
       self.params[key] = kwargs
       return self
-
     inner.proto_maker = f
     return inner
 

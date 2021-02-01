@@ -28,6 +28,7 @@ StatusOr<unique_ptr<ChunkingProjection<T>>> BuildFromConfigImpl(
     return InvalidArgumentError(
         "Must set input_dim field in projection config");
   }
+  std::cout << "[YJ] BuildFromConfigImpl" << std::endl;
   const int32_t input_dim = config.input_dim();
 
   switch (config.projection_type()) {
@@ -139,7 +140,9 @@ StatusOr<ChunkedDatapoint<FloatT>> ChunkingProjection<T>::ProjectInputImpl(
         "ChunkingProjection does not work with binary data.");
   }
 
+  // [YJ] Does not come here
   if (is_identity_chunk_impl_) {
+    std::cout << "[YJ] is_identity_chunk_impl_" << std::endl;
     Datapoint<FloatT> projected;
     IdentityProjection<T> identity_projection;
     SCANN_RETURN_IF_ERROR(identity_projection.ProjectInput(input, &projected));
@@ -152,11 +155,16 @@ StatusOr<ChunkedDatapoint<FloatT>> ChunkingProjection<T>::ProjectInputImpl(
   projected.mutable_values()->reserve(output_dims);
 
   if (initial_projection_) {
+    // [YJ] does not come here
+    // std::cout << "[YJ] initial projection" << std::endl;
     SCANN_RETURN_IF_ERROR(initial_projection_->ProjectInput(input, &projected));
   } else {
+    std::cout << "[YJ] CopyToDatapoint" << std::endl;
     CopyToDatapoint(input, &projected);
+    // std::cout << "[YJ] input.indices()" << input.indices() << std::endl;
+    // std::cout << "[YJ] projected.mutable_indices() " << projected.mutable_indices() << std::endl;
   }
-
+  std::cout << "[YJ] num_blocks_ " << num_blocks_ << " dimension : " << input.dimensionality() << std::endl;
   if (num_blocks_ > input.dimensionality()) {
     return InvalidArgumentError(
         absl::Substitute("num_blocks for chunking ($0) should be less than "
@@ -164,7 +172,11 @@ StatusOr<ChunkedDatapoint<FloatT>> ChunkingProjection<T>::ProjectInputImpl(
                          num_blocks_, input.dimensionality()));
   }
 
+  int yj_sum = 0;
+  std::cout << dims_per_block_.size() << std::endl;
   for (size_t i = 0; i < dims_per_block_.size(); ++i) {
+    std::cout << dims_per_block_[i] << " ";
+    yj_sum += dims_per_block_[i];
     if (dims_per_block_[i] > input.dimensionality()) {
       return InvalidArgumentError(
           absl::Substitute("num_dims_per_block ($0) should be less than the "
@@ -172,7 +184,8 @@ StatusOr<ChunkedDatapoint<FloatT>> ChunkingProjection<T>::ProjectInputImpl(
                            dims_per_block_[i], input.dimensionality()));
     }
   }
-
+  std::cout << std::endl;
+  std::cout << "[YJ] yj_sum : " << yj_sum << std::endl;
   decltype(projected) densified_storage;
   if (!projected.IsDense()) {
     if (input.dimensionality() > 10 * 1000 * 1000) {
@@ -209,12 +222,14 @@ void ChunkingProjection<T>::ComputeCumulativeDims() {
 template <typename T>
 Status ChunkingProjection<T>::ProjectInput(
     const DatapointPtr<T>& input, ChunkedDatapoint<float>* chunked) const {
+  std::cout << "[YJ] ProjectInput (float)" << std::endl;
   TF_ASSIGN_OR_RETURN(*chunked, ProjectInputImpl<float>(input));
   return OkStatus();
 }
 template <typename T>
 Status ChunkingProjection<T>::ProjectInput(
     const DatapointPtr<T>& input, ChunkedDatapoint<double>* chunked) const {
+  std::cout << "[YJ] ProjectInput (double)" << std::endl;
   TF_ASSIGN_OR_RETURN(*chunked, ProjectInputImpl<double>(input));
   return OkStatus();
 }

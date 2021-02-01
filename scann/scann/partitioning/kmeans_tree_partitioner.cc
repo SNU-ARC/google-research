@@ -87,7 +87,8 @@ KMeansTreePartitioner<T>::~KMeansTreePartitioner() {}
 template <typename T>
 Status KMeansTreePartitioner<T>::CreatePartitioning(
     const Dataset& training_dataset, const DistanceMeasure& training_dist,
-    int32_t k_per_level, KMeansTreeTrainingOptions* opts) {
+    int32_t k_per_level, KMeansTreeTrainingOptions* opts) {   // [YJ] k_per_level: num_children from config
+  std::cout << "[YJ] CreatePartitioning, N: " << training_dataset.size() << " / D: " << training_dataset.dimensionality() << std::endl;
   if (kmeans_tree_) {
     return FailedPreconditionError(
         "Cannot call CreatePartitioning twice with the same "
@@ -97,7 +98,7 @@ Status KMeansTreePartitioner<T>::CreatePartitioning(
   SCANN_RETURN_IF_ERROR(
       tree->Train(training_dataset, training_dist, k_per_level, opts));
   kmeans_tree_ = std::move(tree);
-  SetIsOneLevelTree();
+  SetIsOneLevelTree();      // [YJ] create one level tree
   return OkStatus();
 }
 
@@ -185,18 +186,24 @@ Status KMeansTreePartitioner<T>::TokenForDatapointBatched(
   return OkStatus();
 }
 
+// [YJ] call function
+// TokensForDatapointWithSpilling(query, num_centers, &centers_to_search)
 template <typename T>
 Status KMeansTreePartitioner<T>::TokensForDatapointWithSpilling(
     const DatapointPtr<T>& dptr, int32_t max_centers_override,
     vector<KMeansTreeSearchResult>* result) const {
   DCHECK(result);
-
+  std::cout << "[YJ] TokensForDatapointWithSpilling" << std::endl;
   if (this->tokenization_mode() == UntypedPartitioner::QUERY) {
+    // [YJ] comes here
+    std::cout << "[YJ] TokensForDatapointWithSpilling, query" << std::endl;
     const auto max_centers = max_centers_override > 0
                                  ? max_centers_override
                                  : query_spilling_max_centers_;
 
     if (query_tokenization_type_ == ASYMMETRIC_HASHING) {
+      // [YJ] does not come here
+      // std::cout << "[YJ] ASYMMETRIC HASHING" << std::endl;
       int pre_reordering_num_neighbors =
           TokenizationSearcher()->reordering_enabled()
               ? max_centers * kAhMultiplierSpilling
@@ -204,7 +211,7 @@ Status KMeansTreePartitioner<T>::TokensForDatapointWithSpilling(
       return TokensForDatapointWithSpillingUseSearcher(
           dptr, result, max_centers, pre_reordering_num_neighbors);
     }
-
+    std::cout << "[YJ] kmeans tree" << std::endl;
     return kmeans_tree_->Tokenize(
         dptr, *query_tokenization_dist_,
         KMeansTree::TokenizationOptions::UserSpecifiedSpilling(
@@ -213,8 +220,10 @@ Status KMeansTreePartitioner<T>::TokensForDatapointWithSpilling(
             populate_residual_stdev_),
         result);
   } else if (this->tokenization_mode() == UntypedPartitioner::DATABASE) {
+    std::cout << "[YJ] TokensForDatapointWithSpilling, database" << std::endl;
     if (database_spilling_fixed_number_of_centers_ > 0) {
       if (database_tokenization_type_ == ASYMMETRIC_HASHING) {
+        std::cout << "[YJ] ASYMMETRIC HASHING" << std::endl;
         int pre_reordering_num_neighbors =
             TokenizationSearcher()->reordering_enabled()
                 ? database_spilling_fixed_number_of_centers_ *
@@ -224,6 +233,8 @@ Status KMeansTreePartitioner<T>::TokensForDatapointWithSpilling(
             dptr, result, database_spilling_fixed_number_of_centers_,
             pre_reordering_num_neighbors);
       } else {
+        // [YJ] this operation is just setting the parameters
+        std::cout << "[YJ] kmeans tree" << std::endl;
         return kmeans_tree_->Tokenize(
             dptr, *query_tokenization_dist_,
             KMeansTree::TokenizationOptions::UserSpecifiedSpilling(
@@ -370,6 +381,7 @@ template <typename FloatT, typename T>
 Datapoint<FloatT> ResidualizeImpl(const DatapointPtr<T>& dptr,
                                   const DatapointPtr<float>& center,
                                   float multiplier = 1.0) {
+  std::cout << "[YJ] ResidualizeImpl" << std::endl;
   Datapoint<FloatT> residual;
   auto& values = *residual.mutable_values();
   values.resize(center.nonzero_entries());
@@ -386,6 +398,7 @@ template <typename T>
 StatusOr<Datapoint<float>> KMeansTreePartitioner<T>::ResidualizeToFloat(
     const DatapointPtr<T>& dptr, int32_t token,
     bool normalize_residual_by_cluster_stdev) const {
+  std::cout << "[YJ] ResidualToFloat" << std::endl;
   DatapointPtr<float> center = kmeans_tree()->CenterForToken(token);
   if (normalize_residual_by_cluster_stdev) {
     if (!populate_residual_stdev_) {
@@ -466,6 +479,7 @@ template <typename T>
 StatusOr<vector<std::vector<DatapointIndex>>>
 KMeansTreePartitioner<T>::TokenizeDatabase(const TypedDataset<T>& database,
                                            ThreadPool* pool_or_null) const {
+  std::cout << "[YJ] TokenizeDatabase" << std::endl;
   if (this->tokenization_mode() != UntypedPartitioner::DATABASE) {
     return FailedPreconditionError(
         "Cannot run TokenizeDatabase when not in database tokenization mode.");
@@ -476,6 +490,8 @@ KMeansTreePartitioner<T>::TokenizeDatabase(const TypedDataset<T>& database,
           DatabaseSpillingConfig::NO_SPILLING &&
       (IsSame<T, float>() || IsSame<T, double>()) &&
       (database_tokenization_type_ == FLOAT)) {
+    // [YJ] comes here
+    std::cout << "[YJ] TokenizeDatabase, if" << std::endl;
     const DenseDataset<T>& dense_database =
         *down_cast<const DenseDataset<T>*>(&database);
     TF_ASSIGN_OR_RETURN(
@@ -483,6 +499,8 @@ KMeansTreePartitioner<T>::TokenizeDatabase(const TypedDataset<T>& database,
         TokenizeDatabaseImplFastPath(dense_database, pool_or_null));
     vector<std::vector<DatapointIndex>> token_to_datapoint_index(
         this->n_tokens());
+    // [YJ] tokens: # of centers in one level tree = num_leaves
+    std::cout << "[YJ] TokenizeDatabase, kmeans_result.size(): " << datapoint_index_to_result.size() << " / tokens: " << this->n_tokens() << std::endl;
     for (DatapointIndex dp_index = 0;
          dp_index < datapoint_index_to_result.size(); ++dp_index) {
       const int32_t token = datapoint_index_to_result[dp_index].node->LeafId();
@@ -501,14 +519,17 @@ template <typename T>
 StatusOr<vector<KMeansTreeSearchResult>>
 KMeansTreePartitioner<T>::TokenizeDatabaseImplFastPath(
     const DenseDataset<T>& database, ThreadPool* pool_or_null) const {
+  std::cout << "[YJ] TokenizeDatabaseImplFastPath" << std::endl;
   vector<KMeansTreeSearchResult> datapoint_index_to_result;
   if (kmeans_tree_->root()->IsLeaf()) {
     datapoint_index_to_result.resize(
         database.size(), KMeansTreeSearchResult{kmeans_tree_->root(), NAN});
+    std::cout << "[YJ] TokenizeDatabaseImplFastPath, leaf" << std::endl;
     return std::move(datapoint_index_to_result);
   }
 
   if (database_tokenization_type_ == FLOAT) {
+    std::cout << "[YJ] TokenizeDatabaseImplFastPath" << std::endl;
     DCHECK_EQ(database_tokenization_type_, FLOAT);
     TF_ASSIGN_OR_RETURN(
         datapoint_index_to_result,
@@ -524,6 +545,7 @@ enable_if_t<IsSame<T, CenterType>(), StatusOr<vector<KMeansTreeSearchResult>>>
 KMeansTreePartitioner<T>::TokenizeDatabaseImplFastPath(
     const DenseDataset<T>& database, const DenseDataset<CenterType>& centers,
     ThreadPool* pool_or_null) const {
+  std::cout << "[YJ] TokenizeDatabaseImplFastPath" << std::endl;
   SquaredL2Distance dist;
   auto nearest_centers =
       DenseDistanceManyToManyTop1<T>(dist, database, centers, pool_or_null);
@@ -536,6 +558,7 @@ enable_if_t<!IsSame<T, CenterType>(), StatusOr<vector<KMeansTreeSearchResult>>>
 KMeansTreePartitioner<T>::TokenizeDatabaseImplFastPath(
     const DenseDataset<T>& database, const DenseDataset<CenterType>& centers,
     ThreadPool* pool_or_null) const {
+  std::cout << "[YJ] TokenizeDatabaseImplFastPath, parallel" << std::endl;
   constexpr size_t kBatchSize = 128;
   vector<pair<DatapointIndex, CenterType>> nearest_centers(database.size());
   SquaredL2Distance dist;

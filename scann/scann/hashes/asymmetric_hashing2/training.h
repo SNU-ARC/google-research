@@ -35,8 +35,10 @@ template <typename T>
 StatusOr<unique_ptr<Model<T>>> TrainSingleMachine(
     const TypedDataset<T>& dataset, const TrainingOptions<T>& params,
     shared_ptr<ThreadPool> pool = nullptr) {
+  std::cout << "[YJ] TrainSingleMachine, dataset: " << dataset.size() << " / dim: " << dataset.dimensionality() << std::endl;
   if (params.config().quantization_scheme() ==
       AsymmetricHasherConfig::STACKED) {
+    // std::cout << "[YJ] TrainSingleMachine, stacked" << std::endl;
     if (!dataset.IsDense())
       return InvalidArgumentError(
           "Stacked quantizers can only process dense datasets.");
@@ -50,6 +52,7 @@ StatusOr<unique_ptr<Model<T>>> TrainSingleMachine(
   }
   if (params.config().quantization_scheme() ==
       AsymmetricHasherConfig::PRODUCT_AND_BIAS) {
+    // std::cout << "[YJ] TrainSingleMachine, PRODUCT_AND_BIAS" << std::endl;
     const auto& dense = down_cast<const DenseDataset<T>&>(dataset);
     DenseDataset<T> dataset_no_bias;
     dataset_no_bias.set_dimensionality(dense.dimensionality() - 1);
@@ -68,6 +71,8 @@ StatusOr<unique_ptr<Model<T>>> TrainSingleMachine(
     return Model<T>::FromCenters(std::move(converted),
                                  params.config().quantization_scheme());
   } else {
+    // [YJ] comes here
+    std::cout << "[YJ] TrainSingleMachine, else" << std::endl;
     TF_ASSIGN_OR_RETURN(
         auto centers,
         ::research_scann::asymmetric_hashing_internal::TrainAsymmetricHashing(

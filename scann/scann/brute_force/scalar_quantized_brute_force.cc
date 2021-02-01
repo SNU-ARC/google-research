@@ -187,6 +187,8 @@ Status ScalarQuantizedBruteForceSearcher::EnableCrowdingImpl(
 Status ScalarQuantizedBruteForceSearcher::FindNeighborsImpl(
     const DatapointPtr<float>& query, const SearchParameters& params,
     NNResultsVector* result) const {
+  std::cout << "[YJ] FindNeighborsImpl, ScalarQuantizedBruteForceSearcher" << std::endl;
+
   DCHECK(result);
   if (!query.IsDense()) {
     return InvalidArgumentError(

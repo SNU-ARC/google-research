@@ -279,6 +279,7 @@ template <typename T>
 Status SingleMachineSearcherBase<T>::FindNeighbors(
     const DatapointPtr<T>& query, const SearchParameters& params,
     NNResultsVector* result) const {
+  std::cout << "[YJ] FindNeighbors" << std::endl;
   SCANN_RET_CHECK(query.IsFinite())
       << "Cannot query ScaNN with vectors that contain NaNs or infinity.";
   DCHECK(result);
@@ -297,6 +298,7 @@ template <typename T>
 Status SingleMachineSearcherBase<T>::FindNeighborsNoSortNoExactReorder(
     const DatapointPtr<T>& query, const SearchParameters& params,
     NNResultsVector* result) const {
+  std::cout << "[YJ] FindNeighborsNoSortNoExactReorder" << std::endl;
   DCHECK(result);
   bool reordering_enabled =
       compressed_reordering_enabled() || exact_reordering_enabled();
@@ -488,6 +490,7 @@ template <typename T>
 Status SingleMachineSearcherBase<T>::ReorderResults(
     const DatapointPtr<T>& query, const SearchParameters& params,
     NNResultsVector* result) const {
+  std::cout << "[YJ] reorderResults" << std::endl;
   if (params.post_reordering_num_neighbors() == 1) {
     TF_ASSIGN_OR_RETURN(
         auto top1,
@@ -509,6 +512,7 @@ Status SingleMachineSearcherBase<T>::ReorderResults(
 template <typename T>
 Status SingleMachineSearcherBase<T>::SortAndDropResults(
     NNResultsVector* result, const SearchParameters& params) const {
+  std::cout << "[YJ] SortAndDropResults" << std::endl;
   if (reordering_enabled()) {
     if (params.post_reordering_num_neighbors() == 1) {
       return OkStatus();

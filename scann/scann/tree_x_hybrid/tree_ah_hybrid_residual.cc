@@ -120,6 +120,7 @@ template <typename GetResidual>
 StatusOr<DenseDataset<float>> ComputeResidualsImpl(
     const DenseDataset<float>& dataset, GetResidual get_residual,
     ConstSpan<std::vector<DatapointIndex>> datapoints_by_token) {
+  std::cout << "[YJ] ComputeResidualsImpl" << std::endl;
   const size_t dimensionality = dataset.dimensionality();
 
   vector<uint32_t> tokens_by_datapoint(dataset.size());
@@ -136,10 +137,11 @@ StatusOr<DenseDataset<float>> ComputeResidualsImpl(
 
   for (size_t dp_idx : Seq(dataset.size())) {
     const uint32_t token = tokens_by_datapoint[dp_idx];
-    TF_ASSIGN_OR_RETURN(auto residual, get_residual(dataset[dp_idx], token));
+    TF_ASSIGN_OR_RETURN(auto residual, get_residual(dataset[dp_idx], token));   // [YJ] get_residual: (dataset vector-center)*inv_multiplier(=1/ResidualStdevForToken)
     residuals.AppendOrDie(residual, "");
   }
 
+  std::cout << "[YJ] ComputeResidualsImpl, residuals.size(): " << residuals.size() << std::endl;
   return residuals;
 }
 
@@ -175,6 +177,7 @@ StatusOr<DenseDataset<float>> TreeAHHybridResidual::ComputeResiduals(
     const KMeansTreeLikePartitioner<float>* partitioner,
     ConstSpan<std::vector<DatapointIndex>> datapoints_by_token,
     bool normalize_residual_by_cluster_stdev) {
+  std::cout << "[YJ] ComputeResiduals" << std::endl;
   Datapoint<float> residual;
   auto get_residual =
       [&](const DatapointPtr<float>& dptr,
@@ -360,10 +363,12 @@ Status TreeAHHybridResidual::BuildLeafSearchers(
 Status TreeAHHybridResidual::FindNeighborsImpl(const DatapointPtr<float>& query,
                                                const SearchParameters& params,
                                                NNResultsVector* result) const {
+  std::cout << "[YJ] FindNeighborsImpl, TreeAHHybridResidual" << std::endl;
   auto query_preprocessing_results =
       params.unlocked_query_preprocessing_results<
           UnlockedTreeAHHybridResidualPreprocessingResults>();
   if (query_preprocessing_results) {
+    // [YJ] does not come here
     return FindNeighborsInternal1(
         query, params, query_preprocessing_results->centers_to_search(),
         result);
@@ -373,9 +378,12 @@ Status TreeAHHybridResidual::FindNeighborsImpl(const DatapointPtr<float>& query,
   auto tree_x_params =
       params.searcher_specific_optional_parameters<TreeXOptionalParameters>();
   if (tree_x_params) {
+    // [Yj] does not come here
+    // std::cout << "[YJ] FindNeighborsImpl, tree_x_params" << std::endl;
     int center_override = tree_x_params->num_partitions_to_search_override();
     if (center_override > 0) num_centers = center_override;
   }
+  std::cout << "[YJ] FindNeighborsImpl, num_centers: " << num_centers << std::endl;
   vector<KMeansTreeSearchResult> centers_to_search;
   SCANN_RETURN_IF_ERROR(query_tokenizer_->TokensForDatapointWithSpilling(
       query, num_centers, &centers_to_search));
@@ -447,6 +455,7 @@ void AddLeafResultsToTopN(ConstSpan<DatapointIndex> local_to_global_index,
                           const float cluster_stdev_adjustment,
                           ConstSpan<pair<DatapointIndex, float>> leaf_results,
                           Mutator* mutator) {
+  std::cout << "[YJ] AddLeafResultsToTopN" << std::endl;
   float epsilon = mutator->epsilon();
   for (const auto& result : leaf_results) {
     const float dist =
@@ -568,6 +577,7 @@ Status TreeAHHybridResidual::FindNeighborsInternal1(
     const DatapointPtr<float>& query, const SearchParameters& params,
     ConstSpan<KMeansTreeSearchResult> centers_to_search,
     NNResultsVector* result) const {
+  std::cout << "[YJ] FindNeighborsInternal1" << std::endl;
   if (params.pre_reordering_crowding_enabled()) {
     return FailedPreconditionError("Crowding is not supported.");
   } else if (enable_global_topn_) {
@@ -634,6 +644,7 @@ Status TreeAHHybridResidual::FindNeighborsInternal2(
     const DatapointPtr<float>& query, const SearchParameters& params,
     ConstSpan<KMeansTreeSearchResult> centers_to_search, TopN top_n,
     NNResultsVector* result) const {
+  std::cout << "[YJ] FindNeighborsInternal2" << std::endl;
   DCHECK(result);
   SearchParameters leaf_params;
   leaf_params.set_pre_reordering_num_neighbors(
@@ -648,6 +659,8 @@ Status TreeAHHybridResidual::FindNeighborsInternal2(
     leaf_params.set_searcher_specific_optional_parameters(
         query_preprocessing_results->lookup_table());
   } else {
+    // [YJ] comes here
+    std::cout << "[YJ] FindNeighborsInternal2, CreateLookupTable" << std::endl;
     TF_ASSIGN_OR_RETURN(
         auto shared_lookup_table,
         asymmetric_queryer_->CreateLookupTable(query, lookup_type_tag_));
@@ -655,6 +668,8 @@ Status TreeAHHybridResidual::FindNeighborsInternal2(
         make_unique<AsymmetricHashingOptionalParameters>(
             std::move(shared_lookup_table)));
   }
+  std::cout << "[YJ] FindNeighborsInternal2, create lookup table done" << std::endl;
+  std::cout << "[YJ] FindNeighborsInternal2, centers to search: " << centers_to_search.size() << std::endl;
   typename TopN::Mutator mutator;
   top_n.AcquireMutator(&mutator);
   for (size_t i = 0; i < centers_to_search.size(); ++i) {
@@ -671,10 +686,12 @@ Status TreeAHHybridResidual::FindNeighborsInternal2(
     float cluster_stdev_adjustment = centers_to_search[i].residual_stdev;
     AddLeafResultsToTopN(datapoints_by_token_[token], distance_to_center,
                          cluster_stdev_adjustment, leaf_results, &mutator);
+    std::cout << "[YJ] centers to search, centers_to_search: " << centers_to_search.size() << " / round : " << i << std::endl;
   }
   mutator.Release();
 
   AssignResults(&top_n, result);
+  std::cout << "[YJ] FindNeighborsInternal2 end" << std::endl;
   return OkStatus();
 }
 

@@ -26,6 +26,7 @@ StatusOr<unique_ptr<Partitioner<T>>>
 KMeansTreePartitionerFactoryPreSampledAndProjected(
     const TypedDataset<T>* dataset, const PartitioningConfig& config,
     shared_ptr<ThreadPool> training_parallelization_pool) {
+  std::cout << "[YJ] KMeansTreePartitionerFactoryPreSampledAndProjected, dataset: " << dataset->size() << std::endl;
   DCHECK(dataset);
   const absl::Time start = absl::Now();
 

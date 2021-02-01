@@ -51,10 +51,12 @@ StatusOrHelper<float> BuildFixedPointReorderingHelper<float>(
     const shared_ptr<const DistanceMeasure>& reordering_dist,
     const shared_ptr<TypedDataset<float>>& dataset,
     SingleMachineFactoryOptions* opts) {
+  std::cout << "BuildFixedPointReorderingHelper" << std::endl;
   if (dataset && !dataset->IsDense()) return {nullptr};
   const auto& distance_type = typeid(*reordering_dist);
 
   if (opts->pre_quantized_fixed_point) {
+    std::cout << "BuildFixedPointReorderingHelper, fixedpoint" << std::endl;
     auto fixed_point_dataset =
         move(*opts->pre_quantized_fixed_point->fixed_point_dataset);
     auto multiplier_by_dimension =
@@ -66,12 +68,15 @@ StatusOrHelper<float> BuildFixedPointReorderingHelper<float>(
         << "Multipliers for pre-quantized FP8 reordering must be of the same "
            "dimensionality as the pre-quantized dataset.";
     if (distance_type == typeid(const DotProductDistance)) {
+      std::cout << "BuildFixedPointReorderingHelper, DotProductDistance" << std::endl;
       return {make_unique<FixedPointFloatDenseDotProductReorderingHelper>(
           move(fixed_point_dataset), move(multiplier_by_dimension))};
     } else if (distance_type == typeid(const CosineDistance)) {
+      std::cout << "BuildFixedPointReorderingHelper, CosineDistance" << std::endl;
       return {make_unique<FixedPointFloatDenseCosineReorderingHelper>(
           move(fixed_point_dataset), move(multiplier_by_dimension))};
     } else if (distance_type == typeid(const SquaredL2Distance)) {
+      std::cout << "BuildFixedPointReorderingHelper, SquaredL2Distance" << std::endl;
       return {make_unique<FixedPointFloatDenseSquaredL2ReorderingHelper>(
           move(fixed_point_dataset), move(multiplier_by_dimension),
           move(opts->pre_quantized_fixed_point->squared_l2_norm_by_datapoint))};
@@ -81,6 +86,7 @@ StatusOrHelper<float> BuildFixedPointReorderingHelper<float>(
           "and squared L2 distance.");
     }
   } else {
+    std::cout << "BuildFixedPointReorderingHelper, !!!!fixedpoint" << std::endl;
     DCHECK(dataset);
     const float fp_quantile = config.fixed_point_multiplier_quantile();
     if (fp_quantile > 1.0f || fp_quantile <= 0.0f) {
@@ -91,15 +97,19 @@ StatusOrHelper<float> BuildFixedPointReorderingHelper<float>(
     const DenseDataset<float>& dense_dataset =
         *down_cast<const DenseDataset<float>*>(dataset.get());
     if (distance_type == typeid(const DotProductDistance)) {
+      std::cout << "BuildFixedPointReorderingHelper, DotProductDistance" << std::endl;
       return {make_unique<FixedPointFloatDenseDotProductReorderingHelper>(
           dense_dataset, fp_quantile)};
     } else if (distance_type == typeid(const CosineDistance)) {
+      std::cout << "BuildFixedPointReorderingHelper, CosineDistance" << std::endl;
       return {make_unique<FixedPointFloatDenseCosineReorderingHelper>(
           dense_dataset, fp_quantile)};
     } else if (distance_type == typeid(const SquaredL2Distance)) {
+      std::cout << "BuildFixedPointReorderingHelper, SquaredL2Distance" << std::endl;
       return {make_unique<FixedPointFloatDenseSquaredL2ReorderingHelper>(
           dense_dataset, fp_quantile)};
     } else if (distance_type == typeid(const LimitedInnerProductDistance)) {
+      std::cout << "BuildFixedPointReorderingHelper, LimitedInnerProductDistance" << std::endl;
       return {make_unique<FixedPointFloatDenseLimitedInnerReorderingHelper>(
           dense_dataset, fp_quantile)};
     } else {
@@ -116,7 +126,10 @@ StatusOrHelper<T> ExactReorderingFactory(
     const shared_ptr<const DistanceMeasure>& reordering_dist,
     const shared_ptr<TypedDataset<T>>& dataset,
     SingleMachineFactoryOptions* opts) {
+  std::cout << "[YJ] ExactReorderingFactory, N: " << dataset->size() << " / D: " << dataset->dimensionality() << std::endl;
   if (config.fixed_point().enabled() || config.use_fixed_point_if_possible()) {
+    // [YJ] does not come here
+    // std::cout << "[YJ] ExactReorderingFactory, fixed point" << std::endl;
     auto statusor = BuildFixedPointReorderingHelper<T>(
         config.fixed_point(), reordering_dist, dataset, opts);
     if (statusor.ok()) {
@@ -126,6 +139,7 @@ StatusOrHelper<T> ExactReorderingFactory(
     } else {
     }
   }
+  // [YJ] create ExactReordringFactory here
   return {make_unique<ExactReorderingHelper<T>>(reordering_dist, dataset)};
 }
 
@@ -137,6 +151,7 @@ ReorderingHelperFactory<T>::Build(
     const ScannConfig& config,
     const shared_ptr<const DistanceMeasure>& reordering_dist,
     shared_ptr<TypedDataset<T>> dataset, SingleMachineFactoryOptions* opts) {
+  std::cout << "[YJ] ReorderingHelperFactory:Build" << std::endl;
   if (config.has_compressed_reordering() && config.has_exact_reordering()) {
     return InvalidArgumentError(
         "Compressed and exact reordering may not be enabled in the same "
@@ -145,6 +160,7 @@ ReorderingHelperFactory<T>::Build(
   if (config.has_compressed_reordering()) {
     return InvalidArgumentError("Compressed reordering not supported.");
   } else if (config.has_exact_reordering()) {
+    // [YJ] call ExactReorderingFactory at line 115
     return ExactReorderingFactory<T>(config.exact_reordering(), reordering_dist,
                                      dataset, opts);
   } else {
