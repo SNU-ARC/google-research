@@ -147,8 +147,7 @@ Status ScannInterface::Initialize(shared_ptr<DenseDataset<float>> dataset,
       config_.partitioning().partitioning_type() ==
           PartitioningConfig::SPHERICAL)
     dataset->set_normalization_tag(research_scann::UNITL2NORM);
-  std::cout << "[YJ] Initialize, SingleMachineFactoryNoSparse end" << std::endl;
-  
+  std::cout << "[YJ] Initialize, SingleMachineFactoryScann" << std::endl;
   TF_ASSIGN_OR_RETURN(scann_, SingleMachineFactoryScann<float>(
                                   config_, dataset, std::move(opts)));
 

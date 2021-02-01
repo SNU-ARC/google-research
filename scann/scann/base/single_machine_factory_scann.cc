@@ -703,6 +703,7 @@ template <typename T>
 StatusOr<unique_ptr<SingleMachineSearcherBase<T>>> SingleMachineFactoryScann(
     const ScannConfig& config, shared_ptr<TypedDataset<T>> dataset,
     SingleMachineFactoryOptions opts) {
+  std::cout << "[YJ] SingleMachineFactoryScann" << std::endl;
   opts.type_tag = TagForType<T>();
   TF_ASSIGN_OR_RETURN(auto searcher, SingleMachineFactoryUntypedScann(
                                          config, dataset, std::move(opts)));

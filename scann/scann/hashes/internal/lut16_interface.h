@@ -92,6 +92,7 @@ class LUT16Interface {
       DatapointIndex num_datapoints,
       ConstSpan<FastTopNeighbors<float>*> fast_topns, ConstSpan<float> biases,
       ConstSpan<float> fixed_point_multipliers) {
+    std::cout << "[YJ] GetTopFloatDistances 2" << std::endl;
     LUT16ArgsTopN<float> args;
     args.packed_dataset = packed_dataset;
     args.prefetch_strategy =
@@ -145,6 +146,7 @@ class LUT16Interface {
       DatapointIndex first_dp_index, DatapointIndex num_datapoints,
       FastTopNeighbors<float>* fast_topn, float bias,
       float fixed_point_multiplier) {
+    std::cout << "[YJ] GetTopFloatDistances 1" << std::endl;
     GetTopFloatDistances(packed_dataset, should_prefetch, num_32dp_simd_iters,
                          num_blocks, ConstSpan<const uint8_t*>(&lookups1, 1),
                          first_dp_index, num_datapoints,
@@ -230,7 +232,7 @@ class LUT16Interface {
   }
 
 void LUT16Interface::GetDistances(LUT16Args<int16_t> args) {
-  std::cout << "[YJ] GetDistances" << std::endl;
+  std::cout << "[YJ] GetDistances, int16_t" << std::endl;
   const size_t batch_size = args.lookups.size();
   const auto prefetch_strategy = args.prefetch_strategy;
   const bool enable_avx512_codepath = args.enable_avx512_codepath;
@@ -241,6 +243,7 @@ void LUT16Interface::GetDistances(LUT16Args<int16_t> args) {
 }
 
 void LUT16Interface::GetDistances(LUT16Args<int32_t> args) {
+  std::cout << "[YJ] GetDistances, int32_t" << std::endl;
   const size_t batch_size = args.lookups.size();
   const auto prefetch_strategy = args.prefetch_strategy;
   const bool enable_avx512_codepath = args.enable_avx512_codepath;
@@ -275,6 +278,7 @@ void LUT16Interface::GetTopDistances(LUT16ArgsTopN<int16_t, TopN> args) {
 
 template <typename TopN>
 void LUT16Interface::GetTopFloatDistances(LUT16ArgsTopN<float, TopN> args) {
+  std::cout << "[YJ] GetTopFloatDistances" << std::endl;
   const size_t batch_size = args.lookups.size();
   const auto prefetch_strategy = args.prefetch_strategy;
   const bool enable_avx512_codepath = args.enable_avx512_codepath;
