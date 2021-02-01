@@ -177,7 +177,7 @@ Status Searcher<T>::FindNeighborsImpl(const DatapointPtr<T>& query,
                                                      result);
   } else {
     // [YJ] comes here
-    std::cout << "[YJ] basic" << std::endl;
+    std::cout << "[YJ] HASHING FindNeighborsImpl, basic" << std::endl;
     return FindNeighborsTopNDispatcher<
         asymmetric_hashing_internal::IdentityPostprocessFunctor>(
         query, params,
@@ -235,7 +235,7 @@ template <typename PostprocessFunctor>
 Status Searcher<T>::FindNeighborsTopNDispatcher(
     const DatapointPtr<T>& query, const SearchParameters& params,
     PostprocessFunctor postprocessing_functor, NNResultsVector* result) const {
-  std::cout << "[YJ] FindNeighborsTopNDispatcher, query: " << query.dimensionality() << std::endl;
+  std::cout << "[YJ] FindNeighborsTopNDispatcher, query dimension: " << query.dimensionality() << std::endl;
   if (params.pre_reordering_crowding_enabled()) {
     return FailedPreconditionError("Crowding is not supported.");
   } else {
@@ -243,6 +243,7 @@ Status Searcher<T>::FindNeighborsTopNDispatcher(
         AsymmetricHashingOptionalParameters>();
     if (ah_optional_params && ah_optional_params->top_n() &&
         !opts_.symmetric_queryer_) {
+      // [YJ] comes here
       auto queryer_opts = GetQueryerOptions(postprocessing_functor);
       queryer_opts.first_dp_index = ah_optional_params->starting_dp_idx_;
       queryer_opts.lut16_bias = ah_optional_params->lut16_bias_;
@@ -287,6 +288,7 @@ template <typename PostprocessFunctor, typename TopN>
 Status Searcher<T>::FindNeighborsQueryerDispatcher(
     const DatapointPtr<T>& query, const SearchParameters& params,
     PostprocessFunctor postprocessing_functor, TopN* result) const {
+  std::cout << "[YJ] FindNeighborsQueryerDispatcher" << std::endl;
   auto queryer_options = GetQueryerOptions(postprocessing_functor);
   if (opts_.symmetric_queryer_) {
     auto view = queryer_options.hashed_dataset.get();

@@ -439,6 +439,7 @@ template <typename TopN, typename Functor, typename DatasetView>
 Status AsymmetricQueryer<T>::FindApproximateTopNeighborsTopNDispatch(
     const LookupTable& lookup_table, const SearchParameters& params,
     QueryerOptions<Functor, DatasetView> querying_options, TopN* top_n) {
+  std::cout << "[YJ] FindApproximateTopNeighborsTopNDispatch 1" << std::endl;
   DCHECK(top_n);
   static_assert(
       std::is_same<float, decltype(top_n->approx_bottom().second)>::value,
@@ -486,6 +487,7 @@ Status AsymmetricQueryer<T>::FindApproximateTopNeighborsTopNDispatch(
     const LookupTable& lookup_table, const SearchParameters& params,
     QueryerOptions<Functor, DatasetView> querying_options,
     FastTopNeighbors<DistT>* top_n) {
+  std::cout << "[YJ] FindApproximateTopNeighborsTopNDispatch 2" << std::endl;
   DCHECK(top_n);
 
   static_assert(std::is_same_v<float, DistT>,
