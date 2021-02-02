@@ -15,10 +15,10 @@ def compute_recall(neighbors, true_neighbors):
     return total / true_neighbors.size	
 
 
-# def ivecs_read(fname):
-#     a = np.fromfile(fname, dtype='int32')
-#     d = a[0]
-#     return a.reshape(-1, d + 1)[:, 1:].copy()
+def ivecs_read(fname):
+    a = np.fromfile(fname, dtype='int32')
+    d = a[0]
+    return a.reshape(-1, d + 1)[:, 1:].copy()
 
 
 # def fvecs_read(fname):
@@ -168,12 +168,13 @@ if "sift" in filename:
 	# exit(1)
 	num_iter = 4
 	# split(filename, dataset_basedir, split_dataset_path, num_iter, num_split, N, 128)
+	gt = ivecs_read(dataset_basedir + 'gnd/idx_1000M.ivecs')
+	print(gt.shape)
 	queries = bvecs_read(dataset_basedir+'bigann_query.bvecs')
 
 	neighbors=np.empty((queries.shape[0],0))
 	distances=np.empty((queries.shape[0],0))
 	base_idx = 0
-	# print(len(neighbors), len(distances))
 	for i in range(num_split):
 		print("Split ", i)
 		dataset = bvecs_read(split_dataset_path+ str(num_split) + "_" + str(i))
@@ -182,7 +183,7 @@ if "sift" in filename:
 		    num_leaves=2000, num_leaves_to_search=100, training_sample_size=250000).score_ah(
 		    2, anisotropic_quantization_threshold=0.2).reorder(100).build()
 		# start = time.time()
-		local_neighbors, local_distances = searcher.search_batched(queries)
+		local_neighbors, local_distances = searcher.search_batched(queries,  final_num_neighbors=100)
 		# local_neighbors, local_distances = searcher.search_batched(queries, leaves_to_search=150, pre_reorder_num_neighbors=250)
 		# end = time.time()
 		local_neighbors += base_idx
@@ -193,7 +194,9 @@ if "sift" in filename:
 	print(-np.sort(-distances, axis=-1))
 	# final_neighbors = [[x for _,x in sorted(zip(distance,neighbor))] for distance, neighbor in zip(distances, neighbors)]
 	print("final neighbors: ", final_neighbors)
-	print("Recall:", compute_recall(final_neighbors[:,:10], glove_h5py['neighbors'][:, :10]))
+	print("Recall:", compute_recall(final_neighbors[:,:1], gt[:, :1]))
+	print("Recall:", compute_recall(final_neighbors[:,:10], gt[:, :10]))
+	print("Recall:", compute_recall(final_neighbors[:,:100], gt[:, :100]))
 
 	# num_per_split = int(N/num_split)
 	# split = 0
