@@ -35,6 +35,7 @@ class ScannSearcher(object):
   """Wrapper class around pybind module that provides a cleaner interface."""
 
   def __init__(self, searcher):
+    print("[YJ] ScannSearcher")
     self.searcher = searcher
 
   def search(self,
@@ -76,6 +77,7 @@ def builder(db, num_neighbors, distance_measure):
   """pybind analogue of builder() in scann_ops.py; see docstring there."""
 
   def builder_lambda(db, config, training_threads, **kwargs):
+    print("[YJ] builder_lambda, scann_ops_pybind.py")
     return create_searcher(db, config, training_threads, **kwargs)
 
   return scann_builder.ScannBuilder(
@@ -83,6 +85,7 @@ def builder(db, num_neighbors, distance_measure):
 
 
 def create_searcher(db, scann_config, training_threads=0):
+  print("[YJ] create_searcher, scann_ops_pybind.py")
   return ScannSearcher(
       scann_pybind.ScannNumpy(db, scann_config, training_threads))
 

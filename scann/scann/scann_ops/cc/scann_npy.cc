@@ -48,6 +48,7 @@ ScannNumpy::ScannNumpy(
     std::optional<const np_row_major_arr<float>> int8_multipliers,
     std::optional<const np_row_major_arr<float>> dp_norms,
     const std::string& artifacts_dir) {
+  std::cout << "[YJ] ScannNumpy" << std::endl;
   DatapointIndex n_points = kInvalidDatapointIndex;
   ConstSpan<float> dataset;
   if (np_dataset) {
@@ -79,6 +80,8 @@ ScannNumpy::ScannNumpy(
         NumpyToSpan(*int8_multipliers, 1, "Int8 quantization multipliers");
   if (dp_norms)
     norm_span = NumpyToSpan(*dp_norms, 1, "Datapoint squared L2 norms");
+  
+  std::cout << "[YJ] ScannNumpy, before initialize" << std::endl;
 
   RuntimeErrorIfNotOk(
       "Error initializing searcher: ",
@@ -88,9 +91,11 @@ ScannNumpy::ScannNumpy(
 
 ScannNumpy::ScannNumpy(const np_row_major_arr<float>& np_dataset,
                        const std::string& config, int training_threads) {
+  std::cout << "[YJ] ScannNumpy, 222" << std::endl;
   if (np_dataset.ndim() != 2)
     throw std::invalid_argument("Dataset input must be two-dimensional");
   ConstSpan<float> dataset(np_dataset.data(), np_dataset.size());
+  std::cout << "[YJ] ScannNumpy, end" << std::endl;
   RuntimeErrorIfNotOk("Error initializing searcher: ",
                       scann_.Initialize(dataset, np_dataset.shape()[0], config,
                                         training_threads));

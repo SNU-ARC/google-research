@@ -126,6 +126,7 @@ def builder(db, num_neighbors, distance_measure):
   """
 
   def builder_lambda(db, config, training_threads, **kwargs):
+    print("[YJ] builder_lambda, scann_ops.py")
     return create_searcher(db, config, training_threads, **kwargs)
 
   return scann_builder.ScannBuilder(
@@ -140,6 +141,7 @@ def create_searcher(db,
   """Create a ScaNN searcher given a dataset and text config proto."""
   if shared_name is None:
     shared_name = f"scann-{uuid.uuid4()}"
+  print("[YJ] create searcher")
   return ScannSearcher(
       scann_create_searcher(
           x=db,

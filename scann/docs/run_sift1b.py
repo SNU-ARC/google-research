@@ -46,26 +46,37 @@ import scann
 
 # dataset = glove_h5py['train']
 # queries = glove_h5py['test']
+# print(dataset.shape)
+# print(queries.shape)
 
 
-glove_h5py = h5py.File("../data/glove-100-angular.hdf5", "r")
+def bvecs_read(fname):
+        a = np.fromfile(fname, dtype=np.int32, count = 1)
+        b = np.fromfile(fname, dtype=np.uint8)
+        d = a[0]
+        return b.reshape(-1, d+4)[:, 4:].copy()
 
-list(glove_h5py.keys())
+def ivecs_read(fname):
+        a = np.fromfile(fname, dtype='uint8')
+        d = a[0]
+        return a.reshape(-1, d + 1)[:, 1:].copy()
 
-dataset = glove_h5py['train']
-queries = glove_h5py['test']
+def fvecs_read(fname):
+        return ivecs_read(fname).view('float32')
+
+dataset = bvecs_read('/datadrive/bigann_base.bvecs')
+queries = bvecs_read('/datadrive/bigann_query.bvecs')
 
 print(dataset.shape)
 print(queries.shape)
 
 """### Create ScaNN searcher"""
 
-normalized_dataset = dataset / np.linalg.norm(dataset, axis=1)[:, np.newaxis]
 # configure ScaNN as a tree - asymmetric hash hybrid with reordering
 # anisotropic quantization as described in the paper; see README
-
+print("dataset done")
 # use scann.scann_ops.build() to instead create a TensorFlow-compatible searcher
-searcher = scann.scann_ops_pybind.builder(normalized_dataset, 10, "dot_product").tree(
+searcher = scann.scann_ops_pybind.builder(dataset[:250000000], 10, "dot_product").tree(
     num_leaves=2000, num_leaves_to_search=100, training_sample_size=250000).score_ah(
     2, anisotropic_quantization_threshold=0.2).reorder(100).build()
 
