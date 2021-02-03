@@ -82,14 +82,9 @@ def compute_recall(neighbors, true_neighbors):
 start = time.time()
 neighbors, distances = searcher.search_batched(queries)
 end = time.time()
-print("neighbors: ", neighbors)
-print("distances: ", distances)
-print("neighbors: ", neighbors.shape)
-print("distances: ", distances.shape)
 # we are given top 100 neighbors in the ground truth, so select top 10
 print("Recall:", compute_recall(neighbors, glove_h5py['neighbors'][:, :10]))
 print("Time:", end - start)
-exit(1)
 
 # increasing the leaves to search increases recall at the cost of speed
 start = time.time()
