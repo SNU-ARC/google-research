@@ -166,6 +166,6 @@ elif "glove" in args.dataset:
 	num_iter = 10
 
 if args.split:
-	split(filename, dataset_basedir, split_dataset_path, num_iter, N, D)
+	split(args.dataset, dataset_basedir, split_dataset_path, num_iter, N, D)
 if args.eval_split:
 	run(dataset_basedir, split_dataset_path)
