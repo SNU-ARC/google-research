@@ -64,8 +64,8 @@ def ivecs_read(fname):
 def fvecs_read(fname):
         return ivecs_read(fname).view('float32')
 
-dataset = bvecs_read('/datadrive/bigann_base.bvecs')
-queries = bvecs_read('/datadrive/bigann_query.bvecs')
+dataset = bvecs_read('/arc-share/MICRO21_ANNA/SIFT1B/bigann_base.bvecs')
+queries = bvecs_read('/arc-share/MICRO21_ANNA/SIFT1B/bigann_query.bvecs')
 
 print(dataset.shape)
 print(queries.shape)
