@@ -7,7 +7,7 @@ import h5py
 import scann
 import time
 import argparse
-import os.path
+import os
 
 parser = argparse.ArgumentParser(description='Options')
 parser.add_argument('--dataset', type=str, help='sift1b, glove ...')
@@ -117,19 +117,23 @@ def run(dataset_basedir, split_dataset_path):
 	base_idx = 0
 	total_latency = 0
 	for split in range(args.num_split):
+		searcher_path = './scann_searcher/'+args.dataset+'/Split_'+str(args.num_split)+'/'+args.dataset+'_searcher_'+str(args.num_split)+'_'+str(split)
 		print("Split ", split)
 		# Load splitted dataset
 		dataset = read_data(split_dataset_path + str(args.num_split) + "_" + str(split), base=False)
 		# Create ScaNN searcher
 		print("Entering ScaNN builder")
 		searcher = None
-		if os.path.isfile('./scann_searcher/'+args.dataset+'/'+args.dataset+'_searcher_'+str(args.num_split)+'_'+str(split)): 
-			searcher = scann.scann_ops_pybind.load_searcher('./scann_searcher/'+args.dataset+'/'+args.dataset+'_searcher_'+str(args.num_split)+'_'+str(split))
+		if os.path.isdir(searcher_path):
+			print("Loading searcher from ", searcher_path)
+			searcher = scann.scann_ops_pybind.load_searcher(searcher_path)
 		else:
 			searcher = scann.scann_ops_pybind.builder(dataset, 10, "dot_product").tree(
 			    num_leaves=2000, num_leaves_to_search=100, training_sample_size=250000).score_ah(
 			    2, anisotropic_quantization_threshold=0.2).reorder(100).build()
-			searcher.serialize('./scann_searcher/'+args.dataset+'/'+args.dataset+'_searcher_'+str(args.num_split)+'_'+str(split))
+			print("Saving searcher to ", searcher_path)
+			os.makedirs(searcher_path, exist_ok=True)
+			searcher.serialize(searcher_path)
 
 		start = time.time()
 		# ScaNN search
@@ -137,7 +141,6 @@ def run(dataset_basedir, split_dataset_path):
 		local_neighbors, local_distances = searcher.search_batched(queries, final_num_neighbors=100)
 		end = time.time()
 		total_latency = total_latency + 1000*(end - start)
-		# local_neighbors += base_idx
 		neighbors = np.append(neighbors, local_neighbors+base_idx, axis=1)
 		distances = np.append(distances, local_distances, axis=1)
 		base_idx = base_idx + dataset.shape[0]
