@@ -1,5 +1,5 @@
 '''
-	Usage: python3 parse_dataset.py --dataset [dataset name] [--split --num_split 100] [--eval_split]
+	Usage: python3 parse_dataset.py --dataset [dataset name] --num_split 100 [--split] [--eval_split]
 '''
 import sys
 import numpy as np
@@ -164,6 +164,6 @@ elif "glove" in args.dataset:
 	num_iter = 10
 
 if args.split:
-	split(filename, dataset_basedir, split_dataset_path, num_iter, num_split, N, D)
+	split(filename, dataset_basedir, split_dataset_path, num_iter, N, D)
 if args.eval_split:
 	run(dataset_basedir, split_dataset_path)
