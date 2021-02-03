@@ -10,11 +10,10 @@ import argparse
 
 parser = argparse.ArgumentParser(description='Options')
 parser.add_argument('--dataset', type=str, help='sift1b, glove ...')
+parser.add_argument('--num_split', type=int, default=-1, required=True, help='# of splits')
 parser.add_argument('--split', action='store_true')
-parser.add_argument('--num_split', type=int, default=-1, help='# of splits')
 parser.add_argument('--eval_split', action='store_true')
 args = parser.parse_args()
-assert(false) if args.split and args.num_split==-1:
 
 def compute_recall(neighbors, true_neighbors):
     total = 0
@@ -115,16 +114,19 @@ def run(dataset_basedir, split_dataset_path):
 	total_latency = 0
 	for split in range(args.num_split):
 		print("Split ", split)
+		# Load splitted dataset
 		dataset = read_data(split_dataset_path + str(args.num_split) + "_" + str(split), base=False)
+		# Create ScaNN searcher
 		searcher = scann.scann_ops_pybind.builder(dataset, 10, "dot_product").tree(
 		    num_leaves=2000, num_leaves_to_search=100, training_sample_size=250000).score_ah(
 		    2, anisotropic_quantization_threshold=0.2).reorder(100).build()
 		start = time.time()
+		# ScaNN search
 		local_neighbors, local_distances = searcher.search_batched(queries,  final_num_neighbors=100)
 		end = time.time()
 		total_latency = total_latency + 1000*(end - start)
-		local_neighbors += base_idx
-		neighbors = np.append(neighbors, local_neighbors, axis=1)
+		# local_neighbors += base_idx
+		neighbors = np.append(neighbors, local_neighbors+base_idx, axis=1)
 		distances = np.append(distances, local_distances, axis=1)
 		base_idx = base_idx + dataset.shape[0]
 	final_neighbors = np.take_along_axis(neighbors, np.argsort(-distances, axis=-1), -1)
