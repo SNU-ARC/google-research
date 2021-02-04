@@ -7,6 +7,7 @@ import h5py
 import scann
 import time
 import argparse
+import os
 
 parser = argparse.ArgumentParser(description='Options')
 parser.add_argument('--dataset', type=str, help='sift1b, glove ...')
@@ -14,6 +15,7 @@ parser.add_argument('--num_split', type=int, default=-1, required=True, help='# 
 parser.add_argument('--split', action='store_true')
 parser.add_argument('--eval_split', action='store_true')
 args = parser.parse_args()
+
 
 def compute_recall(neighbors, true_neighbors):
     total = 0
@@ -28,16 +30,16 @@ def ivecs_read(fname):
 
 def bvecs_mmap(fname, offset_=None, shape_=None):
 	if offset_!=None and shape_!=None:
-		x = np.memmap(fname, dtype='uint8', mode='r', offset=offset_*132, shape=(shape_*132))
+		x = np.memmap(fname, dtype=np.uint8, mode='r', offset=offset_*132, shape=(shape_*132))
 	else:
-		x = np.memmap(fname, dtype='uint8', mode='r')
+		x = np.memmap(fname, dtype=np.uint8, mode='r')
 
 	d = x[:4].view('int32')[0]
 	return x.reshape(-1, d + 4)[:, 4:]
 
 def bvecs_write(fname, m):
 	n, d = m.shape
-	dimension_arr = np.zeros((n, 4), dtype='uint8')
+	dimension_arr = np.zeros((n, 4), dtype=np.uint8)
 	dimension_arr[:, 0] = d
 	m = np.append(dimension_arr, m, axis=1)
 	m.tofile(fname)
@@ -48,11 +50,13 @@ def bvecs_read(fname):
 	return b.reshape(-1, d+4)[:, 4:].copy()
 
 def read_data(dataset_path, offset_=None, shape_=None, base=True):
-	if "sift" in args.dataset:
+	if "sift1b" in args.dataset:
 		file = dataset_path+"bigann_base.bvecs" if base else dataset_path
+		print("Reading from ", file)
 		return bvecs_mmap(file, offset_=offset_, shape_=shape_)
 	elif "glove" in args.dataset:
 		file = dataset_path+"glove-100-angular.hdf5" if base else dataset_path
+		print("Reading from ", file)
 		dataset = h5py.File(file, "r")
 		if base:
 			dataset = dataset['train']
@@ -98,7 +102,7 @@ def split(filename, data_path, split_dataset_path, num_iter, N, D):
 					num_split_list.append(dataset[count*num_per_split:].shape[0])
 					split = split+1
 				break
-			else:
+			elif split < args.num_split:
 				write_data(split_dataset_path + str(args.num_split) + "_" + str(split), dataset[count*num_per_split:(count+1)*num_per_split])
 				num_split_list.append(dataset[count*num_per_split:(count+1)*num_per_split].shape[0])
 				split = split+1
@@ -113,19 +117,30 @@ def run(dataset_basedir, split_dataset_path):
 	base_idx = 0
 	total_latency = 0
 	for split in range(args.num_split):
+		searcher_path = './scann_searcher/'+args.dataset+'/Split_'+str(args.num_split)+'/'+args.dataset+'_searcher_'+str(args.num_split)+'_'+str(split)
 		print("Split ", split)
 		# Load splitted dataset
 		dataset = read_data(split_dataset_path + str(args.num_split) + "_" + str(split), base=False)
 		# Create ScaNN searcher
-		searcher = scann.scann_ops_pybind.builder(dataset, 10, "dot_product").tree(
-		    num_leaves=2000, num_leaves_to_search=100, training_sample_size=250000).score_ah(
-		    2, anisotropic_quantization_threshold=0.2).reorder(100).build()
+		print("Entering ScaNN builder")
+		searcher = None
+		if os.path.isdir(searcher_path):
+			print("Loading searcher from ", searcher_path)
+			searcher = scann.scann_ops_pybind.load_searcher(searcher_path)
+		else:
+			searcher = scann.scann_ops_pybind.builder(dataset, 10, "dot_product").tree(
+			    num_leaves=2000, num_leaves_to_search=100, training_sample_size=250000).score_ah(
+			    2, anisotropic_quantization_threshold=0.2).reorder(100).build()
+			print("Saving searcher to ", searcher_path)
+			os.makedirs(searcher_path, exist_ok=True)
+			searcher.serialize(searcher_path)
+
 		start = time.time()
 		# ScaNN search
-		local_neighbors, local_distances = searcher.search_batched(queries,  final_num_neighbors=100)
+		print("Entering ScaNN searcher")
+		local_neighbors, local_distances = searcher.search_batched(queries, final_num_neighbors=100)
 		end = time.time()
 		total_latency = total_latency + 1000*(end - start)
-		# local_neighbors += base_idx
 		neighbors = np.append(neighbors, local_neighbors+base_idx, axis=1)
 		distances = np.append(distances, local_distances, axis=1)
 		base_idx = base_idx + dataset.shape[0]
