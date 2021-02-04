@@ -33,11 +33,11 @@ template <template <class> class V, typename T>
 StatusOr<SingleMachineFactoryOptions> MergeAHLeafOptions(
     const vector<unique_ptr<V<T>>>& leaf_searchers,
     ConstSpan<std::vector<DatapointIndex>> datapoints_by_token,
-    const int expected_size) {
+    const long long int expected_size) {
   const int n_leaves = leaf_searchers.size();
   auto leaf_opts = std::vector<SingleMachineFactoryOptions>(n_leaves);
 
-  int hash_ct = 0, codebook_ct = 0, total_hashed = 0, hash_dim = -1;
+  long long int hash_ct = 0, codebook_ct = 0, total_hashed = 0, hash_dim = -1;
 
   ssize_t int8_ct = 0, total_int8 = 0, int8_dim = -1;
   bool int8_has_norms = false;
@@ -107,7 +107,10 @@ StatusOr<SingleMachineFactoryOptions> MergeAHLeafOptions(
         return FailedPreconditionError("Inconsistent codebooks among leaves");
     }
 
-    vector<uint8_t> storage(hash_dim * expected_size);
+    long long int s = hash_dim * expected_size;
+    vector<uint8_t> storage(s);
+
+    // vector<uint8_t> storage(hash_dim * expected_size);
     for (int i = 0; i < n_leaves; i++) {
       int inner_idx = 0;
       for (const auto dptr : *leaf_opts[i].hashed_dataset) {

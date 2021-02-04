@@ -92,8 +92,9 @@ Searcher<T>::Searcher(shared_ptr<TypedDataset<T>> dataset,
                  AsymmetricHasherConfig::INT8_LUT16 &&
              opts_.asymmetric_queryer_) {
   DCHECK(hashed_dataset);
-
+  std::cout << "[YJ] Searcher" << std::endl;
   if (lut16_) {
+    std::cout << "[YJ] Searcher, packed" << std::endl;
     packed_dataset_ =
         ::research_scann::asymmetric_hashing2::CreatePackedDataset(
             *this->hashed_dataset());

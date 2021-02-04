@@ -79,39 +79,40 @@ def compute_recall(neighbors, true_neighbors):
 # this will search the top 100 of the 2000 leaves, and compute
 # the exact dot products of the top 100 candidates from asymmetric
 # hashing to get the final top 10 candidates.
-start = time.time()
-neighbors, distances = searcher.search_batched(queries)
-end = time.time()
-# we are given top 100 neighbors in the ground truth, so select top 10
-print("Recall:", compute_recall(neighbors, glove_h5py['neighbors'][:, :10]))
-print("Time:", end - start)
-
-# increasing the leaves to search increases recall at the cost of speed
-start = time.time()
-neighbors, distances = searcher.search_batched(queries, leaves_to_search=150)
-end = time.time()
-
-print("Recall:", compute_recall(neighbors, glove_h5py['neighbors'][:, :10]))
-print("Time:", end - start)
-
-# increasing reordering (the exact scoring of top AH candidates) has a similar effect.
-start = time.time()
-neighbors, distances = searcher.search_batched(queries, leaves_to_search=150, pre_reorder_num_neighbors=250)
-end = time.time()
-
-print("Recall:", compute_recall(neighbors, glove_h5py['neighbors'][:, :10]))
-print("Time:", end - start)
-
-# we can also dynamically configure the number of neighbors returned
-# currently returns 10 as configued in ScannBuilder()
-neighbors, distances = searcher.search_batched(queries)
-print(neighbors.shape, distances.shape)
-
-# now returns 20
-neighbors, distances = searcher.search_batched(queries, final_num_neighbors=20)
-print(neighbors.shape, distances.shape)
+#start = time.time()
+#neighbors, distances = searcher.search_batched(queries)
+#end = time.time()
+## we are given top 100 neighbors in the ground truth, so select top 10
+#print("Recall:", compute_recall(neighbors, glove_h5py['neighbors'][:, :10]))
+#print("Time:", end - start)
+#
+## increasing the leaves to search increases recall at the cost of speed
+#start = time.time()
+#neighbors, distances = searcher.search_batched(queries, leaves_to_search=150)
+#end = time.time()
+#
+#print("Recall:", compute_recall(neighbors, glove_h5py['neighbors'][:, :10]))
+#print("Time:", end - start)
+#
+## increasing reordering (the exact scoring of top AH candidates) has a similar effect.
+#start = time.time()
+#neighbors, distances = searcher.search_batched(queries, leaves_to_search=150, pre_reorder_num_neighbors=250)
+#end = time.time()
+#
+#print("Recall:", compute_recall(neighbors, glove_h5py['neighbors'][:, :10]))
+#print("Time:", end - start)
+#
+## we can also dynamically configure the number of neighbors returned
+## currently returns 10 as configued in ScannBuilder()
+#neighbors, distances = searcher.search_batched(queries)
+#print(neighbors.shape, distances.shape)
+#
+## now returns 20
+#neighbors, distances = searcher.search_batched(queries, final_num_neighbors=20)
+#print(neighbors.shape, distances.shape)
 
 # we have been exclusively calling batch search so far; the single-query call has the same API
+print("[YJ] PY,,,query : ", queries[0])
 start = time.time()
 neighbors, distances = searcher.search(queries[0], final_num_neighbors=5)
 end = time.time()

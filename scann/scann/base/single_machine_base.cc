@@ -288,6 +288,7 @@ Status SingleMachineSearcherBase<T>::FindNeighbors(
       FindNeighborsNoSortNoExactReorder(query, params, result));
 
   if (reordering_helper_) {
+    std::cout << "[YJ] FindNeighbors, reordering" << std::endl;
     SCANN_RETURN_IF_ERROR(ReorderResults(query, params, result));
   }
 
@@ -490,8 +491,9 @@ template <typename T>
 Status SingleMachineSearcherBase<T>::ReorderResults(
     const DatapointPtr<T>& query, const SearchParameters& params,
     NNResultsVector* result) const {
-  std::cout << "[YJ] reorderResults" << std::endl;
+  std::cout << "[YJ] ReorderResults" << std::endl;
   if (params.post_reordering_num_neighbors() == 1) {
+    std::cout << "[YJ] ReorderResults, post_reordering_num_neighbors" << std::endl;
     TF_ASSIGN_OR_RETURN(
         auto top1,
         reordering_helper_->ComputeTop1ReorderingDistance(query, result));
@@ -503,6 +505,7 @@ Status SingleMachineSearcherBase<T>::ReorderResults(
       result->resize(0);
     }
   } else {
+    std::cout << "[YJ] ReorderResults, ComputeDistancesForReordering" << std::endl;
     SCANN_RETURN_IF_ERROR(
         reordering_helper_->ComputeDistancesForReordering(query, result));
   }
@@ -514,11 +517,13 @@ Status SingleMachineSearcherBase<T>::SortAndDropResults(
     NNResultsVector* result, const SearchParameters& params) const {
   std::cout << "[YJ] SortAndDropResults" << std::endl;
   if (reordering_enabled()) {
+    std::cout << "[YJ] SortAndDropResults, reordering_enabled" << std::endl;
     if (params.post_reordering_num_neighbors() == 1) {
       return OkStatus();
     }
 
     if (params.post_reordering_epsilon() < numeric_limits<float>::infinity()) {
+      std::cout << "[YJ] SortAndDropResults, post_reordering_epsilon" << std::endl;
       auto it = std::partition(
           result->begin(), result->end(),
           [&params](const pair<DatapointIndex, float>& arg) {
@@ -531,6 +536,7 @@ Status SingleMachineSearcherBase<T>::SortAndDropResults(
     if (params.post_reordering_crowding_enabled()) {
       return FailedPreconditionError("Crowding is not supported.");
     } else {
+      std::cout << "[YJ] SortAndDropResults, RemoveNeighborsPastLimit" << std::endl;
       RemoveNeighborsPastLimit(params.post_reordering_num_neighbors(), result);
     }
   }

@@ -429,12 +429,16 @@ Status KMeansTree::TokenizeWithSpillingImpl(
   std::vector<pair<DatapointIndex, float>> children_to_search;
   const DenseDataset<CentersType>& current_node_centers =
       current_node->GetCentersByTemplateType<CentersType>();
+
+  // [YJ] current_node_centers.size() = num_leaves, dim = dataset dimensionality (e.g., GloVe -> 100)
+  std::cout << "[YJ] TokenizeWithSpillingImpl, centers: " << current_node_centers.size() << " / dim: " << current_node_centers.dimensionality() <<  std::endl;
   Status status =
       kmeans_tree_internal::FindChildrenWithSpilling<float, CentersType>(
           query, spilling_type, possibly_learned_spilling_threshold,
           max_centers, dist, current_node_centers,
           current_node->center_squared_l2_norms_,
           current_node->inv_int8_multipliers_, &children_to_search);
+  std::cout << "[YJ] children_to_search: " << children_to_search.size() << std::endl;
   if (!status.ok()) return status;
   for (const auto& elem : children_to_search) {
     const int32_t child_index = elem.first;

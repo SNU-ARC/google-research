@@ -235,15 +235,21 @@ Status FindChildrenWithSpilling(
   std::vector<float> distances(centers.size());
   DCHECK(centers.IsDense());
 
-  // [YJ] calculate all distance from the query and the current_node_centers
+  // [YJ] calculate all distance from the query and the current_node_centers (# = num_leaves)
   SCANN_RETURN_IF_ERROR(GetAllDistances(dist, query, centers,
                                         center_sq_l2_norms,
                                         inv_int8_multipliers, &distances));
 
+  std::cout << "[YJ] Distances: " << distances.size() << ", " << distances[0] << std::endl;
+  std::cout << "[YJ] centers: ";
+  for(auto i:centers.data())
+    std::cout << i << " ";
+  std::cout << std::endl;
+
   float epsilon = std::numeric_limits<float>::infinity();
   if (spilling_type != QuerySpillingConfig::NO_SPILLING &&
       spilling_type != QuerySpillingConfig::FIXED_NUMBER_OF_CENTERS) {
-    // [YJ] get nearest center
+    // [YJ] does not come here
     const size_t nearest_center_index =
         std::distance(distances.begin(),
                       std::min_element(distances.begin(), distances.end()));
@@ -253,16 +259,19 @@ Status FindChildrenWithSpilling(
 
     float spill_thresh = std::nextafter(DoubleToFloat(spilling_threshold),
                                         std::numeric_limits<float>::infinity());
+    std::cout << "[YJ] spilling_threshold: " << spilling_threshold << " / spill_thresh: " << spill_thresh << std::endl;
     TF_ASSIGN_OR_RETURN(
         float max_dist_to_consider,
         ComputeThreshold(nearest_center_distance, spill_thresh, spilling_type));
+    std::cout << "[Yj] max_dist_to_consider: " << max_dist_to_consider << std::endl;
     epsilon = std::nextafter(max_dist_to_consider,
                              std::numeric_limits<float>::infinity());
   }
   const int32_t max_results =
       (spilling_type == QuerySpillingConfig::NO_SPILLING) ? 1 : max_centers;
+  std::cout << "[YJ] no spilling, max_results: " << max_results << std::endl;
   FastTopNeighbors<float> top_n(max_results, epsilon);
-  top_n.PushBlock(MakeConstSpan(distances), 0);
+  top_n.PushBlock(MakeConstSpan(distances), 0);  // [YJ] void PushBlock(ConstSpan<DistT> distances, DatapointIndexT base_dp_idx) {
   top_n.FinishUnsorted(child_centers);
 
   return OkStatus();

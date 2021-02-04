@@ -82,6 +82,7 @@ SCANN_AVX2_INLINE Avx2<int16_t, kNumQueries, 2> Avx2LUT16BottomLoop(
     for (size_t j : Seq(kNumQueries)) {
       const Avx2<uint8_t> dict = Avx2<uint8_t>::Load(lookup_starts[j]);
       lookup_starts[j] += kPointsPerIter;
+      // [YJ] _mm256_shuffle_epi8: Shuffles bytes in the first source vector according to the shuffle control mask in the second source vector. 
       const Avx2<uint8_t> res0 = _mm256_shuffle_epi8(*dict, *mask0);
       const Avx2<uint8_t> res1 = _mm256_shuffle_epi8(*dict, *mask1);
 
@@ -156,10 +157,11 @@ SCANN_AVX2_INLINE Avx2<int16_t, kNumQueries, 2> Avx2LUT16MiddleLoop(
   Avx2<int16_t, kNumQueries, 2> result;
   // std::cout << "[YJ] Avx2LUT16MiddleLoop result.size(), " << result.size() << std::endl;
   std::cout << "[YJ] Avx2LUT16MiddleLoop kNumA: " << kNumA << " / kNumB: " << kNumB << std::endl;
+  
   for (size_t j : Seq(kNumA)) {
     const size_t start = j * kSizeA;
     auto bottom_level_lookups =
-        MakeBottomLevelBatchLookupArray<kSizeA>(lookup_starts, start);  // [YJ] retrieve lookup_starts[start] ... lookup_starts[start+kSizeA]
+        MakeBottomLevelBatchLookupArray<kSizeA>(lookup_starts, start);  // [YJ] retrieve pointer of lookup_starts[start] ... lookup_starts[start+kBottomLevelBatchSize]
     auto acc = Avx2LUT16BottomLoop<kSizeA, kPrefetch>(
         data_start, bottom_level_lookups, num_blocks, prefetch_start);
     for (size_t jj : Seq(kSizeA)) {
@@ -180,6 +182,9 @@ SCANN_AVX2_INLINE Avx2<int16_t, kNumQueries, 2> Avx2LUT16MiddleLoop(
   return result;
 }
 
+// [YJ]
+// auto int16_accums = PrefetchDispatcher<kNumQueries, kPrefetch>(
+//     data_start, lookups, num_blocks, next_partition, &next_prefetch_idx);
 template <size_t kNumQueries, PrefetchStrategy kPrefetch>
 SCANN_AVX2_INLINE Avx2<int16_t, kNumQueries, 2> PrefetchDispatcher(
     const uint8_t* data_start, array<const uint8_t*, kNumQueries> lookups,
@@ -191,16 +196,17 @@ SCANN_AVX2_INLINE Avx2<int16_t, kNumQueries, 2> PrefetchDispatcher(
       const uint8_t* prefetch_start =
           next_partition + (*next_prefetch_idx) * 16 * num_blocks;
       (*next_prefetch_idx)++;
-      std::cout << "[YJ] PrefetchDispatcher, 111" << std::endl;
+      // std::cout << "[YJ] PrefetchDispatcher, 111" << std::endl;
       return Avx2LUT16MiddleLoop<kNumQueries, kPrefetch>(
           data_start, lookups, num_blocks, prefetch_start);
     } else {
       (*next_prefetch_idx)++;
-      std::cout << "[YJ] PrefetchDispatcher, 222" << std::endl;
+      // std::cout << "[YJ] PrefetchDispatcher, 222" << std::endl;
       return Avx2LUT16MiddleLoop<kNumQueries, PrefetchStrategy::kSeq>(
           data_start, lookups, num_blocks, nullptr);
     }
   } else {
+    // [YJ] comes here
       std::cout << "[YJ] PrefetchDispatcher, 333" << std::endl;
     return Avx2LUT16MiddleLoop<kNumQueries, kPrefetch>(data_start, lookups,
                                                        num_blocks, nullptr);

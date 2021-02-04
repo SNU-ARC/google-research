@@ -449,6 +449,10 @@ vector<SearchParameters> CreateParamsSubsetForLeaf(
   return result;
 }
 
+// [YJ]
+// AddLeafResultsToTopN(datapoints_by_token_[token], distance_to_center,
+//                      cluster_stdev_adjustment, leaf_results, &mutator);
+
 template <typename Mutator>
 void AddLeafResultsToTopN(ConstSpan<DatapointIndex> local_to_global_index,
                           const float distance_to_center,
@@ -581,6 +585,7 @@ Status TreeAHHybridResidual::FindNeighborsInternal1(
   if (params.pre_reordering_crowding_enabled()) {
     return FailedPreconditionError("Crowding is not supported.");
   } else if (enable_global_topn_) {
+    std::cout << "[YJ] FindNeighborsInternal1, enable_global_topn_" << std::endl;
     FastTopNeighbors<float> top_n(params.pre_reordering_num_neighbors(),
                                   params.pre_reordering_epsilon());
     DCHECK(result);
