@@ -437,13 +437,14 @@ Status KMeansTree::TokenizeWithSpillingImpl(
           query, spilling_type, possibly_learned_spilling_threshold,
           max_centers, dist, current_node_centers,
           current_node->center_squared_l2_norms_,
-          current_node->inv_int8_multipliers_, &children_to_search);
+          current_node->inv_int8_multipliers_, &children_to_search);    // [YJ] FindChildrenWithSpilling stores result to children_to_search
   std::cout << "[YJ] children_to_search: " << children_to_search.size() << std::endl;
   if (!status.ok()) return status;
   for (const auto& elem : children_to_search) {
     const int32_t child_index = elem.first;
     const float distance_to_child_center = elem.second;
     if (current_node->Children()[child_index].IsLeaf()) {
+      std::cout << "[YJ] is leaf" << std::endl;
       KMeansTreeSearchResult result;
       result.node = &current_node->Children()[child_index];
       result.distance_to_center = distance_to_child_center;
@@ -455,6 +456,7 @@ Status KMeansTree::TokenizeWithSpillingImpl(
               : 1.0;
       results->push_back(result);
     } else {
+      std::cout << "[YJ] is NOT leaf" << std::endl;
       status = TokenizeWithSpillingImpl<CentersType>(
           query, dist, spilling_type, spilling_threshold, max_centers,
           &current_node->Children()[child_index], results,

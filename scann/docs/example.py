@@ -79,12 +79,12 @@ def compute_recall(neighbors, true_neighbors):
 # this will search the top 100 of the 2000 leaves, and compute
 # the exact dot products of the top 100 candidates from asymmetric
 # hashing to get the final top 10 candidates.
-#start = time.time()
-#neighbors, distances = searcher.search_batched(queries)
-#end = time.time()
-## we are given top 100 neighbors in the ground truth, so select top 10
-#print("Recall:", compute_recall(neighbors, glove_h5py['neighbors'][:, :10]))
-#print("Time:", end - start)
+# start = time.time()
+# neighbors, distances = searcher.search_batched(queries)
+# end = time.time()
+# # we are given top 100 neighbors in the ground truth, so select top 10
+# print("Recall:", compute_recall(neighbors, glove_h5py['neighbors'][:, :10]))
+# print("Time:", end - start)
 #
 ## increasing the leaves to search increases recall at the cost of speed
 #start = time.time()
