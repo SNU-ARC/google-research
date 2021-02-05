@@ -1,5 +1,5 @@
 '''
-	Usage: python3 parse_dataset.py --dataset [dataset name] --num_split 100 [--split] [--eval_split]
+	Usage: python3 split_and_run.py --dataset [dataset name] --num_split [# of split] --metric [distance measure] --num_leaves [num_leaves] --num_search [num_leaves_to_search] --training_size [traing sample size] --threshold [threshold] --reorder [reorder size] [--split] [--eval_split]
 '''
 import sys
 import numpy as np
@@ -14,6 +14,12 @@ parser.add_argument('--dataset', type=str, help='sift1b, glove ...')
 parser.add_argument('--num_split', type=int, default=-1, required=True, help='# of splits')
 parser.add_argument('--split', action='store_true')
 parser.add_argument('--eval_split', action='store_true')
+parser.add_argument('--metric', type=str, help='dot_product, squared_l2, angular')
+parser.add_argument('--num_leaves', type=int, default=-1, required=True, help='# of leaves')
+parser.add_argument('--num_search', type=int, default=-1, required=True, help='# of searching leaves')
+parser.add_argument('--training_size', type=int, default=-1, required=True, help='training sample size')
+parser.add_argument('--threshold', type=float, default=0.2, required=True, help='anisotropic_quantization_threshold')
+parser.add_argument('--reorder', type=int, default=-1, required=True, help='reorder size')
 args = parser.parse_args()
 
 
@@ -128,16 +134,16 @@ def run(dataset_basedir, split_dataset_path):
 			print("Loading searcher from ", searcher_path)
 			searcher = scann.scann_ops_pybind.load_searcher(searcher_path)
 		else:
-			searcher = scann.scann_ops_pybind.builder(dataset, 10, "dot_product").tree(
-			    num_leaves=2000, num_leaves_to_search=100, training_sample_size=250000).score_ah(
-			    2, anisotropic_quantization_threshold=0.2).reorder(100).build()
+			searcher = scann.scann_ops_pybind.builder(dataset, 10, args.metric).tree(
+			    num_leaves=args.num_leaves, num_leaves_to_search=args.num_search, training_sample_size=args.training_size).score_ah(
+			    2, anisotropic_quantization_threshold=args.threshold).reorder(args.reorder).build()
 			print("Saving searcher to ", searcher_path)
 			os.makedirs(searcher_path, exist_ok=True)
 			searcher.serialize(searcher_path)
 
-		start = time.time()
 		# ScaNN search
 		print("Entering ScaNN searcher")
+		start = time.time()
 		local_neighbors, local_distances = searcher.search_batched(queries, final_num_neighbors=100)
 		end = time.time()
 		total_latency = total_latency + 1000*(end - start)
