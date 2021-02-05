@@ -292,7 +292,6 @@ StatusOr<LookupTable> AsymmetricQueryer<T>::CreateLookupTable(
     const DatapointPtr<T>& query, const DistanceMeasure& lookup_distance,
     AsymmetricHasherConfig::FixedPointLUTConversionOptions
         float_int_conversion_options) const {
-  std::cout << "[YJ] CreateLookupTable" << std::endl;
   const DatapointPtr<T> query_no_bias = [&] {
     if (quantization_scheme() == AsymmetricHasherConfig::PRODUCT_AND_BIAS) {
       return MakeDatapointPtr(query.indices(), query.values(),
@@ -337,8 +336,6 @@ template <typename TopN, typename Functor, typename DatasetView>
 Status AsymmetricQueryer<T>::FindApproximateNeighbors(
     const LookupTable& lookup_table, const SearchParameters& params,
     QueryerOptions<Functor, DatasetView> querying_options, TopN* top_n) {
-  std::cout << "[YJ] FindApproximateNeighbors" << std::endl;
-
   if (static_cast<int>(lookup_table.float_lookup_table.empty()) +
           static_cast<int>(lookup_table.int16_lookup_table.empty()) +
           static_cast<int>(lookup_table.int8_lookup_table.empty()) !=
@@ -361,7 +358,6 @@ Status AsymmetricQueryer<T>::FindApproximateNeighbors(
     return OkStatus();
   }
 
-
   return FindApproximateTopNeighborsTopNDispatch(lookup_table, params,
                                                  querying_options, top_n);
 }
@@ -374,12 +370,10 @@ Status FindApproxNeighborsFastTopNeighbors(
     array<const SearchParameters*, kNumQueries> params,
     const PackedDataset& packed_dataset,
     array<TopNeighbors<float>*, kNumQueries> top_ns) {
-  std::cout << "[YJ] FindApproxNeighborsFastTopNeighbors" << std::endl;
   array<FastTopNeighbors<int16_t>, kNumQueries> ftns;
   array<FastTopNeighbors<int16_t>*, kNumQueries> ftn_ptrs;
   array<const uint8_t*, kNumQueries> raw_luts;
   array<RestrictAllowlistConstView, kNumQueries> restricts;
-  std::cout << "[YJ] FindApproxNeighborsFastTopNeighbors, num queries: " << kNumQueries << std::endl;
   for (size_t batch_idx : Seq(kNumQueries)) {
     int32_t fixed_point_max_distance =
         ai::ComputePossiblyFixedPointMaxDistance<int8_t>(
@@ -416,7 +410,7 @@ Status FindApproxNeighborsFastTopNeighbors(
     ConstSpan<DatapointIndex> ii;
     ConstSpan<int16_t> vv;
     std::tie(ii, vv) = ftns[batch_idx].FinishUnsorted();
-    std::cout << "[YJ] FindApproxNeighborsFastTopNeighbors, ii.size(): " << ii.size() << " / vv.siz(): " << vv.size() << std::endl;
+
     NNResultsVector v(ii.size());
     const float inv_fixed_point_multiplier =
         1.0f / lookup_tables[batch_idx]->fixed_point_multiplier;
@@ -439,7 +433,6 @@ template <typename TopN, typename Functor, typename DatasetView>
 Status AsymmetricQueryer<T>::FindApproximateTopNeighborsTopNDispatch(
     const LookupTable& lookup_table, const SearchParameters& params,
     QueryerOptions<Functor, DatasetView> querying_options, TopN* top_n) {
-  std::cout << "[YJ] FindApproximateTopNeighborsTopNDispatch 1" << std::endl;
   DCHECK(top_n);
   static_assert(
       std::is_same<float, decltype(top_n->approx_bottom().second)>::value,
@@ -487,7 +480,6 @@ Status AsymmetricQueryer<T>::FindApproximateTopNeighborsTopNDispatch(
     const LookupTable& lookup_table, const SearchParameters& params,
     QueryerOptions<Functor, DatasetView> querying_options,
     FastTopNeighbors<DistT>* top_n) {
-  std::cout << "[YJ] FindApproximateTopNeighborsTopNDispatch 2" << std::endl;
   DCHECK(top_n);
 
   static_assert(std::is_same_v<float, DistT>,
@@ -692,7 +684,6 @@ template <typename LookupElement, typename TopN, typename Functor,
 Status AsymmetricQueryer<T>::FindApproximateNeighborsNoLUT16(
     const LookupTable& lookup_table, const SearchParameters& params,
     QueryerOptions<Functor, DatasetView> querying_options, TopN* top_n) {
-  std::cout << "[YJ] FindApproximateNeighborsNoLUT16" << std::endl;
   const DatasetView* __restrict__ hashed_dataset =
       querying_options.hashed_dataset.get();
   const ConstSpan<LookupElement> lookup_raw =
@@ -735,7 +726,6 @@ Status AsymmetricQueryer<T>::FindApproximateNeighborsNoLUT16(
   const RestrictAllowlist* whitelist_or_null = params.restrict_whitelist();
   if (std::is_same<Functor, IdentityPostprocessFunctor>::value ||
       std::is_same<LookupElement, float>::value) {
-    std::cout << "[YJ] version1" << std::endl;
     auto possibly_fixed_point_max_distance =
         ai::ComputePossiblyFixedPointMaxDistance<LookupElement>(
             params.pre_reordering_epsilon(),
@@ -753,7 +743,6 @@ Status AsymmetricQueryer<T>::FindApproximateNeighborsNoLUT16(
     asymmetric_hashing2_internal::MoveOrOverwriteFromClone(
         top_n, &raw_top_items, lookup_table.fixed_point_multiplier);
   } else {
-    std::cout << "[YJ] version2" << std::endl;
     asymmetric_hashing_internal::ConvertToFloatAndPostprocess<Functor>
         postprocess_with_float_conversion(
             querying_options.postprocessing_functor,
@@ -775,7 +764,6 @@ Status AsymmetricQueryer<T>::FindApproximateNeighborsNoLUT16Impl(
     DimensionIndex num_clusters_per_block, ConstSpan<LookupElement> lookup_raw,
     MaxDist max_dist, const RestrictAllowlist* whitelist_or_null,
     Functor postprocess, TopN* top_n) {
-  std::cout << "[YJ] FindApproximateNeighborsNoLUT16Impl" << std::endl;
   using TopNFunctor = ai::AddPostprocessedValueToTopN<TopN, MaxDist, Functor>;
   TopNFunctor top_n_functor(top_n, max_dist, postprocess);
   if (!whitelist_or_null) {
@@ -810,15 +798,11 @@ template <typename TopN, typename Functor, typename DatasetView>
 Status AsymmetricQueryer<T>::FindApproximateNeighborsForceLUT16(
     const LookupTable& lookup_table, const SearchParameters& params,
     QueryerOptions<Functor, DatasetView> querying_options, TopN* top_n) {
-  std::cout << "[YJ] FindApproximateNeighborsForceLUT16" << std::endl;
   DCHECK(!lookup_table.int8_lookup_table.empty());
   DCHECK(querying_options.lut16_packed_dataset);
   const auto& packed_dataset = *querying_options.lut16_packed_dataset;
-  // [YJ] lookup_table.can_use_int16_accumulator is true
-  // std::cout << "[YJ] lookup_table.can_use_int16_accumulator, " << lookup_table.can_use_int16_accumulator << std::endl;
+
   if (std::is_same<Functor, IdentityPostprocessFunctor>::value) {
-    // [YJ] comes here
-    std::cout << "[YJ] FindApproximateNeighborsForceLUT16, is same" << std::endl;
     int32_t fixed_point_max_distance =
         ai::ComputePossiblyFixedPointMaxDistance<int8_t>(
             params.pre_reordering_epsilon(),
@@ -830,7 +814,7 @@ Status AsymmetricQueryer<T>::FindApproximateNeighborsForceLUT16(
       if (fixed_point_max_distance < numeric_limits<int16_t>::min()) {
         return OkStatus();
       }
-      std::cout << "[YJ] FindApproxNeighborsFastTopNeighbors" << std::endl;
+
       return asymmetric_hashing2_internal::FindApproxNeighborsFastTopNeighbors<
           1>({&lookup_table}, {&params}, packed_dataset,
              {reinterpret_cast<TopNeighbors<float>*>(top_n)});
@@ -856,7 +840,6 @@ Status AsymmetricQueryer<T>::FindApproximateNeighborsForceLUT16(
                                 return x * inv_fixed_point_multiplier;
                               });
   } else {
-    // std::cout << "[YJ] FindApproximateNeighborsForceLUT16, NOT is same" << std::endl;
     using FloatPostprocessFunctor =
         asymmetric_hashing_internal::ConvertToFloatAndPostprocess<Functor>;
     FloatPostprocessFunctor postprocess_with_float_conversion(

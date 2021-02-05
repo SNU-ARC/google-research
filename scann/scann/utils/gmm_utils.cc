@@ -358,13 +358,10 @@ GmmUtils::PartitionAssignmentFn GetPartitionAssignmentFn(
     GmmUtils::Options::PartitionAssignmentType type) {
   switch (type) {
     case GmmUtils::Options::UNBALANCED:
-      std::cout << "[YJ] GetPartitionAssignmentFn, UNBALANCED" << std::endl;
       return &UnbalancedPartitionAssignment;
     case GmmUtils::Options::GREEDY_BALANCED:
-      std::cout << "[YJ] GetPartitionAssignmentFn, GREEDY_BALANCED" << std::endl;
       return &GreedyBalancedPartitionAssignment;
     case GmmUtils::Options::MIN_COST_MAX_FLOW:
-      std::cout << "[YJ] GetPartitionAssignmentFn, MIN_COST_MAX_FLOW" << std::endl;
       return &MinCostMaxFlowPartitionAssignment;
     default:
       LOG(FATAL) << "Invalid partition assignment type.";
@@ -377,7 +374,6 @@ Status GmmUtils::GenericKmeans(
     const Dataset& dataset, const int32_t num_clusters,
     DenseDataset<double>* final_centers,
     vector<vector<DatapointIndex>>* final_partitions) {
-  std::cout << "[YJ] GenericKmeans, first" << std::endl;
   return KMeansImpl(false, dataset, {}, num_clusters,
                     GetPartitionAssignmentFn(opts_.partition_assignment_type),
                     final_centers, final_partitions);
@@ -386,7 +382,6 @@ Status GmmUtils::GenericKmeans(
     const Dataset& dataset, ConstSpan<DatapointIndex> subset,
     const int32_t num_clusters, DenseDataset<double>* final_centers,
     vector<vector<DatapointIndex>>* final_partitions) {
-  std::cout << "[YJ] GenericKmeans from KmeansTreeNode::train" << std::endl;
   return KMeansImpl(false, dataset, subset, num_clusters,
                     GetPartitionAssignmentFn(opts_.partition_assignment_type),
                     final_centers, final_partitions);
@@ -619,7 +614,6 @@ SCANN_OUTLINE Status GmmUtils::KMeansImpl(
     int32_t num_clusters, PartitionAssignmentFn partition_assignment_fn,
     DenseDataset<double>* final_centers,
     vector<vector<DatapointIndex>>* final_partitions) {
-  std::cout << "[YJ] KMeansImpl, dataset: " << dataset.size() << " / D : " << dataset.dimensionality() << std::endl;
   DCHECK(final_centers);
   if (dataset.IsDense() && subset.size() == dataset.size() &&
       IsStdIota(subset)) {
@@ -643,7 +637,6 @@ SCANN_OUTLINE Status GmmUtils::KMeansImpl(
   auto impl = GmmUtilsImplInterface::Create(*distance_, dataset, subset,
                                             opts_.parallelization_pool.get());
   const size_t dataset_size = impl->size();
-  std::cout << "[YJ] KMeansImpl, dataset_size: " << dataset_size << std::endl;
   if (!num_clusters) {
     return InvalidArgumentError("Initial centers are undefined.");
   }
@@ -671,44 +664,15 @@ SCANN_OUTLINE Status GmmUtils::KMeansImpl(
         "All %d points are exactly the same in the partition.", dataset_size);
   }
 
-  // [YJ] num_clusters=16
-  std::cout << "[YJ] KMeansImpl, num_clusters: " << num_clusters << std::endl;
-
   vector<double> old_means(num_clusters, -1.0);
   vector<double> new_means(num_clusters, -1.0);
 
-  vector<uint32_t> partition_sizes(num_clusters);   // [YJ] # of vectors per cluster
+  vector<uint32_t> partition_sizes(num_clusters);
   vector<pair<uint32_t, double>> top1_results;
 
   ThreadPool* pool = opts_.parallelization_pool.get();
   const absl::Time deadline = absl::Now() + opts_.max_iteration_duration;
   for (size_t iteration : Seq(opts_.max_iterations + 1)) {
-    // vector<pair<DatapointIndex, double>> UnbalancedPartitionAssignment(
-    //     GmmUtilsImplInterface* impl, const DistanceMeasure& distance,
-    //     const DenseDataset<double>& centers, thread::ThreadPool* pool) {
-    //   vector<pair<DatapointIndex, double>> top1_results(impl->size());
-
-    //   impl->IterateDataset(
-    //       pool, [&](size_t offset,
-    //                 const DenseDataset<double>& dataset_batch) SCANN_INLINE_LAMBDA {
-    //         DCHECK(&dataset_batch);
-    //         DCHECK(&centers);
-    //         DCHECK_GT(dataset_batch.size(), 0);
-    //         DCHECK_GT(centers.size(), 0);
-    //         DCHECK_EQ(centers.dimensionality(), dataset_batch.dimensionality());
-    //         DCHECK(&distance);
-    //         DCHECK(!distance.name().empty());
-    //         DCHECK_OK(VerifyAllFinite(dataset_batch.data()));
-    //         DCHECK_OK(VerifyAllFinite(centers.data()));
-    //         auto results =
-    //             DenseDistanceManyToManyTop1(distance, dataset_batch, centers, pool);
-    //         DCHECK_EQ(results.size(), dataset_batch.size());
-    //         std::copy(results.begin(), results.end(),
-    //                   top1_results.begin() + offset);
-    //       });
-    //   return top1_results;
-    // }
-
     top1_results =
         partition_assignment_fn(impl.get(), *distance_, centers, pool);
     QCHECK_EQ(top1_results.size(), dataset_size);
@@ -728,8 +692,9 @@ SCANN_OUTLINE Status GmmUtils::KMeansImpl(
     for (size_t c : Seq(num_clusters)) {
       new_means[c] /= partition_sizes[c];
     }
+
     bool converged = true;
-    for (size_t c : Seq(num_clusters)) {    // [YJ] if the diff of previous and new means are bigger than certain thresholds, it is not converged
+    for (size_t c : Seq(num_clusters)) {
       const double delta = new_means[c] - old_means[c];
       if (fabs(delta) > opts_.epsilon ||
           partition_sizes[c] < min_cluster_size) {
@@ -748,14 +713,11 @@ SCANN_OUTLINE Status GmmUtils::KMeansImpl(
     }
 
     if (opts_.parallel_cost_multiplier == 1.0) {
-      // [YJ] comes here
-      std::cout << "[YJ[] KMeansImpl, multiplier 1.0" << std::endl;
       SCANN_RETURN_IF_ERROR(RecomputeCentroidsSimple(
           top1_results, impl.get(), partition_sizes, spherical, &centers));
       SCANN_RETURN_IF_ERROR(VerifyAllFinite(centers.data()))
           << "RecomputeCentroidsSimple";
     } else {
-      // std::cout << "[YJ[] KMeansImpl, multiplier !!!1.0" << std::endl;
       SCANN_RETURN_IF_ERROR(RecomputeCentroidsWithParallelCostMultiplier(
           top1_results, impl.get(), partition_sizes, spherical, &centers));
       SCANN_RETURN_IF_ERROR(VerifyAllFinite(centers.data()))
@@ -764,8 +726,6 @@ SCANN_OUTLINE Status GmmUtils::KMeansImpl(
 
     switch (opts_.center_reassignment_type) {
       case Options::RANDOM_REASSIGNMENT:
-        // [YJ] comes here
-        std::cout << "[YJ[] KMeansImpl, RANDOM_REASSIGNMENT" << std::endl;
         SCANN_RETURN_IF_ERROR(
             RandomReinitializeCenters(top1_results, impl.get(), partition_sizes,
                                       spherical, &centers, &new_means));
@@ -773,14 +733,12 @@ SCANN_OUTLINE Status GmmUtils::KMeansImpl(
             << "RandomReinitializeCenters";
         break;
       case Options::SPLIT_LARGEST_CLUSTERS:
-        // std::cout << "[YJ[] KMeansImpl, SPLIT_LARGEST_CLUSTERS" << std::endl;
         SCANN_RETURN_IF_ERROR(SplitLargeClusterReinitialization(
             partition_sizes, spherical, &centers, &new_means));
         SCANN_RETURN_IF_ERROR(VerifyAllFinite(centers.data()))
             << "SplitLargeClusterReinitialization";
         break;
       case Options::PCA_SPLITTING:
-        // std::cout << "[YJ[] KMeansImpl, PCA_SPLITTING" << std::endl;
         SCANN_RETURN_IF_ERROR(
             PCAKmeansReinitialization(top1_results, impl.get(), partition_sizes,
                                       spherical, &centers, &new_means));
@@ -791,8 +749,6 @@ SCANN_OUTLINE Status GmmUtils::KMeansImpl(
   }
 
   if (final_partitions) {
-    // [YJ] comes here
-    std::cout << "[YJ] KMeansImpl, final_partitions" << std::endl;
     vector<vector<DatapointIndex>> partitions(num_clusters);
     for (size_t c : Seq(num_clusters)) {
       partitions[c].reserve(partition_sizes[c]);
@@ -902,12 +858,10 @@ StatusOr<double> GmmUtils::ComputeSpillingThreshold(
   }
 }
 
-// RecomputeCentroidsSimple(top1_results, impl.get(), partition_sizes, spherical, &centers);
 Status GmmUtils::RecomputeCentroidsSimple(
     ConstSpan<pair<uint32_t, double>> top1_results, GmmUtilsImplInterface* impl,
     ConstSpan<uint32_t> partition_sizes, bool spherical,
     DenseDataset<double>* centroids) const {
-  std::cout << "[YJ] RecomputeCentroidsSimple" << std::endl;
   const size_t dataset_size = impl->size();
   const size_t dimensionality = impl->dimensionality();
   std::fill(centroids->mutable_data().begin(), centroids->mutable_data().end(),
@@ -941,7 +895,6 @@ Status GmmUtils::RecomputeCentroidsSimple(
   return OkStatus();
 }
 
-// [YJ] RandomReinitializeCenters(top1_results, impl.get(), partition_sizes, spherical, &centers, &new_means)
 Status GmmUtils::RandomReinitializeCenters(
     ConstSpan<pair<uint32_t, double>> top1_results, GmmUtilsImplInterface* impl,
     ConstSpan<uint32_t> partition_sizes, bool spherical,
@@ -950,7 +903,6 @@ Status GmmUtils::RandomReinitializeCenters(
   int num_reinit_this_iter = 0;
   const uint32_t dimensionality = centroids->dimensionality();
   const size_t dataset_size = impl->size();
-  std::cout << "[YJ] RandomReinitializeCenters, dimensionality: " << dimensionality << " / cetroids->size(): " << centroids->size() << std::endl;
 
   const size_t min_cluster_size = std::min<size_t>(
       opts_.min_cluster_size, dataset_size / partition_sizes.size());
@@ -960,7 +912,7 @@ Status GmmUtils::RandomReinitializeCenters(
     if (partition_sizes[c] >= min_cluster_size) continue;
 
     num_reinit_this_iter++;
-    (*convergence_means)[c] = -1.0;   // [YJ] reset to 0 before next iter anyway..
+    (*convergence_means)[c] = -1.0;
 
     DatapointIndex rand_idx = 0;
     uint32_t cluster_idx = 0;

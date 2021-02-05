@@ -41,13 +41,11 @@ template <typename T>
 StatusOr<unique_ptr<Partitioner<T>>> PartitionerFactoryNoProjection(
     const TypedDataset<T>* dataset, const PartitioningConfig& config,
     shared_ptr<ThreadPool> pool) {
-  std::cout << "[YJ] PartitionerFactoryNoProjection" << std::endl;
   const TypedDataset<T>* sampled;
   unique_ptr<TypedDataset<T>> sampled_mutable;
 
   const float sampling_fraction = ComputeSamplingFraction(config, dataset);
   if (sampling_fraction < 1.0) {
-    // [YJ] comes here
     sampled_mutable.reset(
         (dataset->IsSparse())
             ? absl::implicit_cast<TypedDataset<T>*>(new SparseDataset<T>)
@@ -67,7 +65,6 @@ StatusOr<unique_ptr<Partitioner<T>>> PartitionerFactoryNoProjection(
     for (DatapointIndex i : sample) {
       sampled_mutable->AppendOrDie(dataset->at(i), "");
     }
-    std::cout << "[YJ] PartitionerFactoryNoProjection sampling_fraction: " << sampling_fraction << " / sample: " << sampled->size() << std::endl;
   } else {
     sampled = dataset;
   }
@@ -81,7 +78,6 @@ template <typename T>
 StatusOr<unique_ptr<Partitioner<T>>> PartitionerFactoryWithProjection(
     const TypedDataset<T>* dataset, const PartitioningConfig& config,
     shared_ptr<ThreadPool> pool) {
-    std::cout << "[YJ] PartitionerFactoryWithProjection" << std::endl;
   const TypedDataset<float>* sampled;
   unique_ptr<TypedDataset<float>> sampled_mutable;
   MTRandom rng(kDeterministicSeed + 1);
@@ -92,7 +88,6 @@ StatusOr<unique_ptr<Partitioner<T>>> PartitionerFactoryWithProjection(
       sample.push_back(i);
     }
   }
-  std::cout << "[YJ] PartitionerFactoryWithProjection, sample.size(): " << sample.size() << std::endl;
 
   auto append_to_sampled = [&](const DatapointPtr<float>& dptr) -> Status {
     if (ABSL_PREDICT_FALSE(!sampled_mutable)) {
@@ -129,7 +124,6 @@ template <typename T>
 StatusOr<unique_ptr<Partitioner<T>>> PartitionerFactory(
     const TypedDataset<T>* dataset, const PartitioningConfig& config,
     shared_ptr<ThreadPool> pool) {
-  std::cout << "[YJ] PartitionerFactory" << std::endl;
   auto fp = (config.has_projection()) ? (&PartitionerFactoryWithProjection<T>)
                                       : (&PartitionerFactoryNoProjection<T>);
   return (*fp)(dataset, config, pool);
@@ -139,7 +133,6 @@ template <typename T>
 StatusOr<unique_ptr<Partitioner<T>>> PartitionerFactoryPreSampledAndProjected(
     const TypedDataset<T>* dataset, const PartitioningConfig& config,
     shared_ptr<ThreadPool> training_parallelization_pool) {
-  std::cout << "[YJ] PartitionerFactoryPreSampledAndProjected" << std::endl;
   if (config.tree_type() == PartitioningConfig::KMEANS_TREE) {
     return KMeansTreePartitionerFactoryPreSampledAndProjected(
         dataset, config, training_parallelization_pool);

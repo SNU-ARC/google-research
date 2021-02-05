@@ -353,7 +353,6 @@ class DefaultDenseDatasetView : public DenseDatasetView<T> {
 
   explicit DefaultDenseDatasetView(const DenseDataset<T>& ds)
       : ptr_(ds.data().data()), size_(ds.size()) {
-    std::cout << "[YJ] DefaultDenseDatasetView, dim: " << ds.dimensionality() << std::endl;
     if (ds.packing_strategy() == HashedItem::BINARY) {
       dims_ = ds.dimensionality() / 8 + (ds.dimensionality() % 8 > 0);
     } else if (ds.packing_strategy() == HashedItem::NIBBLE) {
@@ -361,8 +360,6 @@ class DefaultDenseDatasetView : public DenseDatasetView<T> {
     } else {
       dims_ = ds.dimensionality();
     }
-    std::cout << "[YJ] DefaultDenseDatasetView, dim: " << dims_ << std::endl;
-
   }
 
   explicit DefaultDenseDatasetView(ConstSpan<T> span, size_t dimensionality)

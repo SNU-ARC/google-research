@@ -41,6 +41,7 @@ class ScannState(tf.Module):
 
   def __init__(self, tensors):
     super(ScannState, self).__init__()
+    print("[YJ] ScannState")
     scann_config, serialized_partitioner, datapoint_to_token, ah_codebook, hashed_dataset, int8_dataset, int8_multipliers, dp_norms, dataset = tensors
 
     def make_var(v):
@@ -60,6 +61,7 @@ class ScannState(tf.Module):
 
   @tf.function(input_signature=[])
   def recreate_handle(self):
+    print("[YJ] recreate_handle")
     """Creates resource handle to searcher from ScaNN searcher assets."""
     return tensors_to_scann(self.dataset, self.scann_config,
                             self.serialized_partitioner,
@@ -107,6 +109,7 @@ class ScannSearcher(object):
                                 leaves, True)
 
   def serialize_to_module(self):
+    print("[YJ] scann_to_tensors")
     return ScannState(scann_to_tensors(self.searcher_handle))
 
 
@@ -126,7 +129,6 @@ def builder(db, num_neighbors, distance_measure):
   """
 
   def builder_lambda(db, config, training_threads, **kwargs):
-    print("[YJ] builder_lambda, scann_ops.py")
     return create_searcher(db, config, training_threads, **kwargs)
 
   return scann_builder.ScannBuilder(
@@ -141,7 +143,6 @@ def create_searcher(db,
   """Create a ScaNN searcher given a dataset and text config proto."""
   if shared_name is None:
     shared_name = f"scann-{uuid.uuid4()}"
-  print("[YJ] create searcher")
   return ScannSearcher(
       scann_create_searcher(
           x=db,

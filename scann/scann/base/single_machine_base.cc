@@ -254,18 +254,24 @@ bool SingleMachineSearcherBase<T>::needs_dataset() const {
 template <typename T>
 StatusOr<SingleMachineFactoryOptions>
 SingleMachineSearcherBase<T>::ExtractSingleMachineFactoryOptions() {
+  std::cout << "[YJ] ExtractSingleMachineFactoryOptions" << std::endl;
   SingleMachineFactoryOptions opts;
-
+  std::cout << "[YJ] ExtractSingleMachineFactoryOptions, 111" << std::endl;
   opts.compressed_dataset =
       std::const_pointer_cast<DenseDataset<uint8_t>>(compressed_dataset_);
+  std::cout << "[YJ] ExtractSingleMachineFactoryOptions, 222" << std::endl;
   opts.hashed_dataset =
       std::const_pointer_cast<DenseDataset<uint8_t>>(hashed_dataset_);
-
+  std::cout << "[YJ] ExtractSingleMachineFactoryOptions, 333" << std::endl;
   opts.crowding_attributes = std::const_pointer_cast<vector<int64_t>>(
       datapoint_index_to_crowding_attribute_);
   opts.creation_timestamp = creation_timestamp_;
-  if (reordering_helper_)
+  std::cout << "[YJ] ExtractSingleMachineFactoryOptions, 3 endendend" << std::endl;
+  if (reordering_helper_) {
+    std::cout << "[YJ] ExtractSingleMachineFactoryOptions, 444" << std::endl;
     reordering_helper_->AppendDataToSingleMachineFactoryOptions(&opts);
+  }
+  std::cout << "[YJ] ExtractSingleMachineFactoryOptions, END" << std::endl;
   return opts;
 }
 
@@ -279,7 +285,6 @@ template <typename T>
 Status SingleMachineSearcherBase<T>::FindNeighbors(
     const DatapointPtr<T>& query, const SearchParameters& params,
     NNResultsVector* result) const {
-  std::cout << "[YJ] FindNeighbors" << std::endl;
   SCANN_RET_CHECK(query.IsFinite())
       << "Cannot query ScaNN with vectors that contain NaNs or infinity.";
   DCHECK(result);
@@ -288,7 +293,6 @@ Status SingleMachineSearcherBase<T>::FindNeighbors(
       FindNeighborsNoSortNoExactReorder(query, params, result));
 
   if (reordering_helper_) {
-    std::cout << "[YJ] FindNeighbors, reordering" << std::endl;
     SCANN_RETURN_IF_ERROR(ReorderResults(query, params, result));
   }
 
@@ -299,7 +303,6 @@ template <typename T>
 Status SingleMachineSearcherBase<T>::FindNeighborsNoSortNoExactReorder(
     const DatapointPtr<T>& query, const SearchParameters& params,
     NNResultsVector* result) const {
-  std::cout << "[YJ] FindNeighborsNoSortNoExactReorder" << std::endl;
   DCHECK(result);
   bool reordering_enabled =
       compressed_reordering_enabled() || exact_reordering_enabled();
@@ -491,9 +494,7 @@ template <typename T>
 Status SingleMachineSearcherBase<T>::ReorderResults(
     const DatapointPtr<T>& query, const SearchParameters& params,
     NNResultsVector* result) const {
-  std::cout << "[YJ] ReorderResults" << std::endl;
   if (params.post_reordering_num_neighbors() == 1) {
-    std::cout << "[YJ] ReorderResults, post_reordering_num_neighbors" << std::endl;
     TF_ASSIGN_OR_RETURN(
         auto top1,
         reordering_helper_->ComputeTop1ReorderingDistance(query, result));
@@ -505,7 +506,6 @@ Status SingleMachineSearcherBase<T>::ReorderResults(
       result->resize(0);
     }
   } else {
-    std::cout << "[YJ] ReorderResults, ComputeDistancesForReordering" << std::endl;
     SCANN_RETURN_IF_ERROR(
         reordering_helper_->ComputeDistancesForReordering(query, result));
   }
@@ -515,15 +515,12 @@ Status SingleMachineSearcherBase<T>::ReorderResults(
 template <typename T>
 Status SingleMachineSearcherBase<T>::SortAndDropResults(
     NNResultsVector* result, const SearchParameters& params) const {
-  std::cout << "[YJ] SortAndDropResults" << std::endl;
   if (reordering_enabled()) {
-    std::cout << "[YJ] SortAndDropResults, reordering_enabled" << std::endl;
     if (params.post_reordering_num_neighbors() == 1) {
       return OkStatus();
     }
 
     if (params.post_reordering_epsilon() < numeric_limits<float>::infinity()) {
-      std::cout << "[YJ] SortAndDropResults, post_reordering_epsilon" << std::endl;
       auto it = std::partition(
           result->begin(), result->end(),
           [&params](const pair<DatapointIndex, float>& arg) {
@@ -536,7 +533,6 @@ Status SingleMachineSearcherBase<T>::SortAndDropResults(
     if (params.post_reordering_crowding_enabled()) {
       return FailedPreconditionError("Crowding is not supported.");
     } else {
-      std::cout << "[YJ] SortAndDropResults, RemoveNeighborsPastLimit" << std::endl;
       RemoveNeighborsPastLimit(params.post_reordering_num_neighbors(), result);
     }
   }

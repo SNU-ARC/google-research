@@ -28,6 +28,7 @@ std::string numpy_type_name();
 template <typename T>
 Status SpanToNumpy(absl::string_view filename, ConstSpan<T> data,
                    ConstSpan<size_t> dim_sizes = {}) {
+  std::cout << "[YJ] SpanToNumpy" << std::endl;
   std::string shape_str = "(";
   size_t dim_prod = 1;
   for (size_t dim_size : dim_sizes) {
@@ -70,6 +71,7 @@ Status VectorToNumpy(absl::string_view filename, const vector<T>& data,
 
 template <typename T>
 Status DatasetToNumpy(absl::string_view filename, const DenseDataset<T>& data) {
+  std::cout << "[YJ] DatasetToNumpy" << std::endl;
   return SpanToNumpy(filename, data.data(), {data.size()});
 }
 

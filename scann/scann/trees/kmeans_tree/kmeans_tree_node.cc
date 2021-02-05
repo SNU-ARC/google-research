@@ -107,7 +107,6 @@ Status KMeansTreeNode::Train(const Dataset& training_data,
                              const DistanceMeasure& training_distance,
                              int32_t k_per_level, int32_t current_level,
                              KMeansTreeTrainingOptions* opts) {
-  std::cout << "[YJ] KMeansTreeNode:Train, training_data: " << training_data.size() << std::endl;
   indices_ = std::move(subset);
   if (indices_.size() <= opts->max_leaf_size) {
     return OkStatus();
@@ -132,13 +131,10 @@ Status KMeansTreeNode::Train(const Dataset& training_data,
   vector<vector<DatapointIndex>> subpartitions;
   DenseDataset<double> centers;
   if (opts->partitioning_type == PartitioningConfig::SPHERICAL) {
-    // std::cout << "[YJ] KMeansTreeNode:Train, SPHERICAL" << std::endl;
     SCANN_RETURN_IF_ERROR(gmm.SphericalKmeans(
         training_data, indices_, k_per_level, &centers, &subpartitions));
   } else {
-    // [YJ] comes here
     DCHECK_EQ(opts->partitioning_type, PartitioningConfig::GENERIC);
-    std::cout << "[YJ] KMeansTreeNode:Train, GENERIC, k_per_level: " << k_per_level << std::endl;
     SCANN_RETURN_IF_ERROR(gmm.GenericKmeans(
         training_data, indices_, k_per_level, &centers, &subpartitions));
   }
@@ -156,10 +152,8 @@ Status KMeansTreeNode::Train(const Dataset& training_data,
 
   if (spilling_type != DatabaseSpillingConfig::NO_SPILLING &&
       opts->per_node_spilling_factor > 1.0) {
-    // [YJ] does not come here
-    // std::cout << "[YJ] KMeansTreeNode:Train, if" << std::endl;
     vector<vector<DatapointIndex>> spilled(centers.size());
-    for (DatapointIndex i : indices_) { 
+    for (DatapointIndex i : indices_) {
       Datapoint<double> double_dp;
       training_data.GetDatapoint(i, &double_dp);
       vector<pair<DatapointIndex, float>> spill_centers;
@@ -195,8 +189,6 @@ Status KMeansTreeNode::Train(const Dataset& training_data,
   }
 
   if (opts->compute_residual_stdev) {
-    // [YJ] does not come here
-    // std::cout << "[YJ] KMeansTreeNode::Train, compute_residual_stdev" << std::endl;
     residual_stdevs_.resize(centers.size());
     ParallelFor<1>(Seq(centers.size()),
                    opts->training_parallelization_pool.get(), [&](size_t i) {
@@ -222,7 +214,6 @@ Status KMeansTreeNode::Train(const Dataset& training_data,
 
   FreeBackingStorage(&indices_);
   children_ = vector<KMeansTreeNode>(centers.size());
-  // [YJ[ Train children recursively
   for (size_t i = 0; i < children_.size(); ++i) {
     children_[i].Reset();
     Status status = children_[i].Train(
@@ -330,4 +321,5 @@ void KMeansTreeNode::UnionIndicesImpl(
     }
   }
 }
+
 }  // namespace research_scann
