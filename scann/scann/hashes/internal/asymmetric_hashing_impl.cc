@@ -574,6 +574,15 @@ StatusOr<vector<float>> AhImpl<T>::CreateRawFloatLookupTable(
   SCANN_RET_CHECK_EQ(centers.size(), projected.size());
   std::cout << "[YJ] num clusters per block : " << num_clusters_per_block << " / # of blocks : " << projected.size() << std::endl;
   std::cout << "[YJ] center : " << centers.size() << std::endl;
+  std::cout << "[YJ] Query: ";
+  for(auto i=0; i<query.dimensionality(); i++)
+    std::cout << query.values()[i] << " ";
+  std::cout << std::endl;
+  std::cout << "[YJ] Projected: ";
+  for(auto i=0; i<projected.size(); i+=2)
+    std::cout << projected[i] << " " << projected[i+1] << "/ ";
+  std::cout << std::endl;
+
   vector<float> result(num_clusters_per_block * projected.size());    // [YJ] (# of centroids) * (# of blocks)
   float* result_row_start = result.data();
   std::cout << "[YJ] query dimension : " << query.dimensionality() << std::endl;

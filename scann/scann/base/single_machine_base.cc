@@ -492,6 +492,7 @@ Status SingleMachineSearcherBase<T>::ReorderResults(
     const DatapointPtr<T>& query, const SearchParameters& params,
     NNResultsVector* result) const {
   std::cout << "[YJ] ReorderResults" << std::endl;
+  // [YJ] post_reordering_num_neighbors() == final_num_neighbors from parameter
   if (params.post_reordering_num_neighbors() == 1) {
     std::cout << "[YJ] ReorderResults, post_reordering_num_neighbors" << std::endl;
     TF_ASSIGN_OR_RETURN(

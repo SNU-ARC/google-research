@@ -604,6 +604,7 @@ Status TreeAHHybridResidual::FindNeighborsInternal1(
       DCHECK(query_preprocessing_results->lookup_table());
       leaf_specific_params = query_preprocessing_results->lookup_table();
     } else {
+      std::cout << "[YJ] internal1, CreateLookupTable" << std::endl;
       TF_ASSIGN_OR_RETURN(
           auto shared_lookup_table,
           asymmetric_queryer_->CreateLookupTable(query, lookup_type_tag_));
@@ -613,7 +614,7 @@ Status TreeAHHybridResidual::FindNeighborsInternal1(
     leaf_specific_params->SetFastTopNeighbors(&top_n);
     leaf_params.set_searcher_specific_optional_parameters(leaf_specific_params);
     NNResultsVector unused_leaf_results;
-
+    std::cout << "[YJ] internal2, CreateLookupTable, centers_to_search: " << centers_to_search.size() << std::endl;
     for (size_t i = 0; i < centers_to_search.size(); ++i) {
       const uint32_t token = centers_to_search[i].node->LeafId();
       const float distance_to_center = centers_to_search[i].distance_to_center;

@@ -48,7 +48,8 @@ import scann
 # queries = glove_h5py['test']
 
 
-glove_h5py = h5py.File("/arc-share/MICRO21_ANNA/GLOVE/glove-100-angular.hdf5", "r")
+#glove_h5py = h5py.File("/arc-share/MICRO21_ANNA/GLOVE/glove-100-angular.hdf5", "r")
+glove_h5py = h5py.File("/home/yejin/MICRO21_ANNA/GLOVE/glove-100-angular.hdf5", "r")
 
 list(glove_h5py.keys())
 
