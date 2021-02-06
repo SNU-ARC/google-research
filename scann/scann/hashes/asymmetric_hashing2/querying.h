@@ -316,12 +316,15 @@ StatusOr<LookupTable> AsymmetricQueryer<T>::CreateLookupTable(
         "1.0].");
   }
   if (IsSame<LookupElement, float>()) {
+    std::cout << "[YJ] CreateLookupTable, float" << std::endl;
     result.float_lookup_table = std::move(raw_float_lookup);
   } else if (IsSameAny<LookupElement, int16_t, uint16_t>()) {
+    std::cout << "[YJ] CreateLookupTable, int16_t" << std::endl;
     result.int16_lookup_table = ai::ConvertLookupToFixedPoint<uint16_t>(
         raw_float_lookup, float_int_conversion_options,
         &result.fixed_point_multiplier);
   } else {
+    std::cout << "[YJ] CreateLookupTable, uint8_t" << std::endl;
     result.int8_lookup_table = ai::ConvertLookupToFixedPoint<uint8_t>(
         raw_float_lookup, float_int_conversion_options,
         &result.fixed_point_multiplier);
@@ -439,7 +442,7 @@ template <typename TopN, typename Functor, typename DatasetView>
 Status AsymmetricQueryer<T>::FindApproximateTopNeighborsTopNDispatch(
     const LookupTable& lookup_table, const SearchParameters& params,
     QueryerOptions<Functor, DatasetView> querying_options, TopN* top_n) {
-  std::cout << "[YJ] FindApproximateTopNeighborsTopNDispatch 1" << std::endl;
+  // std::cout << "[YJ] FindApproximateTopNeighborsTopNDispatch 1" << std::endl;
   DCHECK(top_n);
   static_assert(
       std::is_same<float, decltype(top_n->approx_bottom().second)>::value,
@@ -487,6 +490,7 @@ Status AsymmetricQueryer<T>::FindApproximateTopNeighborsTopNDispatch(
     const LookupTable& lookup_table, const SearchParameters& params,
     QueryerOptions<Functor, DatasetView> querying_options,
     FastTopNeighbors<DistT>* top_n) {
+  // [YJ] comes here
   std::cout << "[YJ] FindApproximateTopNeighborsTopNDispatch 2" << std::endl;
   DCHECK(top_n);
 
@@ -512,6 +516,12 @@ Status AsymmetricQueryer<T>::FindApproximateTopNeighborsTopNDispatch(
         "FastTopNeighbors+AsymmetricQueryer fast path only supports int16_t "
         "accumulators.");
 
+  // struct PackedDataset {
+  //   std::vector<uint8_t> bit_packed_data = {};
+  //   DatapointIndex num_datapoints = 0;
+  //   DimensionIndex num_blocks = 0;
+  // };
+
   const auto& packed_dataset = *querying_options.lut16_packed_dataset;
   array<FastTopNeighbors<float>*, 1> tops = {top_n};
   array<const uint8_t*, 1> lookups = {lookup_table.int8_lookup_table.data()};
@@ -521,7 +531,7 @@ Status AsymmetricQueryer<T>::FindApproximateTopNeighborsTopNDispatch(
       params.restricts_enabled()
           ? RestrictAllowlistConstView(*params.restrict_whitelist())
           : RestrictAllowlistConstView()};
-
+  std::cout << "[YJ] packed_dataset: " << packed_dataset.bit_packed_data.size() << ", " << packed_dataset.bit_packed_data[0] << std::endl;
   asymmetric_hashing_internal::LUT16ArgsTopN<float> args;
   args.packed_dataset = packed_dataset.bit_packed_data.data();
   args.num_32dp_simd_iters = DivRoundUp(packed_dataset.num_datapoints, 32);

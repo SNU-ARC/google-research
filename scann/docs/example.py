@@ -47,9 +47,10 @@ import scann
 # dataset = glove_h5py['train']
 # queries = glove_h5py['test']
 
-
-#glove_h5py = h5py.File("/arc-share/MICRO21_ANNA/GLOVE/glove-100-angular.hdf5", "r")
-glove_h5py = h5py.File("/home/yejin/MICRO21_ANNA/GLOVE/glove-100-angular.hdf5", "r")
+if os.path.isdir("/arc-share"):
+	glove_h5py = h5py.File("/arc-share/MICRO21_ANNA/GLOVE/glove-100-angular.hdf5", "r")
+else:
+	glove_h5py = h5py.File("/home/yejin/MICRO21_ANNA/GLOVE/glove-100-angular.hdf5", "r")
 
 list(glove_h5py.keys())
 
@@ -115,7 +116,7 @@ def compute_recall(neighbors, true_neighbors):
 # we have been exclusively calling batch search so far; the single-query call has the same API
 print("[YJ] PY,,,query : ", queries[0])
 start = time.time()
-neighbors, distances = searcher.search(queries[0], final_num_neighbors=5)
+neighbors, distances = searcher.search(queries[0], final_num_neighbors=17)
 end = time.time()
 
 print(neighbors)

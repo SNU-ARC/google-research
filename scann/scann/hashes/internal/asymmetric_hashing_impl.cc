@@ -574,14 +574,15 @@ StatusOr<vector<float>> AhImpl<T>::CreateRawFloatLookupTable(
   SCANN_RET_CHECK_EQ(centers.size(), projected.size());
   std::cout << "[YJ] num clusters per block : " << num_clusters_per_block << " / # of blocks : " << projected.size() << std::endl;
   std::cout << "[YJ] center : " << centers.size() << std::endl;
-  std::cout << "[YJ] Query: ";
-  for(auto i=0; i<query.dimensionality(); i++)
-    std::cout << query.values()[i] << " ";
-  std::cout << std::endl;
-  std::cout << "[YJ] Projected: ";
-  for(auto i=0; i<projected.size(); i++)
-    std::cout << projected[i].values()[0] << " " << projected[i].values()[1] << "/ ";
-  std::cout << std::endl;
+
+  // std::cout << "[YJ] Query: ";
+  // for(auto i=0; i<query.dimensionality(); i++)
+  //   std::cout << query.values()[i] << " ";
+  // std::cout << std::endl;
+  // std::cout << "[YJ] Projected: ";
+  // for(auto i=0; i<projected.size(); i++)
+  //   std::cout << projected[i].values()[0] << " " << projected[i].values()[1] << "/ ";
+  // std::cout << std::endl;
 
   vector<float> result(num_clusters_per_block * projected.size());    // [YJ] (# of centroids) * (# of blocks)
   float* result_row_start = result.data();
@@ -592,6 +593,7 @@ StatusOr<vector<float>> AhImpl<T>::CreateRawFloatLookupTable(
     const DatapointPtr<FloatT> projected_ptr = projected[i];    // [YJ] chunked query
     const DenseDataset<FloatT>& cur_centers = centers[i];
     if (projected_ptr.IsSparse()) {
+      // [YJ] does not come here
       // std::cout << "[YJ] IsSparse" << std::endl;
       for (size_t j = 0; j < num_clusters_per_block; ++j) {
         result_row_start[j] = static_cast<float>(
@@ -607,7 +609,7 @@ StatusOr<vector<float>> AhImpl<T>::CreateRawFloatLookupTable(
       } else {
         // [YJ] comes here
         // [YJ] call DenseDistanceOneToMany in one_to_many.h
-        std::cout << "[YJ] project_ptr: " << *projected_ptr.values() << " / dimension: " << projected_ptr.dimensionality() << std::endl;
+        std::cout << "[YJ] project_ptr: " << projected_ptr.values()[0] << " " << projected_ptr.values()[1] << " / dimension: " << projected_ptr.dimensionality() << std::endl;
         std::cout << "[YJ] cur_centers.size(): " << cur_centers.size() << std::endl;
         std::cout << "[YJ] cur_Center.data().size(): " << cur_centers.data().size() << std::endl;
         std::cout << "[YJ] cur_Center.data().dimensionality(): " << cur_centers.dimensionality() << std::endl;
@@ -618,6 +620,10 @@ StatusOr<vector<float>> AhImpl<T>::CreateRawFloatLookupTable(
             lookup_distance, projected_ptr, cur_centers,
             MutableSpan<float>(result_row_start, num_clusters_per_block));
       }
+      std::cout << "[YJ] Result: ";
+      for (auto i=0; i<num_clusters_per_block; i++)
+        std::cout << *(result_row_start+i) << " ";
+      std::cout << std::endl;
     }
   }
   std::cout << "[YJ] CreateRawFloatLookupTable, all centers done" << std::endl;
@@ -647,11 +653,13 @@ template <typename T, typename Lambda>
 inline vector<T> ConvertLookupToFixedPointImpl(ConstSpan<float> raw_lookup,
                                                Lambda convert_to_int_lambda,
                                                float multiplier) {
+  std::cout << "[YJ] ConvertLookupToFixedPointImpl" << std::endl;
   constexpr T kBias = FixedPointBias<T>();
   vector<T> result(raw_lookup.size());
   for (size_t i = 0; i < raw_lookup.size(); ++i) {
     result[i] = convert_to_int_lambda(raw_lookup[i] * multiplier) + kBias;
   }
+  std::cout << "[YJ] example, raw_lookup: " << raw_lookup[0] << " -> " << result[0] << std::endl;
   return result;
 }
 
@@ -672,6 +680,7 @@ vector<T> ConvertLookupToFixedPoint(
   constexpr int kRound =
       AsymmetricHasherConfig::FixedPointLUTConversionOptions::ROUND;
   if (conversion_options.multiplier_quantile() == 1.0f) {
+    std::cout << "[YJ] ConvertLookupToFixedPoint, 1.0f" << std::endl;
     if (conversion_options.float_to_int_conversion_method() == kRound) {
       return ConvertLookupToFixedPointImpl<T>(
           raw_lookup, [](float f) { return std::lround(f); }, *multiplier);
@@ -681,6 +690,7 @@ vector<T> ConvertLookupToFixedPoint(
           *multiplier);
     }
   } else {
+    std::cout << "[YJ] ConvertLookupToFixedPoint, else" << std::endl;
     auto compress_to_bounds = [](float f) {
       f = std::min<float>(f, numeric_limits<SignedT>::max());
       return std::max<float>(f, numeric_limits<SignedT>::min());

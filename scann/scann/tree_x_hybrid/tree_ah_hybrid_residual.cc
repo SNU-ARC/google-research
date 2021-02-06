@@ -623,9 +623,13 @@ Status TreeAHHybridResidual::FindNeighborsInternal1(
 
       TranslateGlobalToLeafLocalWhitelist(params, datapoints_by_token_[token],
                                           &leaf_params);
+      std::cout << "[YJ] datapoints_by_token[token]:" << datapoints_by_token_[token].size() << std::endl;
+      for (auto i: datapoints_by_token_[token])
+        std::cout << i << " ";
+      std::cout << std::endl;
       SCANN_RETURN_IF_ERROR(
           leaf_searchers_[token]->FindNeighborsNoSortNoExactReorder(
-              query, leaf_params, &unused_leaf_results));
+              query, leaf_params, &unused_leaf_results)); // [YJ] returns noting to unused_leaf_results, instead to top_n
     }
 
     AssignResults(&top_n, result);

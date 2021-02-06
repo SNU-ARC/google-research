@@ -303,12 +303,14 @@ Status ExactReorderingHelper<T>::ComputeDistancesForReordering(
 
   // [YJ] Comes here
   if (query.IsDense() && exact_reordering_dataset_->IsDense()) {
-    // std::cout << "[YJ] Dense query" << std::endl;
+    // [YJ] comes here
+    std::cout << "[YJ] Dense query" << std::endl;
     const auto& dense_dataset =
         *down_cast<const DenseDataset<T>*>(exact_reordering_dataset_.get());
     DenseDistanceOneToMany<T, pair<DatapointIndex, float>>(
         *exact_reordering_distance_, query, dense_dataset,
         MakeMutableSpan(*result));
+    std::cout << "[YJ] Dense query, result: " << result->size() << std::endl;
   } else if (query.IsSparse() && exact_reordering_dataset_->IsSparse()) {
     // std::cout << "[YJ] Sparse query" << std::endl;
     const auto& sparse_dataset =
