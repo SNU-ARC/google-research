@@ -579,8 +579,8 @@ StatusOr<vector<float>> AhImpl<T>::CreateRawFloatLookupTable(
     std::cout << query.values()[i] << " ";
   std::cout << std::endl;
   std::cout << "[YJ] Projected: ";
-  for(auto i=0; i<projected.size(); i+=2)
-    std::cout << projected[i] << " " << projected[i+1] << "/ ";
+  for(auto i=0; i<projected.size(); i++)
+    std::cout << projected[i].values()[0] << " " << projected[i].values()[1] << "/ ";
   std::cout << std::endl;
 
   vector<float> result(num_clusters_per_block * projected.size());    // [YJ] (# of centroids) * (# of blocks)
