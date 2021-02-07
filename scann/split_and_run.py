@@ -129,11 +129,10 @@ def run(dataset_basedir, split_dataset_path):
 		# Create ScaNN searcher
 		print("Entering ScaNN builder")
 		searcher = None
-		if False:
-			print('a')
-		#if os.path.isdir(searcher_path):
-			#print("Loading searcher from ", searcher_path)
-			#searcher = scann.scann_ops_pybind.load_searcher(searcher_path)
+
+		if os.path.isdir(searcher_path):
+			print("Loading searcher from ", searcher_path)
+			searcher = scann.scann_ops_pybind.load_searcher(searcher_path)
 		else:
 			searcher = scann.scann_ops_pybind.builder(dataset, 10, args.metric).tree(
 				num_leaves=args.num_leaves, num_leaves_to_search=args.num_search, training_sample_size=args.training_size).score_ah(
