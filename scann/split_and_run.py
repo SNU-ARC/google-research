@@ -14,14 +14,13 @@ parser.add_argument('--dataset', type=str, help='sift1b, glove ...')
 parser.add_argument('--num_split', type=int, default=-1, required=True, help='# of splits')
 parser.add_argument('--split', action='store_true')
 parser.add_argument('--eval_split', action='store_true')
-parser.add_argument('--metric', type=str, help='dot_product, squared_l2, angular')
+parser.add_argument('--metric', type=str, required=True, help='dot_product, squared_l2, angular')
 parser.add_argument('--num_leaves', type=int, default=-1, required=True, help='# of leaves')
 parser.add_argument('--num_search', type=int, default=-1, required=True, help='# of searching leaves')
 parser.add_argument('--training_size', type=int, default=-1, required=True, help='training sample size')
 parser.add_argument('--threshold', type=float, default=0.2, required=True, help='anisotropic_quantization_threshold')
 parser.add_argument('--reorder', type=int, default=-1, required=True, help='reorder size')
 args = parser.parse_args()
-
 
 def compute_recall(neighbors, true_neighbors):
     total = 0
@@ -130,13 +129,15 @@ def run(dataset_basedir, split_dataset_path):
 		# Create ScaNN searcher
 		print("Entering ScaNN builder")
 		searcher = None
-		if os.path.isdir(searcher_path):
-			print("Loading searcher from ", searcher_path)
-			searcher = scann.scann_ops_pybind.load_searcher(searcher_path)
+		if False:
+			print('a')
+		#if os.path.isdir(searcher_path):
+			#print("Loading searcher from ", searcher_path)
+			#searcher = scann.scann_ops_pybind.load_searcher(searcher_path)
 		else:
 			searcher = scann.scann_ops_pybind.builder(dataset, 10, args.metric).tree(
-			    num_leaves=args.num_leaves, num_leaves_to_search=args.num_search, training_sample_size=args.training_size).score_ah(
-			    2, anisotropic_quantization_threshold=args.threshold).reorder(args.reorder).build()
+				num_leaves=args.num_leaves, num_leaves_to_search=args.num_search, training_sample_size=args.training_size).score_ah(
+				2, anisotropic_quantization_threshold=args.threshold).reorder(args.reorder).build()
 			print("Saving searcher to ", searcher_path)
 			os.makedirs(searcher_path, exist_ok=True)
 			searcher.serialize(searcher_path)
@@ -150,7 +151,10 @@ def run(dataset_basedir, split_dataset_path):
 		neighbors = np.append(neighbors, local_neighbors+base_idx, axis=1)
 		distances = np.append(distances, local_distances, axis=1)
 		base_idx = base_idx + dataset.shape[0]
-	final_neighbors = np.take_along_axis(neighbors, np.argsort(-distances, axis=-1), -1)
+	if "dot_prouct" in args.metric or "angular" in args.metric:
+		final_neighbors = np.take_along_axis(neighbors, np.argsort(-distances, axis=-1), -1)
+	else:
+		final_neighbors = np.take_along_axis(neighbors, np.argsort(distances, axis=-1), -1)
 	print("Recall@1:", compute_recall(final_neighbors[:,:1], gt[:, :1]))
 	print("Recall@10:", compute_recall(final_neighbors[:,:10], gt[:, :10]))
 	print("Recall@100:", compute_recall(final_neighbors[:,:100], gt[:, :100]))
