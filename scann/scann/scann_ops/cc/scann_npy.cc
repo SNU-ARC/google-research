@@ -146,7 +146,6 @@ ScannNumpy::SearchBatched(const np_row_major_arr<float>& queries, int final_nn,
 }
 
 void ScannNumpy::Serialize(std::string path) {
-  std::cout << "[YJ] Serialize, scann_npy" << std::endl;
   Status status = scann_.Serialize(path);
   RuntimeErrorIfNotOk("Failed to extract SingleMachineFactoryOptions: ",
                       status);

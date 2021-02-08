@@ -254,24 +254,17 @@ bool SingleMachineSearcherBase<T>::needs_dataset() const {
 template <typename T>
 StatusOr<SingleMachineFactoryOptions>
 SingleMachineSearcherBase<T>::ExtractSingleMachineFactoryOptions() {
-  std::cout << "[YJ] ExtractSingleMachineFactoryOptions" << std::endl;
   SingleMachineFactoryOptions opts;
-  std::cout << "[YJ] ExtractSingleMachineFactoryOptions, 111" << std::endl;
   opts.compressed_dataset =
       std::const_pointer_cast<DenseDataset<uint8_t>>(compressed_dataset_);
-  std::cout << "[YJ] ExtractSingleMachineFactoryOptions, 222" << std::endl;
   opts.hashed_dataset =
       std::const_pointer_cast<DenseDataset<uint8_t>>(hashed_dataset_);
-  std::cout << "[YJ] ExtractSingleMachineFactoryOptions, 333" << std::endl;
   opts.crowding_attributes = std::const_pointer_cast<vector<int64_t>>(
       datapoint_index_to_crowding_attribute_);
   opts.creation_timestamp = creation_timestamp_;
-  std::cout << "[YJ] ExtractSingleMachineFactoryOptions, 3 endendend" << std::endl;
   if (reordering_helper_) {
-    std::cout << "[YJ] ExtractSingleMachineFactoryOptions, 444" << std::endl;
     reordering_helper_->AppendDataToSingleMachineFactoryOptions(&opts);
   }
-  std::cout << "[YJ] ExtractSingleMachineFactoryOptions, END" << std::endl;
   return opts;
 }
 

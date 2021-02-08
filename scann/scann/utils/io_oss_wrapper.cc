@@ -26,7 +26,6 @@ Status OpenSourceableFileWriter::Write(ConstSpan<char> bytes) {
 
 Status WriteProtobufToFile(absl::string_view filename,
                            google::protobuf::Message* message) {
-  std::cout << "[YJ] WriteProtobufToFile" << std::endl;
   std::ofstream fout(std::string(filename).c_str(), std::ofstream::binary);
   if (!fout)
     return InternalError("Failed to open file " + std::string(filename));

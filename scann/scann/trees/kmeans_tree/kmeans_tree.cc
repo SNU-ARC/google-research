@@ -70,7 +70,6 @@ Status KMeansTree::Train(const Dataset& training_data,
 }
 
 void KMeansTree::Serialize(SerializedKMeansTree* result) const {
-  std::cout << "[YJ] KMeansTree:Serialize" << std::endl;
   CHECK(result != nullptr);
   result->set_learned_spilling_type(learned_spilling_type_);
   root_.CopyToProto(result->mutable_root(), true);

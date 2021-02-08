@@ -41,7 +41,6 @@ class ScannState(tf.Module):
 
   def __init__(self, tensors):
     super(ScannState, self).__init__()
-    print("[YJ] ScannState")
     scann_config, serialized_partitioner, datapoint_to_token, ah_codebook, hashed_dataset, int8_dataset, int8_multipliers, dp_norms, dataset = tensors
 
     def make_var(v):
@@ -61,7 +60,6 @@ class ScannState(tf.Module):
 
   @tf.function(input_signature=[])
   def recreate_handle(self):
-    print("[YJ] recreate_handle")
     """Creates resource handle to searcher from ScaNN searcher assets."""
     return tensors_to_scann(self.dataset, self.scann_config,
                             self.serialized_partitioner,
@@ -109,7 +107,6 @@ class ScannSearcher(object):
                                 leaves, True)
 
   def serialize_to_module(self):
-    print("[YJ] scann_to_tensors")
     return ScannState(scann_to_tensors(self.searcher_handle))
 
 

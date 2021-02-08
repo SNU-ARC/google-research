@@ -240,43 +240,20 @@ Status ScannInterface::SearchBatchedParallel(const DenseDataset<float>& queries,
 }
 
 Status ScannInterface::Serialize(std::string path) {
-  std::cout << "[YJ] Serialize" << std::endl;
   TF_ASSIGN_OR_RETURN(auto opts, scann_->ExtractSingleMachineFactoryOptions());
-
-  // SingleMachineFactoryOptions opts;
-  // std::cout << "[YJ] ExtractSingleMachineFactoryOptions, 111" << std::endl;
-  // opts.compressed_dataset =
-  //     std::const_pointer_cast<DenseDataset<uint8_t>>(compressed_dataset_);
-  // std::cout << "[YJ] ExtractSingleMachineFactoryOptions, 222" << std::endl;
-  // opts.hashed_dataset =
-  //     std::const_pointer_cast<DenseDataset<uint8_t>>(hashed_dataset_);
-  // std::cout << "[YJ] ExtractSingleMachineFactoryOptions, 333" << std::endl;
-  // opts.crowding_attributes = std::const_pointer_cast<vector<int64_t>>(
-  //     datapoint_index_to_crowding_attribute_);
-  // opts.creation_timestamp = creation_timestamp_;
-  // std::cout << "[YJ] ExtractSingleMachineFactoryOptions, 3 endendend" << std::endl;
-  // if (reordering_helper_) {
-  //   std::cout << "[YJ] ExtractSingleMachineFactoryOptions, 444" << std::endl;
-  //   reordering_helper_->AppendDataToSingleMachineFactoryOptions(&opts);
-  // }
-  // std::cout << "[YJ] ExtractSingleMachineFactoryOptions, END" << std::endl;
-
 
   SCANN_RETURN_IF_ERROR(
       WriteProtobufToFile(path + "/scann_config.pb", &config_));
   if (opts.ah_codebook != nullptr) {
-    std::cout << "[YJ] ah_codebook" << std::endl;
     SCANN_RETURN_IF_ERROR(
         WriteProtobufToFile(path + "/ah_codebook.pb", opts.ah_codebook.get()));
   }
   if (opts.serialized_partitioner != nullptr) {
-    std::cout << "[YJ] serialized_partitioner" << std::endl;
     SCANN_RETURN_IF_ERROR(
         WriteProtobufToFile(path + "/serialized_partitioner.pb",
                             opts.serialized_partitioner.get()));
   }
   if (opts.datapoints_by_token != nullptr) {
-    std::cout << "[YJ] datapoint_to_token" << std::endl;
     vector<int32_t> datapoint_to_token(n_points_);
     for (const auto& [token_idx, dps] : Enumerate(*opts.datapoints_by_token))
       for (auto dp_idx : dps) datapoint_to_token[dp_idx] = token_idx;
@@ -284,7 +261,6 @@ Status ScannInterface::Serialize(std::string path) {
         VectorToNumpy(path + "/datapoint_to_token.npy", datapoint_to_token));
   }
   if (opts.hashed_dataset != nullptr) {
-    std::cout << "[YJ] hashed_dataset" << std::endl;
     SCANN_RETURN_IF_ERROR(
         DatasetToNumpy(path + "/hashed_dataset.npy", *(opts.hashed_dataset)));
   }
@@ -292,19 +268,16 @@ Status ScannInterface::Serialize(std::string path) {
     auto fixed_point = opts.pre_quantized_fixed_point;
     auto dataset = fixed_point->fixed_point_dataset;
     if (dataset != nullptr) {
-      std::cout << "[YJ] int8_dataset" << std::endl;
       SCANN_RETURN_IF_ERROR(
           DatasetToNumpy(path + "/int8_dataset.npy", *dataset));
     }
     auto multipliers = fixed_point->multiplier_by_dimension;
     if (multipliers != nullptr) {
-      std::cout << "[YJ] int8_multipliers" << std::endl;
       SCANN_RETURN_IF_ERROR(
           VectorToNumpy(path + "/int8_multipliers.npy", *multipliers));
     }
     auto norms = fixed_point->squared_l2_norm_by_datapoint;
     if (norms != nullptr) {
-      std::cout << "[YJ] dp_norms" << std::endl;
       SCANN_RETURN_IF_ERROR(VectorToNumpy(path + "/dp_norms.npy", *norms));
     }
   }
@@ -315,7 +288,6 @@ Status ScannInterface::Serialize(std::string path) {
     auto dataset = dynamic_cast<const DenseDataset<float>*>(scann_->dataset());
     if (dataset == nullptr)
       return InternalError("Failed to cast dataset to DenseDataset<float>.");
-   std::cout << "[YJ] DatasetToNumpy" << std::endl;
    SCANN_RETURN_IF_ERROR(DatasetToNumpy(path + "/dataset.npy", *dataset));
   }
   return OkStatus();
