@@ -69,7 +69,6 @@ class ScannSearcher(object):
     return self.searcher.search_batched(queries, final_nn, pre_nn, leaves, True)
 
   def serialize(self, artifacts_dir):
-    print("scann_ops_pybins, serialize")
     self.searcher.serialize(artifacts_dir)
 
 

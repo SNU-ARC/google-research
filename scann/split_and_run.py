@@ -28,7 +28,7 @@ if args.eval_split:
 	assert args.program!=None and args.metric!=None
 
 if args.program=='scann':
-	assert args.num_leaves!=-1 and args.num_search!=-1 and args.training_size!=-1 and args.reorder!=-1
+	assert args.num_leaves!=-1 and args.num_search!=-1 and args.coarse_training_size!=-1 and args.fine_training_size!=-1 and args.reorder!=-1
 	import scann
 elif args.program == "faiss":
 	from runfaiss import train_faiss, build_faiss, search_faiss
@@ -183,10 +183,14 @@ def run_scann(dataset_basedir, split_dataset_path):
 		neighbors = np.append(neighbors, local_neighbors+base_idx, axis=1)
 		distances = np.append(distances, local_distances, axis=1)
 		base_idx = base_idx + dataset.shape[0]
-	if "dot_prouct" in args.metric or "angular" in args.metric:
+	if "dot_product" == args.metric or "angular" == args.metric:
+		print("here")
 		final_neighbors = np.take_along_axis(neighbors, np.argsort(-distances, axis=-1), -1)
+	elif "l2_distance" == args.metric:
+		final_neighbors = np.take_along_axis(neighbors, np.argsort(distances, axis=-1), -1)
 	else:
-		final_neighbors = np.take_along_axis(neighbors, np.argsort(distances, axis=-1), -1)	
+		assert False
+	# final_neighbors = np.take_along_axis(neighbors, np.argsort(-distances, axis=-1), -1)
 	print("Recall@1:", compute_recall(final_neighbors[:,:1], gt[:, :1]))
 	print("Recall@10:", compute_recall(final_neighbors[:,:10], gt[:, :10]))
 	print("Recall@100:", compute_recall(final_neighbors[:,:100], gt[:, :100]))
