@@ -156,7 +156,10 @@ def run_scann(dataset_basedir, split_dataset_path):
 	base_idx = 0
 	total_latency = 0
 	for split in range(args.num_split):
-		searcher_path = './scann_searcher/'+args.dataset+'/Split_'+str(args.num_split)+'/'+args.dataset+'_searcher_'+str(args.num_split)+'_'+str(split)
+		if os.path.isdir("/arc-share/MICRO21_ANNA"):
+			searcher_path = '/arc-share/MICRO21_ANNA/scann_searcher/'+args.dataset+'/Split_'+str(args.num_split)+'/'+args.dataset+'_searcher_'+str(args.num_split)+'_'+str(split)
+		else:
+			searcher_path = './scann_searcher/'+args.dataset+'/Split_'+str(args.num_split)+'/'+args.dataset+'_searcher_'+str(args.num_split)+'_'+str(split)
 		print("Split ", split)
 		# Load splitted dataset
 		dataset = read_data(split_dataset_path + str(args.num_split) + "_" + str(split), base=False)
