@@ -1,5 +1,5 @@
 '''
-	Usage: python3 split_and_run.py --dataset [dataset name] --num_split [# of split] --metric [distance measure] --num_leaves [num_leaves] --num_search [num_leaves_to_search] --training_size [traing sample size] --threshold [threshold] --reorder [reorder size] [--split] [--eval_split]
+	Usage: python3 split_and_run.py --dataset [dataset name] --num_split [# of split] --metric [distance measure] --num_leaves [num_leaves] --num_search [num_leaves_to_search] --coarse_training_size [coarse traing sample size] --fine_training_size [fine training sample size] --threshold [threshold] --reorder [reorder size] [--split] [--eval_split]
 '''
 import sys
 import numpy as np
@@ -17,7 +17,8 @@ parser.add_argument('--eval_split', action='store_true')
 parser.add_argument('--metric', type=str, required=True, help='dot_product, squared_l2, angular')
 parser.add_argument('--num_leaves', type=int, default=-1, required=True, help='# of leaves')
 parser.add_argument('--num_search', type=int, default=-1, required=True, help='# of searching leaves')
-parser.add_argument('--training_size', type=int, default=-1, required=True, help='training sample size')
+parser.add_argument('--coarse_training_size', type=int, default=250000, required=True, help='coarse training sample size')
+parser.add_argument('--fine_training_size', type=int, default=100000, required=True, help='fine training sample size')
 parser.add_argument('--threshold', type=float, default=0.2, required=True, help='anisotropic_quantization_threshold')
 parser.add_argument('--reorder', type=int, default=-1, required=True, help='reorder size')
 args = parser.parse_args()
@@ -135,8 +136,8 @@ def run(dataset_basedir, split_dataset_path):
 			searcher = scann.scann_ops_pybind.load_searcher(searcher_path)
 		else:
 			searcher = scann.scann_ops_pybind.builder(dataset, 10, args.metric).tree(
-				num_leaves=args.num_leaves, num_leaves_to_search=args.num_search, training_sample_size=args.training_size).score_ah(
-				2, anisotropic_quantization_threshold=args.threshold).reorder(args.reorder).build()
+				num_leaves=args.num_leaves, num_leaves_to_search=args.num_search, training_sample_size=args.coarse_training_size).score_ah(
+				2, anisotropic_quantization_threshold=args.threshold, training_sample_size=args.fine_training_size).reorder(args.reorder).build()
 			print("Saving searcher to ", searcher_path)
 			os.makedirs(searcher_path, exist_ok=True)
 			searcher.serialize(searcher_path)
