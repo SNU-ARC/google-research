@@ -177,16 +177,15 @@ def run_scann(dataset_basedir, split_dataset_path):
 		# ScaNN search
 		print("Entering ScaNN searcher")
 		start = time.time()
-		local_neighbors, local_distances = searcher.search_batched(queries, final_num_neighbors=100)
+		local_neighbors, local_distances = searcher.search_batched(queries, final_num_neighbors=100, pre_reorder_num_neighbors=10)
 		end = time.time()
 		total_latency = total_latency + 1000*(end - start)
 		neighbors = np.append(neighbors, local_neighbors+base_idx, axis=1)
 		distances = np.append(distances, local_distances, axis=1)
 		base_idx = base_idx + dataset.shape[0]
 	if "dot_product" == args.metric or "angular" == args.metric:
-		print("here")
 		final_neighbors = np.take_along_axis(neighbors, np.argsort(-distances, axis=-1), -1)
-	elif "l2_distance" == args.metric:
+	elif "squared_l2" == args.metric:
 		final_neighbors = np.take_along_axis(neighbors, np.argsort(distances, axis=-1), -1)
 	else:
 		assert False
