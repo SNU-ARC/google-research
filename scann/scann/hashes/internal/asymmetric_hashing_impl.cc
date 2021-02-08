@@ -122,6 +122,7 @@ StatusOr<vector<DenseDataset<double>>> AhImpl<T>::TrainAsymmetricHashing(
   vector<DenseDataset<double>> chunked_dataset(num_blocks);
   
   std::cout << "[YJ] TrainAsymmetricHashing, num_blocks: " << num_blocks << std::endl;
+  std::cout << "[YJ] TrainAsymmetricHashing, expected_sample_size: " << opts.config().expected_sample_size() << std::endl;
 
   const float sampling_fraction =
       opts.config().has_expected_sample_size()
@@ -130,7 +131,6 @@ StatusOr<vector<DenseDataset<double>>> AhImpl<T>::TrainAsymmetricHashing(
                          static_cast<double>(dataset.size()))
           : opts.config().sampling_fraction();
 
-  std::cout << "[YJ] TrainAsymmetricHashing, sampling_fraction: " << sampling_fraction << std::endl;
   if (sampling_fraction == 1.0) {
     for (int32_t i = 0; i < num_blocks; ++i) {
       DenseDataset<double>& ds = chunked_dataset[i];

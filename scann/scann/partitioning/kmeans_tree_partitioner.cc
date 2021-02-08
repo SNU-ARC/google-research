@@ -386,7 +386,8 @@ template <typename FloatT, typename T>
 Datapoint<FloatT> ResidualizeImpl(const DatapointPtr<T>& dptr,
                                   const DatapointPtr<float>& center,
                                   float multiplier = 1.0) {
-  std::cout << "[YJ] ResidualizeImpl" << std::endl;
+  // [YJ] comes here
+  // std::cout << "[YJ] ResidualizeImpl" << std::endl;
   Datapoint<FloatT> residual;
   auto& values = *residual.mutable_values();
   values.resize(center.nonzero_entries());
@@ -403,7 +404,8 @@ template <typename T>
 StatusOr<Datapoint<float>> KMeansTreePartitioner<T>::ResidualizeToFloat(
     const DatapointPtr<T>& dptr, int32_t token,
     bool normalize_residual_by_cluster_stdev) const {
-  std::cout << "[YJ] ResidualToFloat" << std::endl;
+  // [YJ] comes here
+  // std::cout << "[YJ] ResidualToFloat" << std::endl;
   DatapointPtr<float> center = kmeans_tree()->CenterForToken(token);
   if (normalize_residual_by_cluster_stdev) {
     if (!populate_residual_stdev_) {
