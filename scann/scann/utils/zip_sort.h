@@ -33,6 +33,7 @@ void ZipNthElement(Comparator comp, size_t n, T begin, T end, U... rest) {
 template <typename Comparator, typename T, typename... U>
 void ZipNthElementBranchOptimized(Comparator comp, size_t n, T begin, T end,
                                   U... rest) {
+  std::cout << "[YJ] ZipNthElementBranchOptimized" << std::endl;
   zip_sort_internal::ZipNthElementImplBranchOptimized<Comparator, T, U...>(
       comp, n, begin, end, rest...);
 }
@@ -54,6 +55,7 @@ void ZipSort(Comparator comp, T begin, T end, U... rest) {
 
 template <typename Comparator, typename T, typename... U>
 void ZipSortBranchOptimized(Comparator comp, T begin, T end, U... rest) {
+  std::cout << "[YJ] ZipSortBranchOptimized" << std::endl;
   zip_sort_internal::ZipSortImplBranchOptimized<Comparator, T, U...>(
       comp, 0, end - begin, zip_sort_internal::ComputeDepthLimit(end - begin),
       begin, rest...);

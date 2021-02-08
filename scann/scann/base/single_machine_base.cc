@@ -286,13 +286,21 @@ Status SingleMachineSearcherBase<T>::FindNeighbors(
   DCHECK_LE((compressed_reordering_enabled() + exact_reordering_enabled()), 1);
   SCANN_RETURN_IF_ERROR(
       FindNeighborsNoSortNoExactReorder(query, params, result));
+  std::cout << "[YJ] FindNeighbors, after FindNeighborsNoSortNoExactReorder: " << result->size() << std::endl;
+  std::cout << "[YJ] FindNeighbors, after FindNeighborsNoSortNoExactReorder test: " << (*result)[0].first << " " << (*result)[0].second << std::endl;
 
   if (reordering_helper_) {
     std::cout << "[YJ] FindNeighbors, reordering" << std::endl;
     SCANN_RETURN_IF_ERROR(ReorderResults(query, params, result));
+    std::cout << "[YJ] FindNeighbors, after ReorderResults: " << result->size() << std::endl;
+    std::cout << "[YJ] FindNeighbors, after ReorderResults test: " << (*result)[0].first << " " << (*result)[0].second << std::endl;
   }
 
-  return SortAndDropResults(result, params);
+  auto ret = SortAndDropResults(result, params);
+  std::cout << "[YJ] FindNeighbors, after SortAndDropResults result: " << result->size() << std::endl;
+  std::cout << "[YJ] FindNeighbors, after SortAndDropResults test: " << (*result)[0].first << " " << (*result)[0].second << std::endl;
+  std::cout << "[YJ] FindNeighbors, after SortAndDropResults test: " << (*result)[1].first << " " << (*result)[1].second << std::endl;
+  return ret;
 }
 
 template <typename T>
@@ -519,13 +527,13 @@ Status SingleMachineSearcherBase<T>::SortAndDropResults(
     NNResultsVector* result, const SearchParameters& params) const {
   std::cout << "[YJ] SortAndDropResults" << std::endl;
   if (reordering_enabled()) {
-    std::cout << "[YJ] SortAndDropResults, reordering_enabled" << std::endl;
+    // std::cout << "[YJ] SortAndDropResults, reordering_enabled" << std::endl;
     if (params.post_reordering_num_neighbors() == 1) {
       return OkStatus();
     }
 
     if (params.post_reordering_epsilon() < numeric_limits<float>::infinity()) {
-      std::cout << "[YJ] SortAndDropResults, post_reordering_epsilon" << std::endl;
+      // std::cout << "[YJ] SortAndDropResults, post_reordering_epsilon" << std::endl;
       auto it = std::partition(
           result->begin(), result->end(),
           [&params](const pair<DatapointIndex, float>& arg) {
@@ -538,12 +546,14 @@ Status SingleMachineSearcherBase<T>::SortAndDropResults(
     if (params.post_reordering_crowding_enabled()) {
       return FailedPreconditionError("Crowding is not supported.");
     } else {
+      // [YJ] comes here
       std::cout << "[YJ] SortAndDropResults, RemoveNeighborsPastLimit" << std::endl;
       RemoveNeighborsPastLimit(params.post_reordering_num_neighbors(), result);
     }
   }
 
   if (params.sort_results()) {
+    std::cout << "[YJ] SortAndDropResults, ZipSortBranchOptimized" << std::endl;
     ZipSortBranchOptimized(DistanceComparatorBranchOptimized(), result->begin(),
                            result->end());
   }

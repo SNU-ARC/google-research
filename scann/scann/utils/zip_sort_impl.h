@@ -149,6 +149,7 @@ void InsertionZipSort(Comparator comp, size_t index1, size_t index2, T begin,
 template <typename Comparator, typename T, typename... U>
 void SelectionZipSort(Comparator comp, size_t index1, size_t index2, T begin,
                       U... rest) {
+  std::cout << "[YJ] SelectionZipSort" << std::endl;
   const T end = begin + index2;
   for (size_t i = index1; i + 1 < index2; ++i) {
     T to_swap = begin + i;
@@ -412,6 +413,7 @@ ABSL_ATTRIBUTE_NOINLINE void ZipSortImplBranchOptimized(Comparator comp,
                                                         size_t index2,
                                                         size_t depth_limit,
                                                         T begin, U... rest) {
+  std::cout << "[YJ] ZipSortImplBranchOptimized" << std::endl;
   while (true) {
     if (index2 - index1 < kSelectionSortSize) {
       SelectionZipSort<Comparator, T, U...>(comp, index1, index2, begin,
@@ -471,6 +473,7 @@ void ZipNthElementImpl(Comparator comp, size_t n, T begin, T end, U... rest) {
 template <typename Comparator, typename T, typename... U>
 void ZipNthElementImplBranchOptimized(Comparator comp, size_t n, T begin, T end,
                                       U... rest) {
+  std::cout << "[YJ] ZipNthElementImplBranchOptimized" << std::endl;
   size_t index1 = 0;
   size_t index2 = end - begin;
 

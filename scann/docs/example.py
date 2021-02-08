@@ -68,7 +68,7 @@ normalized_dataset = dataset / np.linalg.norm(dataset, axis=1)[:, np.newaxis]
 # use scann.scann_ops.build() to instead create a TensorFlow-compatible searcher
 searcher = scann.scann_ops_pybind.builder(normalized_dataset, 10, "dot_product").tree(
     num_leaves=2000, num_leaves_to_search=100, training_sample_size=250000).score_ah(
-    2, anisotropic_quantization_threshold=0.2).reorder(100).build()
+    2, anisotropic_quantization_threshold=0.2).reorder(97).build()
 
 def compute_recall(neighbors, true_neighbors):
     total = 0
@@ -117,6 +117,7 @@ def compute_recall(neighbors, true_neighbors):
 print("[YJ] PY,,,query : ", queries[0])
 start = time.time()
 neighbors, distances = searcher.search(queries[0], final_num_neighbors=17)
+#neighbors, distances = searcher.search(queries[0])
 end = time.time()
 
 print(neighbors)

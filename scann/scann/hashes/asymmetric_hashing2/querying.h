@@ -377,12 +377,10 @@ Status FindApproxNeighborsFastTopNeighbors(
     array<const SearchParameters*, kNumQueries> params,
     const PackedDataset& packed_dataset,
     array<TopNeighbors<float>*, kNumQueries> top_ns) {
-  std::cout << "[YJ] FindApproxNeighborsFastTopNeighbors" << std::endl;
   array<FastTopNeighbors<int16_t>, kNumQueries> ftns;
   array<FastTopNeighbors<int16_t>*, kNumQueries> ftn_ptrs;
   array<const uint8_t*, kNumQueries> raw_luts;
   array<RestrictAllowlistConstView, kNumQueries> restricts;
-  std::cout << "[YJ] FindApproxNeighborsFastTopNeighbors, num queries: " << kNumQueries << std::endl;
   for (size_t batch_idx : Seq(kNumQueries)) {
     int32_t fixed_point_max_distance =
         ai::ComputePossiblyFixedPointMaxDistance<int8_t>(
@@ -419,7 +417,6 @@ Status FindApproxNeighborsFastTopNeighbors(
     ConstSpan<DatapointIndex> ii;
     ConstSpan<int16_t> vv;
     std::tie(ii, vv) = ftns[batch_idx].FinishUnsorted();
-    std::cout << "[YJ] FindApproxNeighborsFastTopNeighbors, ii.size(): " << ii.size() << " / vv.siz(): " << vv.size() << std::endl;
     NNResultsVector v(ii.size());
     const float inv_fixed_point_multiplier =
         1.0f / lookup_tables[batch_idx]->fixed_point_multiplier;
@@ -545,6 +542,7 @@ Status AsymmetricQueryer<T>::FindApproximateTopNeighborsTopNDispatch(
   args.restrict_whitelists = allowlists;
   asymmetric_hashing_internal::LUT16Interface::GetTopFloatDistances(
       std::move(args));
+  std::cout << "[YJ] FindApproximateTopNeighborsTopNDispatch, tops:" << args.fast_topns[0]->max_results() << std::endl;
 
   return OkStatus();
 }

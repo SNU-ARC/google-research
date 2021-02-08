@@ -173,7 +173,7 @@ Status ScannInterface::Initialize(shared_ptr<DenseDataset<float>> dataset,
 Status ScannInterface::Search(const DatapointPtr<float> query,
                               NNResultsVector* res, int final_nn,
                               int pre_reorder_nn, int leaves) const {
-  std::cout << "[YJ] Search" << std::endl;
+  std::cout << "[YJ] Search, before result.size() " << res->size() << std::endl;
   if (query.dimensionality() != dimensionality_)
     return InvalidArgumentError("Query doesn't match dataset dimsensionality");
   bool has_reordering =
@@ -187,6 +187,7 @@ Status ScannInterface::Search(const DatapointPtr<float> query,
   SearchParameters params;
   params.set_pre_reordering_num_neighbors(pre_reorder_nn);
   params.set_post_reordering_num_neighbors(post_reorder_nn);
+  std::cout << "[YJ] Search, pre_reordering_num_neighbors : " << pre_reorder_nn << " / post_reorder_nn: " << post_reorder_nn << std::endl;
   if (leaves > 0) {
     auto tree_params = std::make_shared<TreeXOptionalParameters>();
     tree_params->set_num_partitions_to_search_override(leaves);

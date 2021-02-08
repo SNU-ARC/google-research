@@ -73,6 +73,7 @@ float MaxAbsValue(ConstSpan<float> arr) {
 
 void RemoveNeighborsPastLimit(DatapointIndex num_neighbors,
                               NNResultsVector* result) {
+  std::cout << "[YJ] RemoveNeighborsPastLimit" << std::endl;
   DCHECK(result);
   if (num_neighbors == 0) {
     result->clear();

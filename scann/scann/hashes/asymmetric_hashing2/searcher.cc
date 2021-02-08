@@ -252,6 +252,9 @@ Status Searcher<T>::FindNeighborsTopNDispatcher(
       TF_ASSIGN_OR_RETURN(
           const LookupTable* lookup_table,
           GetOrCreateLookupTable(query, params, &lookup_table_storage));
+      std::cout << "[YJ] FindNeighborsTopNDispatcher, float_lookup_table.size(): " << lookup_table->float_lookup_table.size() << std::endl;
+      std::cout << "[YJ] FindNeighborsTopNDispatcher, int16_lookup_table.size(): " << lookup_table->int16_lookup_table.size() << std::endl;
+      std::cout << "[YJ] FindNeighborsTopNDispatcher, int8_lookup_table.size(): " << lookup_table->int8_lookup_table.size() << std::endl;
       SCANN_RETURN_IF_ERROR(AsymmetricQueryer<T>::FindApproximateNeighbors(
           *lookup_table, params, std::move(queryer_opts),
           ah_optional_params->top_n_));
