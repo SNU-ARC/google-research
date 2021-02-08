@@ -184,9 +184,8 @@ def run_scann(dataset_basedir, split_dataset_path):
 		distances = np.append(distances, local_distances, axis=1)
 		base_idx = base_idx + dataset.shape[0]
 	if "dot_product" == args.metric or "angular" == args.metric:
-		print("here")
 		final_neighbors = np.take_along_axis(neighbors, np.argsort(-distances, axis=-1), -1)
-	elif "l2_distance" == args.metric:
+	elif "squared_l2" == args.metric:
 		final_neighbors = np.take_along_axis(neighbors, np.argsort(distances, axis=-1), -1)
 	else:
 		assert False
