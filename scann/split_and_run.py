@@ -177,7 +177,7 @@ def run_scann(dataset_basedir, split_dataset_path):
 		# ScaNN search
 		print("Entering ScaNN searcher")
 		start = time.time()
-		local_neighbors, local_distances = searcher.search_batched(queries, final_num_neighbors=100, pre_reorder_num_neighbors=10)
+		local_neighbors, local_distances = searcher.search_batched(queries, final_num_neighbors=100)
 		end = time.time()
 		total_latency = total_latency + 1000*(end - start)
 		neighbors = np.append(neighbors, local_neighbors+base_idx, axis=1)
