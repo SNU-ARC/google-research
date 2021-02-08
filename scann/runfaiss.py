@@ -101,9 +101,9 @@ def rate_limited_imap(f, l):
 # 	return idx_model
 
 
-def prepare_trained_index(preproc):
+def prepare_trained_index(preproc, xt):
 
-    coarse_quantizer = prepare_coarse_quantizer(preproc)
+    coarse_quantizer = prepare_coarse_quantizer(preproc, xt)
     d = preproc.d_out
     if pqflat_str == 'Flat':
         print("making an IVFFlat index")
