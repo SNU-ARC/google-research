@@ -156,10 +156,7 @@ def run_scann(dataset_basedir, split_dataset_path):
 	base_idx = 0
 	total_latency = 0
 	for split in range(args.num_split):
-		if os.path.isdir("/arc-share/MICRO21_ANNA"):
-			searcher_path = '/arc-share/MICRO21_ANNA/scann_searcher/'+args.dataset+'/Split_'+str(args.num_split)+'/'+args.dataset+'_searcher_'+str(args.num_split)+'_'+str(split)
-		else:
-			searcher_path = './scann_searcher/'+args.dataset+'/Split_'+str(args.num_split)+'/'+args.dataset+'_searcher_'+str(args.num_split)+'_'+str(split)
+		searcher_path = './scann_searcher/'+args.dataset+'/Split_'+str(args.num_split)+'/'+args.dataset+'_searcher_'+str(args.num_split)+'_'+str(split)
 		print("Split ", split)
 		# Load splitted dataset
 		dataset = read_data(split_dataset_path + str(args.num_split) + "_" + str(split) if args.num_split>1 else dataset_basedir, base=False if args.num_split>1 else True, offset_=None if args.num_split>1 else 0, shape_=None if args.num_split>1 else -1)
@@ -210,8 +207,8 @@ def run_faiss(dataset_basedir, split_dataset_path, D):
 		print("Split ", split)
 		# Load splitted dataset
 		xt = get_train(dataset_basedir, split, args.num_split)
-		preproc = train_faiss(args.dataset, split_dataset_path, D, xt, split, args.num_split, args.metric)
-		dataset = read_data(split_dataset_path + str(args.num_split) + "_" + str(split), base=False)
+		preproc = train_faiss(args.dataset, split_dataset_path, D, xt, split, args.num_split)
+		dataset = read_data(split_dataset_path + str(args.num_split) + "_" + str(split) if args.num_split>1 else dataset_basedir, base=False if args.num_split>1 else True, offset_=None if args.num_split>1 else 0, shape_=None if args.num_split>1 else -1)
 		# Create Faiss index
 		index = build_faiss(dataset, split, preproc)
 		start = time.time()
@@ -222,12 +219,7 @@ def run_faiss(dataset_basedir, split_dataset_path, D):
 		neighbors = np.append(neighbors, local_neighbors+base_idx, axis=1)
 		distances = np.append(distances, local_distances, axis=1)
 		base_idx = base_idx + dataset.shape[0]
-	if "dot_product" == args.metric or "angular" == args.metric:
-		final_neighbors = np.take_along_axis(neighbors, np.argsort(-distances, axis=-1), -1)
-	elif "squared_l2" == args.metric:
-		final_neighbors = np.take_along_axis(neighbors, np.argsort(distances, axis=-1), -1)
-	else:
-		assert False
+	final_neighbors = np.take_along_axis(neighbors, np.argsort(distances, axis=-1), -1)
 	gtc = gt[:, :1]
 	nq = queries.shape[0]
 	for rank in 1, 10, 100:
