@@ -76,7 +76,7 @@ message AsymmetricHasherConfig {
 
   optional bool use_global_topn = 33 [default = false];
 
-  optional bool use_noise_shaped_training = 30 [default = false];
+  optional bool use_noise_shaped_training = 30 [default = true];
 
   message FixedPointLUTConversionOptions {
     enum FloatToIntConversionMethod {

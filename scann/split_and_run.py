@@ -88,8 +88,8 @@ def read_data(dataset_path, offset_=None, shape_=None, base=True):
 		return bvecs_mmap(file, offset_=offset_, shape_=shape_)
 	elif "glove" in args.dataset:
 		file = dataset_path+"glove-100-angular.hdf5" if base else dataset_path
-		dataset = h5py.File(file, "r")
 		if base:
+			dataset = h5py.File(file, "r")
 			dataset = dataset['train']
 			normalized_dataset = dataset / np.linalg.norm(dataset, axis=1)[:, np.newaxis]
 			return normalized_dataset[offset_:offset_+shape_]
@@ -159,7 +159,7 @@ def run_scann(dataset_basedir, split_dataset_path):
 		searcher_path = './scann_searcher/'+args.dataset+'/Split_'+str(args.num_split)+'/'+args.dataset+'_searcher_'+str(args.num_split)+'_'+str(split)
 		print("Split ", split)
 		# Load splitted dataset
-		dataset = read_data(split_dataset_path + str(args.num_split) + "_" + str(split), base=False)
+		dataset = read_data(split_dataset_path + str(args.num_split) + "_" + str(split) if args.num_split>1 else dataset_basedir, base=False if args.num_split>1 else True, offset_=None if args.num_split>1 else 0, shape_=None if args.num_split>1 else -1)
 		# Create ScaNN searcher
 		print("Entering ScaNN builder")
 		searcher = None
@@ -189,7 +189,6 @@ def run_scann(dataset_basedir, split_dataset_path):
 		final_neighbors = np.take_along_axis(neighbors, np.argsort(distances, axis=-1), -1)
 	else:
 		assert False
-	# final_neighbors = np.take_along_axis(neighbors, np.argsort(-distances, axis=-1), -1)
 	print("Recall@1:", compute_recall(final_neighbors[:,:1], gt[:, :1]))
 	print("Recall@10:", compute_recall(final_neighbors[:,:10], gt[:, :10]))
 	print("Recall@100:", compute_recall(final_neighbors[:,:100], gt[:, :100]))
