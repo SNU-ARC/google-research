@@ -425,6 +425,7 @@ StatusOrSearcherUntyped NonResidualTreeXHybridFactory(
       auto sq_result = ScalarQuantizeFloatDataset(
           *dense, sq_config.fixed_point_multiplier_quantile(),
           sq_config.noise_shaping_threshold());
+      std::cout << "[YJ] Noise shaping threshold: " << sq_config.noise_shaping_threshold() << std::endl;
       auto fp_assets = make_shared<PreQuantizedFixedPoint>();
       fp_assets->fixed_point_dataset = make_shared<DenseDataset<int8_t>>(
           std::move(sq_result.quantized_dataset));

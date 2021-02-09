@@ -307,14 +307,14 @@ Status ExactReorderingHelper<T>::ComputeDistancesForReordering(
         *down_cast<const DenseDataset<T>*>(exact_reordering_dataset_.get());
 
     std::cout << "[YJ] Dense query" << std::endl;
-    std::cout << "[YJ] ComputeDistancesForReordering, query: ";
-    for(auto i=0; i<query.dimensionality(); i++)
-      std::cout << query.values()[i] << " ";
-    std::cout << std::endl;
-    std::cout << "[YJ] ComputeDistancesForReordering, datapoint: ";
-    for(auto i=0; i<query.dimensionality(); i++)
-      std::cout << dense_dataset.data()[(*result)[0].first*100+i] << " ";
-    std::cout << std::endl;  
+    // std::cout << "[YJ] ComputeDistancesForReordering, query: ";
+    // for(auto i=0; i<query.dimensionality(); i++)
+    //   std::cout << query.values()[i] << " ";
+    // std::cout << std::endl;
+    // std::cout << "[YJ] ComputeDistancesForReordering, datapoint: ";
+    // for(auto i=0; i<query.dimensionality(); i++)
+    //   std::cout << dense_dataset.data()[(*result)[0].first*100+i] << " ";
+    // std::cout << std::endl;  
 
     DenseDistanceOneToMany<T, pair<DatapointIndex, float>>(
         *exact_reordering_distance_, query, dense_dataset,

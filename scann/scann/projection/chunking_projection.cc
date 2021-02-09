@@ -172,11 +172,11 @@ StatusOr<ChunkedDatapoint<FloatT>> ChunkingProjection<T>::ProjectInputImpl(
                          num_blocks_, input.dimensionality()));
   }
 
-  int yj_sum = 0;
-  std::cout << dims_per_block_.size() << std::endl;
+  // int yj_sum = 0;
+  // std::cout << dims_per_block_.size() << std::endl;
   for (size_t i = 0; i < dims_per_block_.size(); ++i) {
-    std::cout << dims_per_block_[i] << " ";
-    yj_sum += dims_per_block_[i];
+    // std::cout << dims_per_block_[i] << " ";
+    // yj_sum += dims_per_block_[i];
     if (dims_per_block_[i] > input.dimensionality()) {
       return InvalidArgumentError(
           absl::Substitute("num_dims_per_block ($0) should be less than the "
@@ -184,8 +184,8 @@ StatusOr<ChunkedDatapoint<FloatT>> ChunkingProjection<T>::ProjectInputImpl(
                            dims_per_block_[i], input.dimensionality()));
     }
   }
-  std::cout << std::endl;
-  std::cout << "[YJ] yj_sum : " << yj_sum << std::endl;
+  // std::cout << std::endl;
+  // std::cout << "[YJ] yj_sum : " << yj_sum << std::endl;
   decltype(projected) densified_storage;
   if (!projected.IsDense()) {
     if (input.dimensionality() > 10 * 1000 * 1000) {

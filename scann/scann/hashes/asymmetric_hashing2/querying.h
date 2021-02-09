@@ -542,8 +542,16 @@ Status AsymmetricQueryer<T>::FindApproximateTopNeighborsTopNDispatch(
   args.restrict_whitelists = allowlists;
   asymmetric_hashing_internal::LUT16Interface::GetTopFloatDistances(
       std::move(args));
+  float approximate_distance = 0;
   std::cout << "[YJ] FindApproximateTopNeighborsTopNDispatch, tops:" << args.fast_topns[0]->max_results() << std::endl;
-
+  for(auto i=0; i<packed_dataset.num_blocks; i++){
+    auto packed = packed_dataset.bit_packed_data[i*16];
+    auto lookup_index = packed & 15;
+    approximate_distance += lookups[0][16*i+lookup_index];
+    // std::cout << lookups[0][16*i+lookup_index] << " ";
+  }  
+  // std::cout << std::endl;
+  std::cout << "[YJ] approximate distance:" << approximate_distance << std::endl;
   return OkStatus();
 }
 

@@ -200,14 +200,16 @@ StatusOr<vector<DenseDataset<double>>> AhImpl<T>::TrainAsymmetricHashing(
   gmm_opts.parallelization_pool = std::move(pool);
   if (!std::isnan(opts.config().noise_shaping_threshold()) &&
       opts.config().use_noise_shaped_training()) {
+    // [YJ] does not come here
     gmm_opts.parallel_cost_multiplier = ComputeParallelCostMultiplier(
         opts.config().noise_shaping_threshold(), 1.0, dataset.dimensionality());
+    std::cout << "[YJ] TrainAsymmetricHashing, ComputeParallelCostMultiplier, " << gmm_opts.parallel_cost_multiplier << std::endl;
     auto d = make_shared<ParallelPerpendicularDistance>();
     d->set_parallel_cost_multiplier(gmm_opts.parallel_cost_multiplier);
     quantization_distance = d;
   }
   GmmUtils gmm(quantization_distance, gmm_opts);
-
+  std::cout << "[YJ] TrainAsymmetricHashing, gmm_opts.parallel_cost_multiplier: " << gmm_opts.parallel_cost_multiplier << std::endl;
   vector<DenseDataset<double>> all_centers(num_blocks);
   for (size_t i : Seq(num_blocks)) {
     DenseDataset<double> centers;
