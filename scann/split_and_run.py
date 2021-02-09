@@ -211,7 +211,7 @@ def run_faiss(dataset_basedir, split_dataset_path, D):
 		print("Split ", split)
 		# Load splitted dataset
 		xt = get_train(dataset_basedir, split, args.num_split)
-		preproc = train_faiss(args.dataset, split_dataset_path, D, xt, split, args.num_split)
+		preproc = train_faiss(args.dataset, split_dataset_path, D, xt, split, args.num_split, args.metric)
 		dataset = read_data(split_dataset_path + str(args.num_split) + "_" + str(split), base=False)
 		# Create Faiss index
 		index = build_faiss(dataset, split, preproc)
@@ -223,7 +223,12 @@ def run_faiss(dataset_basedir, split_dataset_path, D):
 		neighbors = np.append(neighbors, local_neighbors+base_idx, axis=1)
 		distances = np.append(distances, local_distances, axis=1)
 		base_idx = base_idx + dataset.shape[0]
-	final_neighbors = np.take_along_axis(neighbors, np.argsort(distances, axis=-1), -1)
+	if "dot_product" == args.metric or "angular" == args.metric:
+		final_neighbors = np.take_along_axis(neighbors, np.argsort(-distances, axis=-1), -1)
+	elif "squared_l2" == args.metric:
+		final_neighbors = np.take_along_axis(neighbors, np.argsort(distances, axis=-1), -1)
+	else:
+		assert False
 	gtc = gt[:, :1]
 	nq = queries.shape[0]
 	for rank in 1, 10, 100:
