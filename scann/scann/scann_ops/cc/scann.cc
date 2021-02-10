@@ -201,6 +201,7 @@ Status ScannInterface::SearchBatched(const DenseDataset<float>& queries,
                                      MutableSpan<NNResultsVector> res,
                                      int final_nn, int pre_reorder_nn,
                                      int leaves) const {
+  std::cout << "[YJ] SearchBatched" << std::endl;
   if (queries.dimensionality() != dimensionality_)
     return InvalidArgumentError("Query doesn't match dataset dimsensionality");
   if (!std::isinf(scann_->default_pre_reordering_epsilon()) ||
@@ -235,6 +236,7 @@ Status ScannInterface::SearchBatchedParallel(const DenseDataset<float>& queries,
                                              MutableSpan<NNResultsVector> res,
                                              int final_nn, int pre_reorder_nn,
                                              int leaves) const {
+  std::cout << "[YJ] SearchBatchedParallel" << std::endl;
   const size_t numQueries = queries.size();
   const size_t numCPUs = GetNumCPUs();
 

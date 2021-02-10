@@ -406,6 +406,7 @@ template <typename T>
 Status TreeXHybridSMMD<T>::FindNeighborsBatchedImpl(
     const TypedDataset<T>& queries, ConstSpan<SearchParameters> params,
     MutableSpan<NNResultsVector> results) const {
+  std::cout << "[YJ] FindNeighborsBatchedImpl, ssmd" << std::endl;
   if (params.empty()) {
     DCHECK_EQ(queries.size(), 0);
     DCHECK_EQ(results.size(), 0);
@@ -492,6 +493,7 @@ Status TreeXHybridSMMD<T>::FindNeighborsBatchedImpl(
       query_tokens[i] = query_tokens_storage[i];
     }
   }
+  std::cout << "[YJ] FindNeighborsBatchedImpl, queries" << queries.size() << std::endl;
 
   for (DatapointIndex i = 0; i < queries.size(); ++i) {
     if (params[i].pre_reordering_crowding_enabled()) {

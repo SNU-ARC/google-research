@@ -485,6 +485,7 @@ inline void AssignResults(TopN* top_n, NNResultsVector* results) {
 Status TreeAHHybridResidual::FindNeighborsBatchedImpl(
     const TypedDataset<float>& queries, ConstSpan<SearchParameters> params,
     MutableSpan<NNResultsVector> results) const {
+  std::cout << "[YJ] Tree, FindNeighborsBatchedImpl" << std::endl;
   vector<int32_t> centers_override(queries.size());
   bool centers_overridden = false;
   for (int i = 0; i < queries.size(); i++) {

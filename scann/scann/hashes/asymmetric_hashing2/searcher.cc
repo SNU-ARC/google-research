@@ -190,6 +190,7 @@ template <typename T>
 Status Searcher<T>::FindNeighborsBatchedImpl(
     const TypedDataset<T>& queries, ConstSpan<SearchParameters> params,
     MutableSpan<NNResultsVector> results) const {
+  std::cout << "[YJ] FindNeighborsBatchedImpl, searcher.cc" << std::endl;
   bool crowding_enabled_for_any_query = false;
   for (const auto& p : params) {
     if (p.pre_reordering_crowding_enabled()) {

@@ -349,6 +349,7 @@ template <typename T>
 Status SingleMachineSearcherBase<T>::FindNeighborsBatched(
     const TypedDataset<T>& queries, ConstSpan<SearchParameters> params,
     MutableSpan<NNResultsVector> results) const {
+  std::cout << "[YJ] FindNeighborsBatched" << std::endl;
   DCHECK_LE((compressed_reordering_enabled() + exact_reordering_enabled()), 1);
   SCANN_RETURN_IF_ERROR(
       FindNeighborsBatchedNoSortNoExactReorder(queries, params, results));
@@ -370,6 +371,7 @@ template <typename T>
 Status SingleMachineSearcherBase<T>::FindNeighborsBatchedNoSortNoExactReorder(
     const TypedDataset<T>& queries, ConstSpan<SearchParameters> params,
     MutableSpan<NNResultsVector> results) const {
+  std::cout <<"[YJ] FindNeighborsBatchedNoSortNoExactReorder" << std::endl;
   if (queries.size() != params.size()) {
     return InvalidArgumentError(
         "queries.size != params.size in FindNeighbors batched (%d vs. %d).",
@@ -487,6 +489,7 @@ Status SingleMachineSearcherBase<T>::FindNeighborsBatchedImpl(
     MutableSpan<NNResultsVector> results) const {
   DCHECK_EQ(queries.size(), params.size());
   DCHECK_EQ(queries.size(), results.size());
+  std::cout << "[YJ] FindNeighborsBatchedImpl, queries.size(): " << queries.size() << std::endl;
   for (DatapointIndex i = 0; i < queries.size(); ++i) {
     SCANN_RETURN_IF_ERROR(
         FindNeighborsImpl(queries[i], params[i], &results[i]));

@@ -293,6 +293,7 @@ template <typename T>
 Status BruteForceSearcher<T>::FindNeighborsBatchedImpl(
     const TypedDataset<T>& queries, ConstSpan<SearchParameters> params,
     MutableSpan<NNResultsVector> results) const {
+  std::cout << "[YJ] FindNeighborsBatchedImpl, brute_force" << std::endl;
   if (!supports_low_level_batching_ || !queries.IsDense()) {
     return SingleMachineSearcherBase<T>::FindNeighborsBatchedImpl(
         queries, params, results);

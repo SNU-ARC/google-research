@@ -213,10 +213,10 @@ Status KMeansTreePartitioner<T>::TokensForDatapointWithSpilling(
     }
     std::cout << "[YJ] kmeans tree" << std::endl;
     // [YJ] same query as in dataset
-    // std::cout << "[YJ] query, :";
-    // for(auto i=0; i<dptr.dimensionality(); i++)
-    //   std::cout << dptr.values()[i] << " ";
-    // std::cout << std::endl;
+    std::cout << "[YJ] query, :";
+    for(auto i=0; i<dptr.dimensionality(); i++)
+      std::cout << dptr.values()[i] << " ";
+    std::cout << std::endl;
     return kmeans_tree_->Tokenize(
         dptr, *query_tokenization_dist_,
         KMeansTree::TokenizationOptions::UserSpecifiedSpilling(

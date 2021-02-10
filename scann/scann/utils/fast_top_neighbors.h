@@ -200,7 +200,7 @@ class FastTopNeighbors<DistT, DatapointIndexT>::Mutator {
     indices_end_[pushes_remaining_negated_] = dp_idx;
     distances_end_[pushes_remaining_negated_] = distance;
     ++pushes_remaining_negated_;
-    std::cout << "[YJ] Mutator, pushes_remaining_negated_: " << pushes_remaining_negated_ << std::endl;
+    // std::cout << "[YJ] Mutator, pushes_remaining_negated_: " << pushes_remaining_negated_ << std::endl;
     return pushes_remaining_negated_ == 0;
   }
 
