@@ -198,7 +198,7 @@ def run_scann(dataset_basedir, split_dataset_path):
 	print("Recall@100:", compute_recall(final_neighbors[:,:100], gt[:, :100]))
 	print("Total latency (ms): ", total_latency)
 
-def run_faiss(dataset_basedir, split_dataset_path, D):
+def run_faiss(dataset_basedir, split_dataset_path, D, index_key):
 	
 	gt = get_groundtruth(dataset_basedir)
 	queries = get_queries(dataset_basedir)
@@ -211,7 +211,7 @@ def run_faiss(dataset_basedir, split_dataset_path, D):
 		print("Split ", split)
 		# Load splitted dataset
 		xt = get_train(dataset_basedir, split, args.num_split)
-		preproc = train_faiss(args.dataset, split_dataset_path, D, xt, split, args.num_split, args.metric)
+		preproc = train_faiss(args.dataset, split_dataset_path, D, xt, split, args.num_split, args.metric, index_key)
 		dataset = read_data(split_dataset_path + str(args.num_split) + "_" + str(split), base=False)
 		# Create Faiss index
 		index = build_faiss(dataset, split, preproc)
@@ -277,6 +277,7 @@ else:
 	dataset_basedir = "./data"
 
 split_dataset_path = None
+index_key = None
 N = -1
 D = -1
 num_iter = -1
@@ -286,12 +287,14 @@ if "sift1m" in args.dataset:
 	N=1000000
 	D=128
 	num_iter = 1
+	index_key = "IVF4096,PQ64"
 elif "sift1b" in args.dataset:
 	dataset_basedir = dataset_basedir + "/SIFT1B/"
 	split_dataset_path=dataset_basedir+"split_data/sift1b_"
 	N=1000000000
 	D=128
 	num_iter = 4
+	index_key = "OPQ8_32,IVF262144,PQ8"
 elif "glove" in args.dataset:
 	dataset_basedir = dataset_basedir + "/GLOVE/"
 	split_dataset_path=dataset_basedir+"split_data/glove_"
@@ -306,4 +309,4 @@ if args.eval_split:
 	if args.program == "scann":
 		run_scann(dataset_basedir, split_dataset_path)
 	elif args.program == "faiss":
-		run_faiss(dataset_basedir, split_dataset_path, D)
+		run_faiss(dataset_basedir, split_dataset_path, D, index_key)

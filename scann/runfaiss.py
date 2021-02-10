@@ -9,9 +9,6 @@ import re
 from multiprocessing.dummy import Pool as ThreadPool
 
 ########### Set Faiss arguments here #############
-index_key = "IVF4096,PQ64"
-#index_key = "OPQ8_32,IVF262144,PQ8"
-
 ngpu = faiss.get_num_gpus()
 
 replicas = 1  # nb of replicas of sharded dataset
@@ -263,7 +260,7 @@ def get_populated_index(preproc, xb, split):
 	print("move to GPU done in %.3f s" % (time.time() - t0))
 	return index
 
-def train_preprocessor():
+def train_preprocessor(xt):
 	print("train preproc", preproc_str)
 	d = xt.shape[1]
 	t0 = time.time()
@@ -281,10 +278,10 @@ def train_preprocessor():
 	print("preproc train done in %.3f s" % (time.time() - t0))
 	return preproc
 
-def get_preprocessor():
+def get_preprocessor(xt):
 	if preproc_str:
 		if not preproc_cachefile or not os.path.exists(preproc_cachefile):
-			preproc = train_preprocessor()
+			preproc = train_preprocessor(xt)
 			if preproc_cachefile:
 				print("store", preproc_cachefile)
 				faiss.write_VectorTransform(preproc, preproc_cachefile)
@@ -402,6 +399,7 @@ def search_faiss(xq, index, preproc):
 	sl = query_batch_size
 	nq = xq.shape[0]
 	ps.set_index_parameter(index, 'nprobe', nprobe)
+	print(index.metric_type)
 
 	if sl == 0:
 		D, I = index.search(preproc.apply_py(sanitize(xq)), nnn)
@@ -421,7 +419,7 @@ def search_faiss(xq, index, preproc):
 	print("--------------------------------------------\n")
 	return I, D
 
-def train_faiss(db, split_dataset_path, D, xt, split, num_split, met):
+def train_faiss(db, split_dataset_path, D, xt, split, num_split, met, index_key):
 	print("--------------- train_faiss ----------------")
 	global cacheroot
 	global preproc_cachefile
@@ -504,7 +502,7 @@ def train_faiss(db, split_dataset_path, D, xt, split, num_split, met):
 	co.verbose = True
 	co.shard = True    # the replicas will be made "manually"
 
-	preproc = get_preprocessor()
+	preproc = get_preprocessor(xt)
 	# indexall = prepare_trained_index(preproc, xt)
 	print("--------------------------------------------\n")
 	# return preproc, indexall
