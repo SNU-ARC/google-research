@@ -1,5 +1,6 @@
 '''
-Usage: python3 split_and_run.py --dataset [dataset name] --num_split [# of split] --metric [distance measure] --num_leaves [num_leaves] --num_search [num_leaves_to_search] --coarse_training_size [coarse traing sample size] --fine_training_size [fine training sample size] --threshold [threshold] --reorder [reorder size] [--split] [--eval_split]
+Usage 1: python3 split_and_run.py --dataset [dataset name] --num_split [# of split] --metric [distance measure] --num_leaves [num_leaves] --num_search [num_leaves_to_search] --coarse_training_size [coarse traing sample size] --fine_training_size [fine training sample size] --threshold [threshold] --reorder [reorder size] [--split] [--eval_split]
+Usage 2: python3 split_and_run.py --dataset [dataset name] --groundtruth --metric [distance measure]
 '''
 import sys
 import numpy as np
@@ -8,27 +9,30 @@ import argparse
 import os
 import h5py
 
-
 parser = argparse.ArgumentParser(description='Options')
 parser.add_argument('--program', type=str, help='scann, faiss ...')
 parser.add_argument('--dataset', type=str, help='sift1b, glove ...')
-parser.add_argument('--num_split', type=int, default=-1, required=True, help='# of splits')
+parser.add_argument('--num_split', type=int, default=-1, help='# of splits')
 parser.add_argument('--split', action='store_true')
 parser.add_argument('--eval_split', action='store_true')
-parser.add_argument('--metric', type=str, help='dot_product, squared_l2, angular')
+parser.add_argument('--metric', type=str, help='dot_product, squared_l2')
 parser.add_argument('--num_leaves', type=int, default=-1, help='# of leaves')
 parser.add_argument('--num_search', type=int, default=-1, help='# of searching leaves')
 parser.add_argument('--coarse_training_size', type=int, default=250000, help='coarse training sample size')
 parser.add_argument('--fine_training_size', type=int, default=100000, help='fine training sample size')
 parser.add_argument('--threshold', type=float, default=0.2, help='anisotropic_quantization_threshold')
 parser.add_argument('--reorder', type=int, default=-1, help='reorder size')
+parser.add_argument('--groundtruth', action='store_true')
 args = parser.parse_args()
 
+assert args.metric == "squared_l2" or args.metric == "dot_product"
 if args.eval_split:
-	assert args.program!=None and args.metric!=None
+	assert args.program!=None and args.metric!=None and args.num_split!=-1
+if args.groundtruth:
+	assert args.metric!=None
 
 if args.program=='scann':
-	assert args.num_leaves!=-1 and args.num_search!=-1 and args.coarse_training_size!=-1 and args.fine_training_size!=-1 and args.reorder!=-1
+	assert args.num_leaves!=-1 and args.num_search!=-1 and args.coarse_training_size!=-1 and args.fine_training_size!=-1 and args.reorder!=-1 
 	import scann
 elif args.program == "faiss":
 	from runfaiss import train_faiss, build_faiss, search_faiss
@@ -43,6 +47,13 @@ def ivecs_read(fname):
     a = np.fromfile(fname, dtype='int32')
     d = a[0]
     return a.reshape(-1, d + 1)[:, 1:].copy()
+
+def ivecs_write(fname, m):
+	n, d = m.shape
+	dimension_arr = np.zeros((n, 1), dtype=np.int32)
+	dimension_arr[:, 0] = d
+	m = np.append(dimension_arr, m, axis=1)
+	m.tofile(fname)
 
 def bvecs_mmap(fname, offset_=None, shape_=None):
 	if offset_!=None and shape_!=None:
@@ -90,16 +101,19 @@ def read_data(dataset_path, offset_=None, shape_=None, base=True):
 		file = dataset_path+"glove-100-angular.hdf5" if base else dataset_path
 		if base:
 			dataset = h5py.File(file, "r")
-			dataset = dataset['train']
+			dataset = dataset['train']			
 			normalized_dataset = dataset / np.linalg.norm(dataset, axis=1)[:, np.newaxis]
-			return normalized_dataset[offset_:offset_+shape_]
+			if offset_!=None and shape_!=None:
+				return normalized_dataset[offset_:offset_+shape_]
+			else:
+				return normalized_dataset
 		else:
 			dataset = h5py.File(dataset_path, "r")
 			return dataset['dataset']
 	else:
 		assert(false)
 
-def write_data(split_data_path, split_data):
+def write_split_data(split_data_path, split_data):
 	if "sift1b" in args.dataset:
 		bvecs_write(split_data_path, split_data)
 	elif "sift1m" in args.dataset:
@@ -108,6 +122,15 @@ def write_data(split_data_path, split_data):
 		hf = h5py.File(split_data_path, 'w')
 		hf.create_dataset('dataset', data=split_data)
 	print("Wrote to ", split_data_path, ", shape ", split_data.shape)
+
+def write_gt_data(groundtruth_path, gt_data):
+	if "sift1b" in args.dataset or "sift1m" in args.dataset:
+		ivecs_write(groundtruth_path, gt_data)
+	elif "glove" in args.dataset:
+		hf = h5py.File(groundtruth_path, 'w')
+		hf.create_dataset('dataset', data=gt_data)
+	print("Wrote to ", groundtruth_path, ", shape ", gt_data.shape)
+
 
 def split(filename, data_path, split_dataset_path, num_iter, N, D):
 	num_per_split = int(N/args.num_split)
@@ -132,24 +155,24 @@ def split(filename, data_path, split_dataset_path, num_iter, N, D):
 					dataset = dataset[count*num_per_split:]
 				else:
 					split_size = dataset[count*num_per_split:].shape[0]
-					write_data(split_dataset_path + str(args.num_split) + "_" + str(split), dataset[count*num_per_split:])
+					write_split_data(split_dataset_path + str(args.num_split) + "_" + str(split), dataset[count*num_per_split:])
 					trainset = np.random.choice(split_size, int(0.1*split_size), replace=False)
-					write_data(split_dataset_path + "learn" + str(args.num_split) + "_" + str(split), dataset[count*num_per_split:][trainset])					
+					write_split_data(split_dataset_path + "learn" + str(args.num_split) + "_" + str(split), dataset[count*num_per_split:][trainset])					
 					num_split_list.append(dataset[count*num_per_split:].shape[0])
 					split = split+1
 				break
 			elif split < args.num_split:
 				split_size = dataset[count*num_per_split:(count+1)*num_per_split].shape[0]
-				write_data(split_dataset_path + str(args.num_split) + "_" + str(split), dataset[count*num_per_split:(count+1)*num_per_split])
+				write_split_data(split_dataset_path + str(args.num_split) + "_" + str(split), dataset[count*num_per_split:(count+1)*num_per_split])
 				trainset = np.random.choice(split_size, int(0.1*split_size), replace=False)
-				write_data(split_dataset_path + "learn" + str(args.num_split) + "_" + str(split), dataset[count*num_per_split:(count+1)*num_per_split][trainset])
+				write_split_data(split_dataset_path + "learn" + str(args.num_split) + "_" + str(split), dataset[count*num_per_split:(count+1)*num_per_split][trainset])
 				num_split_list.append(dataset[count*num_per_split:(count+1)*num_per_split].shape[0])
 				split = split+1
 			count = count+1
 	print("num_split_lists: ", num_split_list)
 
-def run_scann(dataset_basedir, split_dataset_path):
-	gt = get_groundtruth(dataset_basedir)
+def run_scann(dataset_basedir, split_dataset_path, groundtruth_path):
+	gt = get_groundtruth(dataset_basedir, groundtruth_path)
 	queries = get_queries(dataset_basedir)
 	neighbors=np.empty((queries.shape[0],0))
 	distances=np.empty((queries.shape[0],0))
@@ -157,13 +180,13 @@ def run_scann(dataset_basedir, split_dataset_path):
 	total_latency = 0
 	for split in range(args.num_split):
 		if os.path.isdir("/arc-share/MICRO21_ANNA"):
-			searcher_path = '/arc-share/MICRO21_ANNA/scann_searcher/'+args.dataset+'/Split_'+str(args.num_split)+'/'+args.dataset+'_searcher_'+str(args.num_split)+'_'+str(split)
+			searcher_path = '/arc-share/MICRO21_ANNA/scann_searcher_'+args.metric+'/'+args.dataset+'/Split_'+str(args.num_split)+'/'+args.dataset+'_searcher_'+str(args.num_split)+'_'+str(split)
 		else:
-			searcher_path = './scann_searcher/'+args.dataset+'/Split_'+str(args.num_split)+'/'+args.dataset+'_searcher_'+str(args.num_split)+'_'+str(split)
+			searcher_path = './scann_searcher_'+args.metric+'/'+args.dataset+'/Split_'+str(args.num_split)+'/'+args.dataset+'_searcher_'+str(args.num_split)+'_'+str(split)
     
 		print("Split ", split)
 		# Load splitted dataset
-		dataset = read_data(split_dataset_path + str(args.num_split) + "_" + str(split) if args.num_split>1 else dataset_basedir, base=False if args.num_split>1 else True, offset_=None if args.num_split>1 else 0, shape_=None if args.num_split>1 else -1)
+		dataset = read_data(split_dataset_path + str(args.num_split) + "_" + str(split) if args.num_split>1 else dataset_basedir, base=False if args.num_split>1 else True, offset_=None if args.num_split>1 else 0, shape_=None)
 		# Create ScaNN searcher
 		print("Entering ScaNN builder")
 		searcher = None
@@ -199,9 +222,9 @@ def run_scann(dataset_basedir, split_dataset_path):
 	print("Recall@100:", compute_recall(final_neighbors[:,:100], gt[:, :100]))
 	print("Total latency (ms): ", total_latency)
 
-def run_faiss(dataset_basedir, split_dataset_path, D, index_key):
+def run_faiss(dataset_basedir, split_dataset_path, groundtruth_path, D, index_key):
 	
-	gt = get_groundtruth(dataset_basedir)
+	gt = get_groundtruth(dataset_basedir, groundtruth_path)
 	queries = get_queries(dataset_basedir)
 	
 	neighbors=np.empty((queries.shape[0],0))
@@ -213,7 +236,7 @@ def run_faiss(dataset_basedir, split_dataset_path, D, index_key):
 		# Load splitted dataset
 		xt = get_train(dataset_basedir, split, args.num_split)
 		preproc = train_faiss(args.dataset, split_dataset_path, D, xt, split, args.num_split, args.metric, index_key)
-		dataset = read_data(split_dataset_path + str(args.num_split) + "_" + str(split) if args.num_split>1 else dataset_basedir, base=False if args.num_split>1 else True, offset_=None if args.num_split>1 else 0, shape_=None if args.num_split>1 else -1)
+		dataset = read_data(split_dataset_path + str(args.num_split) + "_" + str(split) if args.num_split>1 else dataset_basedir, base=False if args.num_split>1 else True, offset_=None if args.num_split>1 else 0, shape_=None)
 		# Create Faiss index
 		index = build_faiss(dataset, split, preproc)
 		start = time.time()
@@ -252,13 +275,18 @@ def get_train(dataset_basedir, split=-1, total=-1):
 	else:
 		assert False
 
-def get_groundtruth(dataset_basedir):
+def get_groundtruth(dataset_basedir, groundtruth_path):
 	if "sift1m" in args.dataset:
-		return ivecs_read(dataset_basedir + 'sift_groundtruth.ivecs')
+		filename = dataset_basedir + 'sift_groundtruth.ivecs' if args.metric=="squared_l2" else groundtruth_path
+		return ivecs_read(filename)
 	elif "sift1b" in args.dataset:
-		return ivecs_read(dataset_basedir + 'gnd/idx_1000M.ivecs')
+		filename = dataset_basedir +  'gnd/idx_1000M.ivecs' if args.metric=="squared_l2" else groundtruth_path
+		return ivecs_read(filename)
 	elif "glove" in args.dataset:
-		return h5py.File(dataset_basedir+"glove-100-angular.hdf5", "r")['neighbors']
+		if args.metric == "dot_product":
+			return h5py.File( dataset_basedir+"glove-100-angular.hdf5", "r")['neighbors']
+		else:
+			return read_data(groundtruth_path, base=False)
 	else:
 		assert False
 
@@ -282,32 +310,74 @@ index_key = None
 N = -1
 D = -1
 num_iter = -1
+qN = -1
 if "sift1m" in args.dataset:
 	dataset_basedir = dataset_basedir + "/SIFT1M/"
 	split_dataset_path=dataset_basedir+"split_data/sift1m_"
+	groundtruth_path = dataset_basedir + "sift1m_"+args.metric+"_gt"
 	N=1000000
 	D=128
 	num_iter = 1
+	qN = 10000
 	index_key = "IVF4096,PQ64"
 elif "sift1b" in args.dataset:
 	dataset_basedir = dataset_basedir + "/SIFT1B/"
 	split_dataset_path=dataset_basedir+"split_data/sift1b_"
+	groundtruth_path = dataset_basedir + "sift1b_"+args.metric+"_gt"
 	N=1000000000
 	D=128
 	num_iter = 4
+	qN = 10000
 	index_key = "OPQ8_32,IVF262144,PQ8"
 elif "glove" in args.dataset:
 	dataset_basedir = dataset_basedir + "/GLOVE/"
 	split_dataset_path=dataset_basedir+"split_data/glove_"
+	groundtruth_path = dataset_basedir + "glove_"+args.metric+"_gt"
 	N=1183514
 	D=100
 	num_iter = 10
+	qN = 10000
+
 
 # main
 if args.split:
 	split(args.dataset, dataset_basedir, split_dataset_path, num_iter, N, D)
 if args.eval_split:
 	if args.program == "scann":
-		run_scann(dataset_basedir, split_dataset_path)
+		run_scann(dataset_basedir, split_dataset_path, groundtruth_path)
 	elif args.program == "faiss":
-		run_faiss(dataset_basedir, split_dataset_path, D, index_key)
+		run_faiss(dataset_basedir, split_dataset_path, groundtruth_path, D, index_key)
+
+if args.groundtruth:
+	groundtruth_dir = dataset_basedir + "groundtruth/"
+	if os.path.isdir(groundtruth_dir)!=True:
+		os.mkdir(groundtruth_dir)
+	dataset = read_data(dataset_basedir, base=True, offset_=0, shape_=None).astype('float32')
+	queries = np.array(get_queries(dataset_basedir), dtype='float32')
+	groundtruth = np.empty([qN, 100], dtype=np.int32)
+	# assert np.linalg.norm(dataset[0]) == 1 if args.metric=="dot_product" else True
+	import ctypes
+	# groundtruth = (ctypes.c_int*100)*qN
+	# from numpy.ctypeslib import ndpointer 
+	# _floatpp = ndpointer(dtype=ctypes.c_float, ndim=1, flags='C') 
+	# xpp = (dataset.__array_interface__['data'][0] 
+	#   + np.arange(dataset.shape[0])*dataset.strides[0]).astype(ctypes.c_float) 
+	# ypp = (queries.__array_interface__['data'][0] 
+	#   + np.arange(queries.shape[0])*queries.strides[0]).astype(ctypes.c_float) 
+
+	xpp_handles = [np.ctypeslib.as_ctypes(row) for row in dataset]
+	ypp_handles = [np.ctypeslib.as_ctypes(row) for row in queries]
+	gpp_handles = [np.ctypeslib.as_ctypes(row) for row in groundtruth]
+	xpp = (ctypes.POINTER(ctypes.c_float) * N)(*xpp_handles)
+	ypp = (ctypes.POINTER(ctypes.c_float) * qN)(*ypp_handles)
+	gpp = (ctypes.POINTER(ctypes.c_int) * qN)(*gpp_handles)
+
+	libc = ctypes.CDLL('./groundtruth.so')
+	libc.compute_groundtruth.restype=None
+	# libc.compute_groundtruth.argtypes = [ctypes.c_int, ctypes.c_int, ctypes.c_int, xpp, ypp]
+	# groundtruth = (ctypes.c_int*qN)()
+	# groundtruth = libc.compute_groundtruth(N, D, qN, xpp, ypp, True if args.metric=="dot_product" or args.metric=="angular" else False, ctypes.c_char_p(groundtruth_path.encode('utf-8')))
+	libc.compute_groundtruth(N, D, qN, xpp, ypp, gpp, True if args.metric=="dot_product" else False)
+	# print(type(groundtruth))
+	# print(groundtruth)
+	write_gt_data(groundtruth_path, groundtruth)
