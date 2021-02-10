@@ -234,6 +234,7 @@ Status TreeAHHybridResidual::BuildLeafSearchers(
     shared_ptr<const asymmetric_hashing2::Model<float>> ah_model,
     vector<std::vector<DatapointIndex>> datapoints_by_token,
     const DenseDataset<uint8_t>* hashed_dataset, ThreadPool* pool) {
+  std::cout << "[YJ] BuildLeafSearchers" << std::endl;
   DCHECK(partitioner);
   SCANN_RETURN_IF_ERROR(
       CheckBuildLeafSearchersPreconditions(config, *partitioner));

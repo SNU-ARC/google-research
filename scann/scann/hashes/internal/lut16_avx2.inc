@@ -470,8 +470,9 @@ SCANN_AVX2_INLINE void GetTopFloatDistancesImpl(
                        .template ConvertTo<float>();
 
       (fvals * inv_mults[j] + simd_biases[j]).Store(distances_buffer);
-      (int16_accums[j]).Store(yj_distances_buffer_int);
-
+      if (k==0)
+        (int16_accums[j]).Store(yj_distances_buffer_int);
+      
       if (k == num_32dp_simd_iters - 1) {
         push_mask &= final_mask;
       }
@@ -504,9 +505,8 @@ SCANN_AVX2_INLINE void GetTopFloatDistancesImpl(
         }
       }
     }
-    if (k==0)
-      std::cout << "[YJ] GetTopFloatDistancesImpl, distance[0] :" << yj_distances_buffer_int[0] << std::endl;
   }
+  std::cout << "[YJ] GetTopFloatDistancesImpl, distance[0] :" << yj_distances_buffer_int[0] << std::endl;
 
 }
 }  // namespace

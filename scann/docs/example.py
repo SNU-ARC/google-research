@@ -66,7 +66,7 @@ normalized_dataset = dataset / np.linalg.norm(dataset, axis=1)[:, np.newaxis]
 # anisotropic quantization as described in the paper; see README
 
 # use scann.scann_ops.build() to instead create a TensorFlow-compatible searcher
-searcher = scann.scann_ops_pybind.builder(normalized_dataset, 10, "dot_product").tree(
+searcher = scann.scann_ops_pybind.builder(normalized_dataset, 10, "squared_l2").tree(
     num_leaves=2000, num_leaves_to_search=100, training_sample_size=250000).score_ah(
     2, anisotropic_quantization_threshold=0.2).reorder(100).build()
 

@@ -486,6 +486,7 @@ Status CoordinateDescentAHQuantize(
     const ChunkingProjection<T>& projection, double threshold,
     MutableSpan<uint8_t> result, int* num_changes = nullptr,
     double* residual_ptr = nullptr, double* parallel_residual_ptr = nullptr) {
+  std::cout << "[YJ] CoordinateDescentAHQuantize" << std::endl;
   SCANN_RET_CHECK_EQ(result.size(), centers.size());
   SCANN_RET_CHECK_EQ(maybe_residual_dptr.dimensionality(),
                      original_dptr.dimensionality());
@@ -560,6 +561,7 @@ Status AhImpl<T>::IndexDatapointNoiseShaped(
     const ChunkingProjection<T>& projection,
     ConstSpan<DenseDataset<FloatingTypeFor<T>>> centers, double threshold,
     MutableSpan<uint8_t> result) {
+  std::cout << "[YJ] IndexDatapointNoiseShaped" << std::endl;
   return CoordinateDescentAHQuantize<T>(maybe_residual_dptr, original_dptr,
                                         centers, projection, threshold, result);
 }

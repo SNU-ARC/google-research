@@ -87,6 +87,7 @@ Status TreeXHybridSMMD<T>::BuildLeafSearchers(
         int32_t token)>
         leaf_searcher_builder,
     shared_ptr<ThreadPool> thread_pool) {
+  std::cout << "[YJ] BuildLeafSearchers, smmd" << std::endl;
   if (!leaf_searchers_.empty()) {
     return FailedPreconditionError(
         "BuildLeafSearchers must not be called more than once per instance.");

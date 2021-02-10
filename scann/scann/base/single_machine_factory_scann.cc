@@ -143,6 +143,7 @@ template <>
 StatusOrSearcherUntyped TreeAhHybridResidualFactory<float>(
     const ScannConfig& config, const shared_ptr<TypedDataset<float>>& dataset,
     const GenericSearchParameters& params, SingleMachineFactoryOptions* opts) {
+  std::cout << "[YJ] TreeAhHybridResidualFactory" << std::endl;
   unique_ptr<Partitioner<float>> partitioner;
   if (config.partitioning().has_partitioner_prefix()) {
     return InvalidArgumentError("Loading a partitioner is not supported.");

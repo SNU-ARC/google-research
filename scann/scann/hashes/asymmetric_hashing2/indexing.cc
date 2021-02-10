@@ -158,6 +158,7 @@ Status Indexer<T>::HashWithNoiseShaping(const DatapointPtr<T>& maybe_residual,
                                         const DatapointPtr<T>& original,
                                         MutableSpan<uint8_t> hashed,
                                         double threshold) const {
+  std::cout << "[YJ] HashedWithNoiseShaping" << std::endl;
   if (quantization_distance_->specially_optimized_distance_tag() !=
       DistanceMeasure::SQUARED_L2) {
     return FailedPreconditionError(
