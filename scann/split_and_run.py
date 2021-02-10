@@ -161,12 +161,12 @@ def run_scann(dataset_basedir, split_dataset_path):
 		else:
 			searcher_path = './scann_searcher/'+args.dataset+'/Split_'+str(args.num_split)+'/'+args.dataset+'_searcher_'+str(args.num_split)+'_'+str(split)
     
-    print("Split ", split)
-    # Load splitted dataset
+		print("Split ", split)
+		# Load splitted dataset
 		dataset = read_data(split_dataset_path + str(args.num_split) + "_" + str(split) if args.num_split>1 else dataset_basedir, base=False if args.num_split>1 else True, offset_=None if args.num_split>1 else 0, shape_=None if args.num_split>1 else -1)
 		# Create ScaNN searcher
 		print("Entering ScaNN builder")
-    searcher = None
+		searcher = None
 
 		if os.path.isdir(searcher_path):
 			print("Loading searcher from ", searcher_path)
