@@ -239,7 +239,7 @@ def run_scann(dataset_basedir, split_dataset_path, groundtruth_path):
 		print("Entering ScaNN builder")
 		searcher = None
 
-		if os.path.isdir(searcher_path):
+		if os.path.isfile(searcher_path):
 			print("Loading searcher from ", searcher_path)
 			searcher = scann.scann_ops_pybind.load_searcher(searcher_path)
 		else:
@@ -309,20 +309,33 @@ def run_annoy(dataset_basedir, split_dataset_path, groundtruth_path, D):
 		annoy_metric = "angular"
 	for split in range(args.num_split):
 		print("Split ", split)
+		if os.path.isdir("/arc-share/MICRO21_ANNA"):
+			searcher_path = '/arc-share/MICRO21_ANNA/annoy_searcher_'+args.metric+'/'+args.dataset+'/Split_'+str(args.num_split)+'/'
+		else:
+			searcher_path = './annoy_searcher_'+args.metric+'/'+args.dataset+'/Split_'+str(args.num_split)+'/'
 		# Load splitted dataset
 		dataset = read_data(split_dataset_path + str(args.num_split) + "_" + str(split) if args.num_split>1 else dataset_basedir, base=False if args.num_split>1 else True, offset_=None if args.num_split>1 else 0, shape_=None)
 		# Create Annoy index
 		searcher = annoy.AnnoyIndex(D, metric=annoy_metric)
-		for i, x in enumerate(dataset):
-		    searcher.add_item(i, x.tolist())
-		searcher.build(args.n_trees)
+
+		if os.path.isdir(searcher_path):
+			print("Loading searcher from ", searcher_path+args.dataset+'_searcher_'+str(args.num_split)+'_'+str(split))
+			searcher.load(searcher_path+args.dataset+'_searcher_'+str(args.num_split)+'_'+str(split))
+		else:
+			for i, x in enumerate(dataset):
+			    searcher.add_item(i, x.tolist())
+			searcher.build(args.n_trees)
+			print("Saving searcher to ", searcher_path+args.dataset+'_searcher_'+str(args.num_split)+'_'+str(split))
+			os.makedirs(searcher_path, exist_ok=True)
+			searcher.save(searcher_path+args.dataset+'_searcher_'+str(args.num_split)+'_'+str(split))
+
 		pool = ThreadPool()
 		start = time.time()
 		result = pool.map(lambda q: searcher.get_nns_by_vector(q.tolist(), args.topk, args.num_search, include_distances=True), queries)
 		end = time.time()
 		result = np.array(result)
-		local_neighbors = result[:,:,0]
-		local_distances = result[:,:,1]
+		local_neighbors = result[:,0,:]
+		local_distances = result[:,1,:]
 		total_latency = total_latency + 1000*(end - start)
 		neighbors = np.append(neighbors, local_neighbors+base_idx, axis=1)
 		distances = np.append(distances, local_distances, axis=1)
