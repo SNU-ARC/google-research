@@ -15,27 +15,39 @@ parser.add_argument('--dataset', type=str, help='sift1b, glove ...')
 parser.add_argument('--num_split', type=int, default=-1, help='# of splits')
 parser.add_argument('--split', action='store_true')
 parser.add_argument('--eval_split', action='store_true')
-parser.add_argument('--metric', type=str, help='dot_product, squared_l2')
+parser.add_argument('--metric', type=str, default=None, help='dot_product, squared_l2')
+## ScaNN parameters
 parser.add_argument('--num_leaves', type=int, default=-1, help='# of leaves')
-parser.add_argument('--num_search', type=int, default=-1, help='# of searching leaves')
 parser.add_argument('--coarse_training_size', type=int, default=250000, help='coarse training sample size')
 parser.add_argument('--fine_training_size', type=int, default=100000, help='fine training sample size')
 parser.add_argument('--threshold', type=float, default=0.2, help='anisotropic_quantization_threshold')
 parser.add_argument('--reorder', type=int, default=-1, help='reorder size')
+## Annoy parameters
+parser.add_argument('--n_trees', type=int, default=-1, help='# of trees')
+## ScaNN & Annoy common parameters
+parser.add_argument('--num_search', type=int, default=-1, help='# of searching leaves for ScaNN, # of searching datapoints for Annoy')
+parser.add_argument('--topk', type=int, default=-1, help='# of final result')
+
 parser.add_argument('--groundtruth', action='store_true')
 args = parser.parse_args()
 
 assert args.metric == "squared_l2" or args.metric == "dot_product"
 if args.eval_split:
-	assert args.program!=None and args.metric!=None and args.num_split!=-1
+	assert args.program!=None and args.metric!=None and args.num_split!=-1 and args.topk!=-1
+
 if args.groundtruth:
+	import ctypes
 	assert args.metric!=None
 
 if args.program=='scann':
-	assert args.num_leaves!=-1 and args.num_search!=-1 and args.coarse_training_size!=-1 and args.fine_training_size!=-1 and args.reorder!=-1 
+	assert args.num_leaves!=-1 and args.num_search!=-1 and args.coarse_training_size!=-1 and args.fine_training_size!=-1 and args.reorder!=-1 and args.topk!=-1 and args.topk <= args.reorder
 	import scann
 elif args.program == "faiss":
 	from runfaiss import train_faiss, build_faiss, search_faiss
+elif args.program == "annoy":
+	import annoy
+	from multiprocessing.pool import ThreadPool
+	assert args.n_trees!=-1 and args.num_search!=-1 and args.topk!=-1
 
 def compute_recall(neighbors, true_neighbors):
     total = 0
@@ -171,11 +183,42 @@ def split(filename, data_path, split_dataset_path, num_iter, N, D):
 			count = count+1
 	print("num_split_lists: ", num_split_list)
 
-def run_scann(dataset_basedir, split_dataset_path, groundtruth_path):
+def run_groundtruth(dataset_basedir):
+	groundtruth_dir = dataset_basedir + "groundtruth/"
+	if os.path.isdir(groundtruth_dir)!=True:
+		os.mkdir(groundtruth_dir)
+	dataset = read_data(dataset_basedir, base=True, offset_=0, shape_=None).astype('float32')
+	queries = np.array(get_queries(dataset_basedir), dtype='float32')
+	groundtruth = np.empty([qN, 100], dtype=np.int32)
+	xpp_handles = [np.ctypeslib.as_ctypes(row) for row in dataset]
+	ypp_handles = [np.ctypeslib.as_ctypes(row) for row in queries]
+	gpp_handles = [np.ctypeslib.as_ctypes(row) for row in groundtruth]
+	xpp = (ctypes.POINTER(ctypes.c_float) * N)(*xpp_handles)
+	ypp = (ctypes.POINTER(ctypes.c_float) * qN)(*ypp_handles)
+	gpp = (ctypes.POINTER(ctypes.c_int) * qN)(*gpp_handles)
+
+	libc = ctypes.CDLL('./groundtruth.so')
+	libc.compute_groundtruth.restype=None
+	libc.compute_groundtruth(N, D, qN, xpp, ypp, gpp, True if args.metric=="dot_product" else False)
+	write_gt_data(groundtruth_path, groundtruth)
+
+def sort_neighbors(distances, neighbors):
+	if "dot_product" == args.metric or "angular" == args.metric:
+		return np.take_along_axis(neighbors, np.argsort(-distances, axis=-1), -1)
+	elif "squared_l2" == args.metric:
+		return np.take_along_axis(neighbors, np.argsort(distances, axis=-1), -1)
+	else:
+		assert False
+
+def prepare_eval(dataset_basedir, groundtruth_path):
 	gt = get_groundtruth(dataset_basedir, groundtruth_path)
 	queries = get_queries(dataset_basedir)
 	neighbors=np.empty((queries.shape[0],0))
 	distances=np.empty((queries.shape[0],0))
+	return gt, queries, neighbors, distances	
+
+def run_scann(dataset_basedir, split_dataset_path, groundtruth_path):
+	gt, queries, neighbors, distances = prepare_eval(dataset_basedir, groundtruth_path)
 	base_idx = 0
 	total_latency = 0
 	for split in range(args.num_split):
@@ -205,30 +248,20 @@ def run_scann(dataset_basedir, split_dataset_path, groundtruth_path):
 		# ScaNN search
 		print("Entering ScaNN searcher")
 		start = time.time()
-		local_neighbors, local_distances = searcher.search_batched(queries, final_num_neighbors=100)
+		local_neighbors, local_distances = searcher.search_batched(queries, final_num_neighbors=args.topk)
 		end = time.time()
 		total_latency = total_latency + 1000*(end - start)
 		neighbors = np.append(neighbors, local_neighbors+base_idx, axis=1)
 		distances = np.append(distances, local_distances, axis=1)
 		base_idx = base_idx + dataset.shape[0]
-	if "dot_product" == args.metric or "angular" == args.metric:
-		final_neighbors = np.take_along_axis(neighbors, np.argsort(-distances, axis=-1), -1)
-	elif "squared_l2" == args.metric:
-		final_neighbors = np.take_along_axis(neighbors, np.argsort(distances, axis=-1), -1)
-	else:
-		assert False
+	final_neighbors = sort_neighbors(distances, neighbors)
 	print("Recall@1:", compute_recall(final_neighbors[:,:1], gt[:, :1]))
 	print("Recall@10:", compute_recall(final_neighbors[:,:10], gt[:, :10]))
 	print("Recall@100:", compute_recall(final_neighbors[:,:100], gt[:, :100]))
 	print("Total latency (ms): ", total_latency)
 
 def run_faiss(dataset_basedir, split_dataset_path, groundtruth_path, D, index_key):
-	
-	gt = get_groundtruth(dataset_basedir, groundtruth_path)
-	queries = get_queries(dataset_basedir)
-	
-	neighbors=np.empty((queries.shape[0],0))
-	distances=np.empty((queries.shape[0],0))
+	gt, queries, neighbors, distances = prepare_eval(dataset_basedir, groundtruth_path)
 	base_idx = 0
 	total_latency = 0
 	for split in range(args.num_split):
@@ -247,12 +280,52 @@ def run_faiss(dataset_basedir, split_dataset_path, groundtruth_path, D, index_ke
 		neighbors = np.append(neighbors, local_neighbors+base_idx, axis=1)
 		distances = np.append(distances, local_distances, axis=1)
 		base_idx = base_idx + dataset.shape[0]
-	if "dot_product" == args.metric or "angular" == args.metric:
-		final_neighbors = np.take_along_axis(neighbors, np.argsort(-distances, axis=-1), -1)
-	elif "squared_l2" == args.metric:
-		final_neighbors = np.take_along_axis(neighbors, np.argsort(distances, axis=-1), -1)
-	else:
-		assert False
+	final_neighbors = sort_neighbors(distances, neighbors)
+	gtc = gt[:, :1]
+	nq = queries.shape[0]
+	for rank in 1, 10, 100:
+		if rank > 100: continue
+		nok = (final_neighbors[:, :rank] == gtc).sum()
+		print("1-R@%d: %.4f" % (rank, nok / float(nq)), end=' ')
+	print()
+	print("Total latency (ms): ", total_latency)
+
+def run_annoy(dataset_basedir, split_dataset_path, groundtruth_path, D):
+	gt, queries, neighbors, distances = prepare_eval(dataset_basedir, groundtruth_path)
+	base_idx = 0
+	total_latency = 0
+	if args.metric == "dot_product":
+		annoy_metric = "dot"
+	elif args.metric == "squared_l2":
+		annoy_metric = "euclidean"
+	elif args.metric == "angular":
+		anny_metric = "angular"
+	for split in range(args.num_split):
+		print("Split ", split)
+		# Load splitted dataset
+		dataset = read_data(split_dataset_path + str(args.num_split) + "_" + str(split) if args.num_split>1 else dataset_basedir, base=False if args.num_split>1 else True, offset_=None if args.num_split>1 else 0, shape_=None)
+		# Create Annoy index
+		searcher = annoy.AnnoyIndex(D, metric=annoy_metric)
+		for i, x in enumerate(dataset):
+		    searcher.add_item(i, x.tolist())
+		searcher.build(args.n_trees)
+
+		pool = ThreadPool()
+		local_neighbors = pool.map(lambda q: searcher.get_nns_by_vector(q.tolist(), args.topk, include_distances=True), dataset)
+		print(local_neighbors.shape)
+		print(local_distances.shape)
+		# local_neighbors = np.array([queries.shape[0], args.topk])
+		# local_distances = np.array([queries.shape[0], args.topk])
+		# start = time.time()
+		# # Annoy search
+		# for i, query in enumerate(queries):
+		# 	local_neighbors[i], local_distances[i] = searcher.get_nns_by_vector(query, args.topk, args.num_search, include_distances=True)
+		# end = time.time()
+		total_latency = total_latency + 1000*(end - start)
+		neighbors = np.append(neighbors, local_neighbors+base_idx, axis=1)
+		distances = np.append(distances, local_distances, axis=1)
+		base_idx = base_idx + dataset.shape[0]
+	final_neighbors = sort_neighbors(distances, neighbors)
 	gtc = gt[:, :1]
 	nq = queries.shape[0]
 	for rank in 1, 10, 100:
@@ -347,37 +420,10 @@ if args.eval_split:
 		run_scann(dataset_basedir, split_dataset_path, groundtruth_path)
 	elif args.program == "faiss":
 		run_faiss(dataset_basedir, split_dataset_path, groundtruth_path, D, index_key)
+	elif args.program == "annoy":
+		run_annoy(dataset_basedir, split_dataset_path, groundtruth_path, D)
+	else:
+		assert False
 
 if args.groundtruth:
-	groundtruth_dir = dataset_basedir + "groundtruth/"
-	if os.path.isdir(groundtruth_dir)!=True:
-		os.mkdir(groundtruth_dir)
-	dataset = read_data(dataset_basedir, base=True, offset_=0, shape_=None).astype('float32')
-	queries = np.array(get_queries(dataset_basedir), dtype='float32')
-	groundtruth = np.empty([qN, 100], dtype=np.int32)
-	# assert np.linalg.norm(dataset[0]) == 1 if args.metric=="dot_product" else True
-	import ctypes
-	# groundtruth = (ctypes.c_int*100)*qN
-	# from numpy.ctypeslib import ndpointer 
-	# _floatpp = ndpointer(dtype=ctypes.c_float, ndim=1, flags='C') 
-	# xpp = (dataset.__array_interface__['data'][0] 
-	#   + np.arange(dataset.shape[0])*dataset.strides[0]).astype(ctypes.c_float) 
-	# ypp = (queries.__array_interface__['data'][0] 
-	#   + np.arange(queries.shape[0])*queries.strides[0]).astype(ctypes.c_float) 
-
-	xpp_handles = [np.ctypeslib.as_ctypes(row) for row in dataset]
-	ypp_handles = [np.ctypeslib.as_ctypes(row) for row in queries]
-	gpp_handles = [np.ctypeslib.as_ctypes(row) for row in groundtruth]
-	xpp = (ctypes.POINTER(ctypes.c_float) * N)(*xpp_handles)
-	ypp = (ctypes.POINTER(ctypes.c_float) * qN)(*ypp_handles)
-	gpp = (ctypes.POINTER(ctypes.c_int) * qN)(*gpp_handles)
-
-	libc = ctypes.CDLL('./groundtruth.so')
-	libc.compute_groundtruth.restype=None
-	# libc.compute_groundtruth.argtypes = [ctypes.c_int, ctypes.c_int, ctypes.c_int, xpp, ypp]
-	# groundtruth = (ctypes.c_int*qN)()
-	# groundtruth = libc.compute_groundtruth(N, D, qN, xpp, ypp, True if args.metric=="dot_product" or args.metric=="angular" else False, ctypes.c_char_p(groundtruth_path.encode('utf-8')))
-	libc.compute_groundtruth(N, D, qN, xpp, ypp, gpp, True if args.metric=="dot_product" else False)
-	# print(type(groundtruth))
-	# print(groundtruth)
-	write_gt_data(groundtruth_path, groundtruth)
+	run_groundtruth(dataset_basedir)
