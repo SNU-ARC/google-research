@@ -88,7 +88,6 @@ def bvecs_read(fname):
 	d = b[:4].view('int32')[0]
 	return b.reshape(-1, d+4)[:, 4:].copy()
 
-
 def mmap_fvecs(fname):
 	x = np.memmap(fname, dtype='int32', mode='r')
 	d = x[0]
@@ -135,7 +134,7 @@ def write_split_data(split_data_path, split_data):
 		hf.create_dataset('dataset', data=split_data)
 	print("Wrote to ", split_data_path, ", shape ", split_data.shape)
 
-def write_gt_data(groundtruth_path, gt_data):
+def write_gt_data(gt_data):
 	if "sift1b" in args.dataset or "sift1m" in args.dataset:
 		ivecs_write(groundtruth_path, gt_data)
 	elif "glove" in args.dataset:
@@ -143,8 +142,7 @@ def write_gt_data(groundtruth_path, gt_data):
 		hf.create_dataset('dataset', data=gt_data)
 	print("Wrote to ", groundtruth_path, ", shape ", gt_data.shape)
 
-
-def split(filename, data_path, split_dataset_path, num_iter, N, D):
+def split(filename, num_iter, N, D):
 	num_per_split = int(N/args.num_split)
 	dataset = np.empty((0, D), dtype=np.uint8 if 'sift1b' in args.dataset else np.float32)
 	dataset_per_iter = int(N/num_iter)
@@ -183,12 +181,12 @@ def split(filename, data_path, split_dataset_path, num_iter, N, D):
 			count = count+1
 	print("num_split_lists: ", num_split_list)
 
-def run_groundtruth(dataset_basedir):
+def run_groundtruth():
 	groundtruth_dir = dataset_basedir + "groundtruth/"
 	if os.path.isdir(groundtruth_dir)!=True:
 		os.mkdir(groundtruth_dir)
 	dataset = read_data(dataset_basedir, base=True, offset_=0, shape_=None).astype('float32')
-	queries = np.array(get_queries(dataset_basedir), dtype='float32')
+	queries = np.array(get_queries(), dtype='float32')
 	groundtruth = np.empty([qN, 100], dtype=np.int32)
 	xpp_handles = [np.ctypeslib.as_ctypes(row) for row in dataset]
 	ypp_handles = [np.ctypeslib.as_ctypes(row) for row in queries]
@@ -200,7 +198,7 @@ def run_groundtruth(dataset_basedir):
 	libc = ctypes.CDLL('./groundtruth.so')
 	libc.compute_groundtruth.restype=None
 	libc.compute_groundtruth(N, D, qN, xpp, ypp, gpp, True if args.metric=="dot_product" else False)
-	write_gt_data(groundtruth_path, groundtruth)
+	write_gt_data(groundtruth)
 
 def sort_neighbors(distances, neighbors):
 	if "dot_product" == args.metric or "angular" == args.metric:
@@ -210,9 +208,9 @@ def sort_neighbors(distances, neighbors):
 	else:
 		assert False
 
-def prepare_eval(dataset_basedir, groundtruth_path):
-	gt = get_groundtruth(dataset_basedir, groundtruth_path)
-	queries = get_queries(dataset_basedir)
+def prepare_eval():
+	gt = get_groundtruth()
+	queries = get_queries()
 	neighbors=np.empty((queries.shape[0],0))
 	distances=np.empty((queries.shape[0],0))
 	return gt, queries, neighbors, distances	
@@ -222,16 +220,21 @@ def print_recall(final_neighbors, gt):
 	print("Recall@10:", compute_recall(final_neighbors[:,:10], gt[:, :10]))
 	print("Recall@100:", compute_recall(final_neighbors[:,:100], gt[:, :100]))
 
-def run_scann(dataset_basedir, split_dataset_path, groundtruth_path):
-	gt, queries, neighbors, distances = prepare_eval(dataset_basedir, groundtruth_path)
+def get_searcher_path(split):
+	searcher_dir = basedir + args.program + '_searcher_' + args.metric + '/' + args.dataset + '/Split_' + str(args.num_split) + '/'
+	searcher_path = searcher_dir + args.dataset + '_searcher_' + str(args.num_split)+'_'+str(split)
+	return searcher_dir, searcher_path
+
+def run_scann():
+	gt, queries, neighbors, distances = prepare_eval()
 	base_idx = 0
 	total_latency = 0
 	for split in range(args.num_split):
-		if os.path.isdir("/arc-share/MICRO21_ANNA"):
-			searcher_path = '/arc-share/MICRO21_ANNA/scann_searcher_'+args.metric+'/'+args.dataset+'/Split_'+str(args.num_split)+'/'+args.dataset+'_searcher_'+str(args.num_split)+'_'+str(split)
-		else:
-			searcher_path = './scann_searcher_'+args.metric+'/'+args.dataset+'/Split_'+str(args.num_split)+'/'+args.dataset+'_searcher_'+str(args.num_split)+'_'+str(split)
-    
+		# if os.path.isdir("/arc-share/MICRO21_ANNA"):
+		# 	searcher_path = '/arc-share/MICRO21_ANNA/scann_searcher_'+args.metric+'/'+args.dataset+'/Split_'+str(args.num_split)+'/'+args.dataset+'_searcher_'+str(args.num_split)+'_'+str(split)
+		# else:
+		# 	searcher_path = './scann_searcher_'+args.metric+'/'+args.dataset+'/Split_'+str(args.num_split)+'/'+args.dataset+'_searcher_'+str(args.num_split)+'_'+str(split)
+		searcher_dir, searcher_path = get_searcher_path(split)  	
 		print("Split ", split)
 		# Load splitted dataset
 		dataset = read_data(split_dataset_path + str(args.num_split) + "_" + str(split) if args.num_split>1 else dataset_basedir, base=False if args.num_split>1 else True, offset_=None if args.num_split>1 else 0, shape_=None)
@@ -239,7 +242,7 @@ def run_scann(dataset_basedir, split_dataset_path, groundtruth_path):
 		print("Entering ScaNN builder")
 		searcher = None
 
-		if os.path.isfile(searcher_path):
+		if os.path.isfile(searcher_dir):
 			print("Loading searcher from ", searcher_path)
 			searcher = scann.scann_ops_pybind.load_searcher(searcher_path)
 		else:
@@ -247,7 +250,7 @@ def run_scann(dataset_basedir, split_dataset_path, groundtruth_path):
 				num_leaves=args.num_leaves, num_leaves_to_search=args.num_search, training_sample_size=args.coarse_training_size).score_ah(
 				2, anisotropic_quantization_threshold=args.threshold, training_sample_size=args.fine_training_size).reorder(args.reorder).build()			
 			print("Saving searcher to ", searcher_path)
-			os.makedirs(searcher_path, exist_ok=True)
+			os.makedirs(searcher_dir, exist_ok=True)
 			searcher.serialize(searcher_path)
 
 		# ScaNN search
@@ -263,14 +266,14 @@ def run_scann(dataset_basedir, split_dataset_path, groundtruth_path):
 	print_recall(final_neighbors, gt)
 	print("Total latency (ms): ", total_latency)
 
-def run_faiss(dataset_basedir, split_dataset_path, groundtruth_path, D, index_key):
-	gt, queries, neighbors, distances = prepare_eval(dataset_basedir, groundtruth_path)
+def run_faiss(D, index_key):
+	gt, queries, neighbors, distances = prepare_eval()
 	base_idx = 0
 	total_latency = 0
 	for split in range(args.num_split):
 		print("Split ", split)
 		# Load splitted dataset
-		xt = get_train(dataset_basedir, split, args.num_split)
+		xt = get_train(split, args.num_split)
 		preproc = train_faiss(args.dataset, split_dataset_path, D, xt, split, args.num_split, args.metric, index_key)
 		dataset = read_data(split_dataset_path + str(args.num_split) + "_" + str(split) if args.num_split>1 else dataset_basedir, base=False if args.num_split>1 else True, offset_=None if args.num_split>1 else 0, shape_=None)
 		# Create Faiss index
@@ -297,8 +300,8 @@ def run_faiss(dataset_basedir, split_dataset_path, groundtruth_path, D, index_ke
 	# print()
 	# print("Total latency (ms): ", total_latency)
 
-def run_annoy(dataset_basedir, split_dataset_path, groundtruth_path, D):
-	gt, queries, neighbors, distances = prepare_eval(dataset_basedir, groundtruth_path)
+def run_annoy(D):
+	gt, queries, neighbors, distances = prepare_eval()
 	base_idx = 0
 	total_latency = 0
 	if args.metric == "dot_product":
@@ -309,29 +312,33 @@ def run_annoy(dataset_basedir, split_dataset_path, groundtruth_path, D):
 		annoy_metric = "angular"
 	for split in range(args.num_split):
 		print("Split ", split)
-		if os.path.isdir("/arc-share/MICRO21_ANNA"):
-			searcher_path = '/arc-share/MICRO21_ANNA/annoy_searcher_'+args.metric+'/'+args.dataset+'/Split_'+str(args.num_split)+'/'
-		else:
-			searcher_path = './annoy_searcher_'+args.metric+'/'+args.dataset+'/Split_'+str(args.num_split)+'/'
+		# if os.path.isdir("/arc-share/MICRO21_ANNA"):
+		# 	searcher_path = '/arc-share/MICRO21_ANNA/annoy_searcher_'+args.metric+'/'+args.dataset+'/Split_'+str(args.num_split)+'/'
+		# else:
+		# 	searcher_path = './annoy_searcher_'+args.metric+'/'+args.dataset+'/Split_'+str(args.num_split)+'/'
+		searcher_dir, searcher_path = get_searcher_path(split)  	
+
 		# Load splitted dataset
 		dataset = read_data(split_dataset_path + str(args.num_split) + "_" + str(split) if args.num_split>1 else dataset_basedir, base=False if args.num_split>1 else True, offset_=None if args.num_split>1 else 0, shape_=None)
 		# Create Annoy index
 		searcher = annoy.AnnoyIndex(D, metric=annoy_metric)
 
-		if os.path.isdir(searcher_path):
-			print("Loading searcher from ", searcher_path+args.dataset+'_searcher_'+str(args.num_split)+'_'+str(split))
-			searcher.load(searcher_path+args.dataset+'_searcher_'+str(args.num_split)+'_'+str(split))
+		if os.path.isdir(searcher_dir):
+			print("Loading searcher from ", searcher_path)
+			searcher.load(searcher_path)
 		else:
 			for i, x in enumerate(dataset):
 			    searcher.add_item(i, x.tolist())
 			searcher.build(args.n_trees)
-			print("Saving searcher to ", searcher_path+args.dataset+'_searcher_'+str(args.num_split)+'_'+str(split))
-			os.makedirs(searcher_path, exist_ok=True)
-			searcher.save(searcher_path+args.dataset+'_searcher_'+str(args.num_split)+'_'+str(split))
+			print("Saving searcher to ", searcher_path)
+			os.makedirs(searcher_dir, exist_ok=True)
+			searcher.save(searcher_path)
 
 		pool = ThreadPool()
 		start = time.time()
 		result = pool.map(lambda q: searcher.get_nns_by_vector(q.tolist(), args.topk, args.num_search, include_distances=True), queries)
+		# [YJ] just for test,, only process a single query
+		# result = searcher.get_nns_by_vector(queries[0].tolist(), args.topk, args.num_search, include_distances=True)
 		end = time.time()
 		result = np.array(result)
 		local_neighbors = result[:,0,:]
@@ -345,7 +352,7 @@ def run_annoy(dataset_basedir, split_dataset_path, groundtruth_path, D):
 	print("Total latency (ms): ", total_latency)
 
 # only for faiss
-def get_train(dataset_basedir, split=-1, total=-1):
+def get_train(split=-1, total=-1):
 	if "sift1m" in args.dataset:
 		filename = dataset_basedir + 'sift_learn.fvecs' if split<0 else dataset_basedir + 'split_data/sift1m_learn%d_%d' % (total, split)
 		return mmap_fvecs(filename)
@@ -356,7 +363,7 @@ def get_train(dataset_basedir, split=-1, total=-1):
 	else:
 		assert False
 
-def get_groundtruth(dataset_basedir, groundtruth_path):
+def get_groundtruth():
 	if "sift1m" in args.dataset:
 		filename = dataset_basedir + 'sift_groundtruth.ivecs' if args.metric=="squared_l2" else groundtruth_path
 		return ivecs_read(filename)
@@ -371,7 +378,7 @@ def get_groundtruth(dataset_basedir, groundtruth_path):
 	else:
 		assert False
 
-def get_queries(dataset_basedir):
+def get_queries():
 	if "sift1m" in args.dataset:
 		return mmap_fvecs(dataset_basedir + 'sift_query.fvecs')
 	elif "sift1b" in args.dataset:
@@ -381,10 +388,11 @@ def get_queries(dataset_basedir):
 	else:
 		assert False
 
+
 if os.path.isdir("/arc-share"):
-	dataset_basedir = "/arc-share/MICRO21_ANNA"
+	basedir = "/arc-share/MICRO21_ANNA/"
 else:
-	dataset_basedir = "./data"
+	basedir = "./"
 
 split_dataset_path = None
 index_key = None
@@ -393,8 +401,8 @@ D = -1
 num_iter = -1
 qN = -1
 if "sift1m" in args.dataset:
-	dataset_basedir = dataset_basedir + "/SIFT1M/"
-	split_dataset_path=dataset_basedir+"split_data/sift1m_"
+	dataset_basedir = basedir + "SIFT1M/"
+	split_dataset_path =dataset_basedir+"split_data/sift1m_"
 	groundtruth_path = dataset_basedir + "sift1m_"+args.metric+"_gt"
 	N=1000000
 	D=128
@@ -402,8 +410,8 @@ if "sift1m" in args.dataset:
 	qN = 10000
 	index_key = "IVF4096,PQ64"
 elif "sift1b" in args.dataset:
-	dataset_basedir = dataset_basedir + "/SIFT1B/"
-	split_dataset_path=dataset_basedir+"split_data/sift1b_"
+	dataset_basedir = basedir + "SIFT1B/"
+	split_dataset_path = dataset_basedir+"split_data/sift1b_"
 	groundtruth_path = dataset_basedir + "sift1b_"+args.metric+"_gt"
 	N=1000000000
 	D=128
@@ -411,8 +419,8 @@ elif "sift1b" in args.dataset:
 	qN = 10000
 	index_key = "OPQ8_32,IVF262144,PQ8"
 elif "glove" in args.dataset:
-	dataset_basedir = dataset_basedir + "/GLOVE/"
-	split_dataset_path=dataset_basedir+"split_data/glove_"
+	dataset_basedir = basedir + "GLOVE/"
+	split_dataset_path = dataset_basedir+"split_data/glove_"
 	groundtruth_path = dataset_basedir + "glove_"+args.metric+"_gt"
 	N=1183514
 	D=100
@@ -422,16 +430,16 @@ elif "glove" in args.dataset:
 
 # main
 if args.split:
-	split(args.dataset, dataset_basedir, split_dataset_path, num_iter, N, D)
+	split(args.dataset, num_iter, N, D)
 if args.eval_split:
 	if args.program == "scann":
-		run_scann(dataset_basedir, split_dataset_path, groundtruth_path)
+		run_scann()
 	elif args.program == "faiss":
-		run_faiss(dataset_basedir, split_dataset_path, groundtruth_path, D, index_key)
+		run_faiss( D, index_key)
 	elif args.program == "annoy":
-		run_annoy(dataset_basedir, split_dataset_path, groundtruth_path, D)
+		run_annoy(D)
 	else:
 		assert False
 
 if args.groundtruth:
-	run_groundtruth(dataset_basedir)
+	run_groundtruth()
