@@ -31,7 +31,7 @@ parser.add_argument('--topk', type=int, default=-1, help='# of final result')
 parser.add_argument('--groundtruth', action='store_true')
 args = parser.parse_args()
 
-assert args.metric == "squared_l2" or args.metric == "dot_product"
+assert args.metric == "squared_l2" or args.metric == "dot_product" or args.metric=="angular"
 if args.eval_split:
 	assert args.program!=None and args.metric!=None and args.num_split!=-1 and args.topk!=-1
 
@@ -217,6 +217,11 @@ def prepare_eval(dataset_basedir, groundtruth_path):
 	distances=np.empty((queries.shape[0],0))
 	return gt, queries, neighbors, distances	
 
+def print_recall(final_neighbors, gt):
+	print("Recall@1:", compute_recall(final_neighbors[:,:1], gt[:, :1]))
+	print("Recall@10:", compute_recall(final_neighbors[:,:10], gt[:, :10]))
+	print("Recall@100:", compute_recall(final_neighbors[:,:100], gt[:, :100]))
+
 def run_scann(dataset_basedir, split_dataset_path, groundtruth_path):
 	gt, queries, neighbors, distances = prepare_eval(dataset_basedir, groundtruth_path)
 	base_idx = 0
@@ -255,9 +260,7 @@ def run_scann(dataset_basedir, split_dataset_path, groundtruth_path):
 		distances = np.append(distances, local_distances, axis=1)
 		base_idx = base_idx + dataset.shape[0]
 	final_neighbors = sort_neighbors(distances, neighbors)
-	print("Recall@1:", compute_recall(final_neighbors[:,:1], gt[:, :1]))
-	print("Recall@10:", compute_recall(final_neighbors[:,:10], gt[:, :10]))
-	print("Recall@100:", compute_recall(final_neighbors[:,:100], gt[:, :100]))
+	print_recall(final_neighbors, gt)
 	print("Total latency (ms): ", total_latency)
 
 def run_faiss(dataset_basedir, split_dataset_path, groundtruth_path, D, index_key):
@@ -281,14 +284,18 @@ def run_faiss(dataset_basedir, split_dataset_path, groundtruth_path, D, index_ke
 		distances = np.append(distances, local_distances, axis=1)
 		base_idx = base_idx + dataset.shape[0]
 	final_neighbors = sort_neighbors(distances, neighbors)
-	gtc = gt[:, :1]
-	nq = queries.shape[0]
-	for rank in 1, 10, 100:
-		if rank > 100: continue
-		nok = (final_neighbors[:, :rank] == gtc).sum()
-		print("1-R@%d: %.4f" % (rank, nok / float(nq)), end=' ')
-	print()
+	print_recall(final_neighbors, gt)
 	print("Total latency (ms): ", total_latency)
+
+	# Below is for faiss's recall
+	# gtc = gt[:, :1]
+	# nq = queries.shape[0]
+	# for rank in 1, 10, 100:
+	# 	if rank > 100: continue
+	# 	nok = (final_neighbors[:, :rank] == gtc).sum()
+	# 	print("1-R@%d: %.4f" % (rank, nok / float(nq)), end=' ')
+	# print()
+	# print("Total latency (ms): ", total_latency)
 
 def run_annoy(dataset_basedir, split_dataset_path, groundtruth_path, D):
 	gt, queries, neighbors, distances = prepare_eval(dataset_basedir, groundtruth_path)
@@ -299,7 +306,7 @@ def run_annoy(dataset_basedir, split_dataset_path, groundtruth_path, D):
 	elif args.metric == "squared_l2":
 		annoy_metric = "euclidean"
 	elif args.metric == "angular":
-		anny_metric = "angular"
+		annoy_metric = "angular"
 	for split in range(args.num_split):
 		print("Split ", split)
 		# Load splitted dataset
@@ -309,32 +316,20 @@ def run_annoy(dataset_basedir, split_dataset_path, groundtruth_path, D):
 		for i, x in enumerate(dataset):
 		    searcher.add_item(i, x.tolist())
 		searcher.build(args.n_trees)
-
 		pool = ThreadPool()
-		local_neighbors = pool.map(lambda q: searcher.get_nns_by_vector(q.tolist(), args.topk, include_distances=True), dataset)
-		print(local_neighbors.shape)
-		print(local_distances.shape)
-		# local_neighbors = np.array([queries.shape[0], args.topk])
-		# local_distances = np.array([queries.shape[0], args.topk])
-		# start = time.time()
-		# # Annoy search
-		# for i, query in enumerate(queries):
-		# 	local_neighbors[i], local_distances[i] = searcher.get_nns_by_vector(query, args.topk, args.num_search, include_distances=True)
-		# end = time.time()
+		start = time.time()
+		result = pool.map(lambda q: searcher.get_nns_by_vector(q.tolist(), args.topk, args.num_search, include_distances=True), queries)
+		end = time.time()
+		result = np.array(result)
+		local_neighbors = result[:,:,0]
+		local_distances = result[:,:,1]
 		total_latency = total_latency + 1000*(end - start)
 		neighbors = np.append(neighbors, local_neighbors+base_idx, axis=1)
 		distances = np.append(distances, local_distances, axis=1)
 		base_idx = base_idx + dataset.shape[0]
 	final_neighbors = sort_neighbors(distances, neighbors)
-	gtc = gt[:, :1]
-	nq = queries.shape[0]
-	for rank in 1, 10, 100:
-		if rank > 100: continue
-		nok = (final_neighbors[:, :rank] == gtc).sum()
-		print("1-R@%d: %.4f" % (rank, nok / float(nq)), end=' ')
-	print()
+	print_recall(final_neighbors, gt)
 	print("Total latency (ms): ", total_latency)
-
 
 # only for faiss
 def get_train(dataset_basedir, split=-1, total=-1):
