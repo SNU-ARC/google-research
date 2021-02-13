@@ -213,7 +213,8 @@ def prepare_eval():
 	queries = get_queries()
 	neighbors=np.empty((queries.shape[0],0))
 	distances=np.empty((queries.shape[0],0))
-	return gt, queries, neighbors, distances	
+	#SOW=np.zeros((queries.shape[0],1))
+	return gt, queries, neighbors, distances#, SOW	
 
 def print_recall(final_neighbors, gt):
 	print("Recall@1:", compute_recall(final_neighbors[:,:1], gt[:, :1]))
@@ -242,7 +243,7 @@ def run_scann():
 		print("Entering ScaNN builder")
 		searcher = None
 
-		if os.path.isfile(searcher_dir):
+		if os.path.isdir(searcher_path):
 			print("Loading searcher from ", searcher_path)
 			searcher = scann.scann_ops_pybind.load_searcher(searcher_path)
 		else:
@@ -250,7 +251,7 @@ def run_scann():
 				num_leaves=args.num_leaves, num_leaves_to_search=args.num_search, training_sample_size=args.coarse_training_size).score_ah(
 				2, anisotropic_quantization_threshold=args.threshold, training_sample_size=args.fine_training_size).reorder(args.reorder).build()			
 			print("Saving searcher to ", searcher_path)
-			os.makedirs(searcher_dir, exist_ok=True)
+			os.makedirs(searcher_path, exist_ok=True)
 			searcher.serialize(searcher_path)
 
 		# ScaNN search
@@ -261,10 +262,12 @@ def run_scann():
 		total_latency = total_latency + 1000*(end - start)
 		neighbors = np.append(neighbors, local_neighbors+base_idx, axis=1)
 		distances = np.append(distances, local_distances, axis=1)
+		#SOW += local_SOW
 		base_idx = base_idx + dataset.shape[0]
 	final_neighbors = sort_neighbors(distances, neighbors)
 	print_recall(final_neighbors, gt)
 	print("Total latency (ms): ", total_latency)
+	#print("SOW min :", np.min(SOW), " max :", np.max(SOW), " avg :", np.average(SOW))
 
 def run_faiss(D, index_key):
 	gt, queries, neighbors, distances = prepare_eval()
