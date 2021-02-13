@@ -7,6 +7,7 @@ import faiss
 import re
 
 from multiprocessing.dummy import Pool as ThreadPool
+from cupy.cuda import nvtx
 
 ########### Set Faiss arguments here #############
 ngpu = faiss.get_num_gpus()
@@ -393,16 +394,20 @@ def dataset_iterator(x, preproc, bs):
 def search_faiss(xq, index, preproc):
 	print("--------------- search_faiss ----------------")
 	ps = faiss.GpuParameterSpace()
+	nvtx.RangePush("initialize")
 	ps.initialize(index)
+	ps.set_index_parameter(index, 'nprobe', nprobe)
+	nvtx.RangePop()
 
 	print("search...")
 	sl = query_batch_size
 	nq = xq.shape[0]
-	ps.set_index_parameter(index, 'nprobe', nprobe)
-	print(index.metric_type)
 
-	if sl == 0:
-		D, I = index.search(preproc.apply_py(sanitize(xq)), nnn)
+	if sl == 0 or sl >= nq:
+		nvtx.RangePush("preprocessing")
+		p_xq = preproc.apply_py(sanitize(xq))
+		nvtx.RangePop()
+		D, I = index.search(p_xq, nnn)
 	else:
 		I = np.empty((nq, nnn), dtype='int32')
 		D = np.empty((nq, nnn), dtype='float32')
@@ -410,11 +415,13 @@ def search_faiss(xq, index, preproc):
 		inter_res = ''
 
 		for i0, xs in dataset_iterator(xq, preproc, sl):
+			nvtx.RangePush("batch " + str(i0))
 			i1 = i0 + xs.shape[0]
 			Di, Ii = index.search(xs, nnn)
 
 			I[i0:i1] = Ii
 			D[i0:i1] = Di
+			nvtx.RangePop()
 
 	print("--------------------------------------------\n")
 	return I, D

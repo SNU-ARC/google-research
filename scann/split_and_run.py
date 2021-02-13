@@ -9,6 +9,8 @@ import argparse
 import os
 import h5py
 
+from cupy.cuda import nvtx, profiler
+
 parser = argparse.ArgumentParser(description='Options')
 parser.add_argument('--program', type=str, help='scann, faiss ...')
 parser.add_argument('--dataset', type=str, help='sift1b, glove ...')
@@ -50,15 +52,15 @@ elif args.program == "annoy":
 	assert args.n_trees!=-1 and args.num_search!=-1 and args.topk!=-1
 
 def compute_recall(neighbors, true_neighbors):
-    total = 0
-    for gt_row, row in zip(true_neighbors, neighbors):
-        total += np.intersect1d(gt_row, row).shape[0]
-    return total / true_neighbors.size	
+	total = 0
+	for gt_row, row in zip(true_neighbors, neighbors):
+		total += np.intersect1d(gt_row, row).shape[0]
+	return total / true_neighbors.size	
 
 def ivecs_read(fname):
-    a = np.fromfile(fname, dtype='int32')
-    d = a[0]
-    return a.reshape(-1, d + 1)[:, 1:].copy()
+	a = np.fromfile(fname, dtype='int32')
+	d = a[0]
+	return a.reshape(-1, d + 1)[:, 1:].copy()
 
 def ivecs_write(fname, m):
 	n, d = m.shape
@@ -267,28 +269,38 @@ def run_scann():
 	print("Total latency (ms): ", total_latency)
 
 def run_faiss(D, index_key):
+	profiler.start()
 	gt, queries, neighbors, distances = prepare_eval()
 	base_idx = 0
 	total_latency = 0
 	for split in range(args.num_split):
 		print("Split ", split)
+		nvtx.RangePush("Split" + str(split))
 		# Load splitted dataset
 		xt = get_train(split, args.num_split)
+		nvtx.RangePush("train_faiss")
 		preproc = train_faiss(args.dataset, split_dataset_path, D, xt, split, args.num_split, args.metric, index_key)
+		nvtx.RangePop()
 		dataset = read_data(split_dataset_path + str(args.num_split) + "_" + str(split) if args.num_split>1 else dataset_basedir, base=False if args.num_split>1 else True, offset_=None if args.num_split>1 else 0, shape_=None)
 		# Create Faiss index
+		nvtx.RangePush("build_faiss")
 		index = build_faiss(dataset, split, preproc)
+		nvtx.RangePop()
 		start = time.time()
 		# Faiss search
+		nvtx.RangePush("search_faiss")
 		local_neighbors, local_distances = search_faiss(queries, index, preproc)
+		nvtx.RangePop()
 		end = time.time()
 		total_latency = total_latency + 1000*(end - start)
 		neighbors = np.append(neighbors, local_neighbors+base_idx, axis=1)
 		distances = np.append(distances, local_distances, axis=1)
 		base_idx = base_idx + dataset.shape[0]
+		nvtx.RangePop()
 	final_neighbors = sort_neighbors(distances, neighbors)
 	print_recall(final_neighbors, gt)
 	print("Total latency (ms): ", total_latency)
+	profiler.stop()
 
 	# Below is for faiss's recall
 	# gtc = gt[:, :1]
@@ -328,7 +340,7 @@ def run_annoy(D):
 			searcher.load(searcher_path)
 		else:
 			for i, x in enumerate(dataset):
-			    searcher.add_item(i, x.tolist())
+				searcher.add_item(i, x.tolist())
 			searcher.build(args.n_trees)
 			print("Saving searcher to ", searcher_path)
 			os.makedirs(searcher_dir, exist_ok=True)
