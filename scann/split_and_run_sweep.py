@@ -369,8 +369,10 @@ def run_annoy(D):
 					print("Loading searcher from ", searcher_path)
 					searcher.load(searcher_path)
 				else:
+					print("Annoy, adding items")
 					for i, x in enumerate(dataset):
 					    searcher.add_item(i, x.tolist())
+					print("Annoy, building trees")
 					searcher.build(num_trees)
 					print("Saving searcher to ", searcher_path)
 					os.makedirs(searcher_dir, exist_ok=True)
