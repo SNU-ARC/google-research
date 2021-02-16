@@ -14,13 +14,12 @@ ngpu = faiss.get_num_gpus()
 replicas = 1  # nb of replicas of sharded dataset
 add_batch_size = 32768
 query_batch_size = 16384
-nprobe = 32
 use_precomputed_tables = False
 tempmem = 1536*1024*1024
 max_add = -1
 use_float16 = True
 use_cache = True
-nnn = 100
+# nnn = 100
 altadd = False
 I_fname = None
 D_fname = None
@@ -75,6 +74,7 @@ def prepare_trained_index(preproc, xt):
 
 	coarse_quantizer = prepare_coarse_quantizer(preproc, xt)
 	d = preproc.d_out
+
 	if pqflat_str == 'Flat':
 		print("making an IVFFlat index")
 		idx_model = faiss.IndexIVFFlat(coarse_quantizer, d, ncent,
@@ -353,7 +353,7 @@ def prepare_pq_quantizer(preproc, xt, coarse_quantizer):
 		m = int(pqflat_str[2:])
 		assert m < 56 or use_float16, "PQ%d will work only with -float16" % m
 		print("making an IVFPQ index, m = ", m)
-		idx_model = faiss.IndexIVFPQ(coarse_quantizer, d, ncent, m, 8)
+		idx_model = faiss.IndexIVFPQ(coarse_quantizer, d, ncent, m, log2kstar)
 
 	if pq_cachefile and os.path.exists(pq_cachefile):
 		print("load sub-quantizers", pq_cachefile)
@@ -390,7 +390,7 @@ def dataset_iterator(x, preproc, bs):
 
 	return rate_limited_imap(prepare_block, block_ranges)
 
-def search_faiss(xq, index, preproc):
+def search_faiss(xq, index, preproc, nprobe, topk):
 	print("--------------- search_faiss ----------------")
 	ps = faiss.GpuParameterSpace()
 	ps.initialize(index)
@@ -400,7 +400,7 @@ def search_faiss(xq, index, preproc):
 	nq = xq.shape[0]
 	ps.set_index_parameter(index, 'nprobe', nprobe)
 	print(index.metric_type)
-
+	nnn = topk
 	if sl == 0:
 		D, I = index.search(preproc.apply_py(sanitize(xq)), nnn)
 	else:
@@ -419,9 +419,9 @@ def search_faiss(xq, index, preproc):
 	print("--------------------------------------------\n")
 	return I, D
 
-def train_faiss(db, split_dataset_path, D, xt, split, num_split, met, index_key):
+
+def train_faiss(db, split_dataset_path, D, xt, split, num_split, met, index_key, log2kstar_, cacheroot):
 	print("--------------- train_faiss ----------------")
-	global cacheroot
 	global preproc_cachefile
 	global cent_cachefile
 	global pq_cachefile
@@ -433,15 +433,17 @@ def train_faiss(db, split_dataset_path, D, xt, split, num_split, met, index_key)
 	global dim
 	global dbname
 	global metric
-	
+	global log2kstar
+
 	dim = D
 	dbname = db
 	metric = met
-	cacheroot = split_dataset_path + 'tmp'
+
 	# cacheroot
 	if not os.path.isdir(cacheroot):
 		print("%s does not exist, creating it" % cacheroot)
-		os.mkdir(cacheroot)
+		# os.mkdir(cacheroot)
+		os.makedirs(cacheroot, exist_ok=True)
 
 	# index pattern
 	pat = re.compile('(OPQ[0-9]+(_[0-9]+)?,|PCAR[0-9]+,)?' +
@@ -454,6 +456,7 @@ def train_faiss(db, split_dataset_path, D, xt, split, num_split, met, index_key)
 	ivf_str = mog[2]
 	pqflat_str = mog[3]
 	ncent = int(ivf_str[3:])
+	log2kstar = log2kstar_
 	prefix = ''
 
 	# check cache files
