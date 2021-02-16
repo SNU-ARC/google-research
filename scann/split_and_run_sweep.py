@@ -237,10 +237,8 @@ def run_scann():
 	          		[[1, 30], [2, 30], [4, 30], [8, 30], [8, 25], [10, 25], [12, 25], [13, 25], [14, 27], [15, 30], [17, 30], [18, 40], [20, 40], [22, 40], [25, 50], [30, 50], [35, 55], [50, 60], [60, 60], [80, 80], [100, 100]], \
 	          		[[1, 30], [2, 30], [4, 30], [8, 30], [9, 25], [11, 35], [12, 35], [13, 35], [14, 40], [15, 40], [16, 40], [17, 45], [20, 45], [20, 55], [25, 55], [25, 70], [30, 70], [40, 90], [50, 100], [60, 120], [70, 140]], \
 	          		[[1, 30], [4, 30], [9, 30], [16, 32], [25, 50], [36, 72], [49, 98], [70, 150], [90, 200], [120, 210], [180, 270], [210, 330], [260, 400], [320, 500], [400, 600], [500, 700], [800, 900]]]
-	# build_config = [(2000, 0.2, 2, "dot_product")]
-	# search_config = [[[1, 30], [2, 30]]]
 	f = open(args.program+"_"+args.dataset+"_sweep_result.txt", "w")
-	f.write("Topk : ", args.topk, " / Num_split: ", args.num_split)
+	f.write("Topk : " + str(args.topk) + " / Num_split: " + str(args.num_split)+"\n")
 	f.write("Num leaves\tThreashold\tDims\tMetric\tLeavesSearch\tReorder\n")
 	for bc, sc in zip(build_config, search_config):
 		num_leaves, threshold, dims, metric = bc
@@ -294,28 +292,48 @@ def run_scann():
 			f.write(str(top1)+" %\t"+str(top10)+" %\t"+str(top100)+" %\t"+str(np.sum(query_times))+"\n")
 	f.close()
 def run_faiss(D, index_key):
-	gt, queries, neighbors, distances = prepare_eval()
-	base_idx = 0
-	total_latency = 0
-	for split in range(args.num_split):
-		print("Split ", split)
-		# Load splitted dataset
-		xt = get_train(split, args.num_split)
-		preproc = train_faiss(args.dataset, split_dataset_path, D, xt, split, args.num_split, args.metric, index_key)
-		dataset = read_data(split_dataset_path + str(args.num_split) + "_" + str(split) if args.num_split>1 else dataset_basedir, base=False if args.num_split>1 else True, offset_=None if args.num_split>1 else 0, shape_=None)
-		# Create Faiss index
-		index = build_faiss(dataset, split, preproc)
-		start = time.time()
-		# Faiss search
-		local_neighbors, local_distances = search_faiss(queries, index, preproc)
-		end = time.time()
-		total_latency = total_latency + 1000*(end - start)
-		neighbors = np.append(neighbors, local_neighbors+base_idx, axis=1)
-		distances = np.append(distances, local_distances, axis=1)
-		base_idx = base_idx + dataset.shape[0]
-	final_neighbors = sort_neighbors(distances, neighbors)
-	print_recall(final_neighbors, gt)
-	print("Total latency (ms): ", total_latency)
+	gt, queries = prepare_eval()
+	build_config = [(4096, 64, 4, args.metric), (4096, 64, 8, args.metric), (4096, 64, 16, args.metric), (8192, 64, 4, args.metric), (8192, 64, 8, args.metric), (8192, 64, 16, args.metric)]	# L, m, log2(k*), metric
+	search_config = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]	# nprobe
+	f = open(args.program+"_"+args.dataset+"_sweep_result.txt", "w")
+	f.write("Topk : " + str(args.topk) + " / Num_split: " + str(args.num_split)+"\n")
+	f.write("L\tm\tlog2(k*)\tMetric\tnprobe\n")
+	for bc in build_config:
+		L, m, log2kstar, metric = bc
+		assert D%m == 0
+		index_key = "IVF"+str(L)+",PQ"+str(m)
+		for sc in search_config:
+			nprobe = sc
+			f.write(str(L)+"\t"+str(m)+"\t"+str(log2kstar)+"\t"+str(metric)+"\t"+str(nprobe)+"\n")
+			print(str(L)+"\t"+str(m)+"\t"+str(log2kstar)+"\t"+str(metric)+"\t"+str(nprobe)+"\n")
+			neighbors=np.empty((queries.shape[0],0))
+			distances=np.empty((queries.shape[0],0))
+			query_times = np.zeros((queries.shape[0],1))
+			base_idx = 0
+			total_latency = 0
+			for split in range(args.num_split):
+				print("Split ", split)
+				# Load splitted dataset
+				xt = get_train(split, args.num_split)
+				# Build Faiss index
+				searcher_dir, searcher_path = get_searcher_path(split)
+
+				preproc = train_faiss(args.dataset, split_dataset_path, D, xt, split, args.num_split, args.metric, index_key, log2kstar, searcher_dir)
+				dataset = read_data(split_dataset_path + str(args.num_split) + "_" + str(split) if args.num_split>1 else dataset_basedir, base=False if args.num_split>1 else True, offset_=None if args.num_split>1 else 0, shape_=None)
+				# Create Faiss index
+				index = build_faiss(dataset, split, preproc)
+				start = time.time()
+				# Faiss search
+				local_neighbors, local_distances = search_faiss(queries, index, preproc, nprobe, args.topk)
+				end = time.time()
+				total_latency = total_latency + 1000*(end - start)
+				neighbors = np.append(neighbors, local_neighbors+base_idx, axis=1)
+				distances = np.append(distances, local_distances, axis=1)
+				base_idx = base_idx + dataset.shape[0]
+			final_neighbors = sort_neighbors(distances, neighbors)
+			top1, top10, top100 = print_recall(final_neighbors, gt)
+			print("Top ", args.topk, " Total latency (ms): ", total_latency)
+			f.write(str(top1)+" %\t"+str(top10)+" %\t"+str(top100)+" %\t"+str(total_latency)+"\n")
 
 	# Below is for faiss's recall
 	# gtc = gt[:, :1]
