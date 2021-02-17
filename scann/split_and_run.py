@@ -31,7 +31,8 @@ parser.add_argument('--topk', type=int, default=-1, help='# of final result')
 parser.add_argument('--groundtruth', action='store_true')
 args = parser.parse_args()
 
-assert args.metric == "squared_l2" or args.metric == "dot_product" or args.metric=="angular"
+if args.split != True:
+	assert args.metric == "squared_l2" or args.metric == "dot_product" or args.metric=="angular"
 if args.eval_split:
 	assert args.program!=None and args.metric!=None and args.num_split!=-1 and args.topk!=-1
 

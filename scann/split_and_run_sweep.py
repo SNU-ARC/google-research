@@ -31,7 +31,9 @@ parser.add_argument('--topk', type=int, default=-1, help='# of final result')
 parser.add_argument('--groundtruth', action='store_true')
 args = parser.parse_args()
 
-assert args.metric == "squared_l2" or args.metric == "dot_product" or args.metric=="angular"
+if args.split != True:
+	assert args.metric == "squared_l2" or args.metric == "dot_product" or args.metric=="angular"
+
 if args.eval_split:
 	assert args.program!=None and args.metric!=None and args.num_split!=-1 and args.topk!=-1
 
@@ -371,7 +373,6 @@ def run_annoy(D):
 			distances=np.empty((queries.shape[0],0))
 			query_times = np.zeros((queries.shape[0],1))
 			base_idx = 0
-			total_latency = 0
 
 			for split in range(args.num_split):
 				searcher_dir, searcher_path = get_searcher_path(split)
@@ -423,13 +424,12 @@ def run_annoy(D):
 				nd = [nd for _, nd in local_results]
 				neighbors = np.append(neighbors, np.array([n for n,d in nd])+base_idx, axis=1)
 				distances = np.append(distances, np.array([d for n,d in nd]), axis=1)
-				# total_latency = total_latency + 1000*(end - start)
 				base_idx = base_idx + dataset.shape[0]
 
 			final_neighbors = sort_neighbors(distances, neighbors)
 			top1, top10, top100 = print_recall(final_neighbors, gt)
-			print("Top ", args.topk, " Total latency (s): ", total_latency)
-			f.write(str(top1)+" %\t"+str(top10)+" %\t"+str(top100)+" %\t"+str(total_latency)+"\n")
+			print("Top ", args.topk, " Total latency (s): ", np.sum(query_times))
+			f.write(str(top1)+" %\t"+str(top10)+" %\t"+str(top100)+" %\t"+str(np.sum(query_times))+"\n")
 	f.close()
 
 	
@@ -486,10 +486,12 @@ N = -1
 D = -1
 num_iter = -1
 qN = -1
+
 if "sift1m" in args.dataset:
 	dataset_basedir = basedir + "SIFT1M/"
-	split_dataset_path =dataset_basedir+"split_data/sift1m_"
-	groundtruth_path = dataset_basedir + "sift1m_"+args.metric+"_gt"
+	if args.split != True:
+		split_dataset_path =dataset_basedir+"split_data/sift1m_"
+		groundtruth_path = dataset_basedir + "sift1m_"+args.metric+"_gt"
 	N=1000000
 	D=128
 	num_iter = 1
@@ -497,8 +499,9 @@ if "sift1m" in args.dataset:
 	index_key = "IVF4096,PQ64"
 elif "sift1b" in args.dataset:
 	dataset_basedir = basedir + "SIFT1B/"
-	split_dataset_path = dataset_basedir+"split_data/sift1b_"
-	groundtruth_path = dataset_basedir + "sift1b_"+args.metric+"_gt"
+	if args.split != True:
+		split_dataset_path = dataset_basedir+"split_data/sift1b_"
+		groundtruth_path = dataset_basedir + "sift1b_"+args.metric+"_gt"
 	N=1000000000
 	D=128
 	num_iter = 4
@@ -506,8 +509,9 @@ elif "sift1b" in args.dataset:
 	index_key = "OPQ8_32,IVF262144,PQ8"
 elif "glove" in args.dataset:
 	dataset_basedir = basedir + "GLOVE/"
-	split_dataset_path = dataset_basedir+"split_data/glove_"
-	groundtruth_path = dataset_basedir + "glove_"+args.metric+"_gt"
+	if args.split != True:
+		split_dataset_path = dataset_basedir+"split_data/glove_"
+		groundtruth_path = dataset_basedir + "glove_"+args.metric+"_gt"
 	N=1183514
 	D=100
 	num_iter = 10
