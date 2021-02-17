@@ -239,7 +239,7 @@ def run_scann():
 	          		[[1, 30], [2, 30], [4, 30], [8, 30], [8, 25], [10, 25], [12, 25], [13, 25], [14, 27], [15, 30], [17, 30], [18, 40], [20, 40], [22, 40], [25, 50], [30, 50], [35, 55], [50, 60], [60, 60], [80, 80], [100, 100]], \
 	          		[[1, 30], [2, 30], [4, 30], [8, 30], [9, 25], [11, 35], [12, 35], [13, 35], [14, 40], [15, 40], [16, 40], [17, 45], [20, 45], [20, 55], [25, 55], [25, 70], [30, 70], [40, 90], [50, 100], [60, 120], [70, 140]], \
 	          		[[1, 30], [4, 30], [9, 30], [16, 32], [25, 50], [36, 72], [49, 98], [70, 150], [90, 200], [120, 210], [180, 270], [210, 330], [260, 400], [320, 500], [400, 600], [500, 700], [800, 900]]]
-	f = open(args.program+"_"+args.dataset+"_sweep_result.txt", "w")
+	f = open(args.program+"_"+args.dataset+"_"+str(args.topk)+" "+str(args.num_split)+"_sweep_result.txt", "w")
 	f.write("Topk : " + str(args.topk) + " / Num_split: " + str(args.num_split)+"\n")
 	f.write("Num leaves\tThreashold\tDims\tMetric\tLeavesSearch\tReorder\n")
 	for bc, sc in zip(build_config, search_config):
@@ -297,7 +297,7 @@ def run_faiss(D, index_key):
 	gt, queries = prepare_eval()
 	build_config = [(4096, 64, 4, args.metric), (4096, 64, 8, args.metric), (4096, 64, 16, args.metric), (8192, 64, 4, args.metric), (8192, 64, 8, args.metric), (8192, 64, 16, args.metric)]	# L, m, log2(k*), metric
 	search_config = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]	# nprobe
-	f = open(args.program+"_"+args.dataset+"_sweep_result.txt", "w")
+	f = open(args.program+"_"+args.dataset+"_"+str(args.topk)+" "+str(args.num_split)+"_sweep_result.txt", "w")
 	f.write("Topk : " + str(args.topk) + " / Num_split: " + str(args.num_split)+"\n")
 	f.write("L\tm\tlog2(k*)\tMetric\tnprobe\n")
 	for bc in build_config:
@@ -354,7 +354,7 @@ def run_annoy(D):
 	search_config = [100, 200, 400, 1000, 2000, 4000, 10000, 20000, 40000, 100000, 200000, 400000]
 	# build_config = [(args.metric, 100)]
 	# search_config = [100]
-	f = open(args.program+"_"+args.dataset+"_sweep_result.txt", "w")
+	f = open(args.program+"_"+args.dataset+"_"+str(args.topk)+" "+str(args.num_split)+"_sweep_result.txt", "w")
 	f.write("Topk : " + str(args.topk) + " / Num_split: " + str(args.num_split)+"\n")
 	f.write("Num trees\tNum search\tMetric\n")
 	for bc in build_config:
