@@ -373,7 +373,6 @@ def run_annoy(D):
 			distances=np.empty((queries.shape[0],0))
 			query_times = np.zeros((queries.shape[0],1))
 			base_idx = 0
-			total_latency = 0
 
 			for split in range(args.num_split):
 				searcher_dir, searcher_path = get_searcher_path(split)
@@ -425,13 +424,12 @@ def run_annoy(D):
 				nd = [nd for _, nd in local_results]
 				neighbors = np.append(neighbors, np.array([n for n,d in nd])+base_idx, axis=1)
 				distances = np.append(distances, np.array([d for n,d in nd]), axis=1)
-				# total_latency = total_latency + 1000*(end - start)
 				base_idx = base_idx + dataset.shape[0]
 
 			final_neighbors = sort_neighbors(distances, neighbors)
 			top1, top10, top100 = print_recall(final_neighbors, gt)
-			print("Top ", args.topk, " Total latency (s): ", total_latency)
-			f.write(str(top1)+" %\t"+str(top10)+" %\t"+str(top100)+" %\t"+str(total_latency)+"\n")
+			print("Top ", args.topk, " Total latency (s): ", np.sum(query_times))
+			f.write(str(top1)+" %\t"+str(top10)+" %\t"+str(top100)+" %\t"+str(np.sum(query_times))+"\n")
 	f.close()
 
 	
