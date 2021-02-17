@@ -31,7 +31,9 @@ parser.add_argument('--topk', type=int, default=-1, help='# of final result')
 parser.add_argument('--groundtruth', action='store_true')
 args = parser.parse_args()
 
-assert args.metric == "squared_l2" or args.metric == "dot_product" or args.metric=="angular"
+if args.split != True:
+	assert args.metric == "squared_l2" or args.metric == "dot_product" or args.metric=="angular"
+
 if args.eval_split:
 	assert args.program!=None and args.metric!=None and args.num_split!=-1 and args.topk!=-1
 
@@ -486,10 +488,12 @@ N = -1
 D = -1
 num_iter = -1
 qN = -1
+
 if "sift1m" in args.dataset:
 	dataset_basedir = basedir + "SIFT1M/"
-	split_dataset_path =dataset_basedir+"split_data/sift1m_"
-	groundtruth_path = dataset_basedir + "sift1m_"+args.metric+"_gt"
+	if args.split != True:
+		split_dataset_path =dataset_basedir+"split_data/sift1m_"
+		groundtruth_path = dataset_basedir + "sift1m_"+args.metric+"_gt"
 	N=1000000
 	D=128
 	num_iter = 1
@@ -497,8 +501,9 @@ if "sift1m" in args.dataset:
 	index_key = "IVF4096,PQ64"
 elif "sift1b" in args.dataset:
 	dataset_basedir = basedir + "SIFT1B/"
-	split_dataset_path = dataset_basedir+"split_data/sift1b_"
-	groundtruth_path = dataset_basedir + "sift1b_"+args.metric+"_gt"
+	if args.split != True:
+		split_dataset_path = dataset_basedir+"split_data/sift1b_"
+		groundtruth_path = dataset_basedir + "sift1b_"+args.metric+"_gt"
 	N=1000000000
 	D=128
 	num_iter = 4
@@ -506,8 +511,9 @@ elif "sift1b" in args.dataset:
 	index_key = "OPQ8_32,IVF262144,PQ8"
 elif "glove" in args.dataset:
 	dataset_basedir = basedir + "GLOVE/"
-	split_dataset_path = dataset_basedir+"split_data/glove_"
-	groundtruth_path = dataset_basedir + "glove_"+args.metric+"_gt"
+	if args.split != True:
+		split_dataset_path = dataset_basedir+"split_data/glove_"
+		groundtruth_path = dataset_basedir + "glove_"+args.metric+"_gt"
 	N=1183514
 	D=100
 	num_iter = 10
