@@ -42,7 +42,7 @@ if args.groundtruth:
 	assert args.metric!=None
 
 if args.program=='scann':
-	assertargs.coarse_training_size!=-1 and args.fine_training_size!=-1 and args.topk!=-1
+	assert args.coarse_training_size!=-1 and args.fine_training_size!=-1 and args.topk!=-1
 	import scann
 elif args.program == "faiss":
 	from runfaiss import train_faiss, build_faiss, search_faiss
@@ -239,8 +239,8 @@ def run_scann():
 	          		[[1, 30], [2, 30], [4, 30], [8, 30], [8, 25], [10, 25], [12, 25], [13, 25], [14, 27], [15, 30], [17, 30], [18, 40], [20, 40], [22, 40], [25, 50], [30, 50], [35, 55], [50, 60], [60, 60], [80, 80], [100, 100]], \
 	          		[[1, 30], [2, 30], [4, 30], [8, 30], [9, 25], [11, 35], [12, 35], [13, 35], [14, 40], [15, 40], [16, 40], [17, 45], [20, 45], [20, 55], [25, 55], [25, 70], [30, 70], [40, 90], [50, 100], [60, 120], [70, 140]], \
 	          		[[1, 30], [4, 30], [9, 30], [16, 32], [25, 50], [36, 72], [49, 98], [70, 150], [90, 200], [120, 210], [180, 270], [210, 330], [260, 400], [320, 500], [400, 600], [500, 700], [800, 900]]]
-	f = open(args.program+"_"+args.dataset+"_"+str(args.topk)+" "+str(args.num_split)+"_sweep_result.txt", "w")
-	f.write("Topk : " + str(args.topk) + " / Num_split: " + str(args.num_split)+"\n")
+	f = open(sweep_result_path, "w")
+	f.write("Program: " + args.program + " Topk: " + str(args.topk) + " Num_split: " + str(args.num_split)+"\n")
 	f.write("Num leaves\tThreashold\tDims\tMetric\tLeavesSearch\tReorder\n")
 	for bc, sc in zip(build_config, search_config):
 		num_leaves, threshold, dims, metric = bc
@@ -267,8 +267,8 @@ def run_scann():
 					searcher = scann.scann_ops_pybind.load_searcher(searcher_path)
 				else:
 					searcher = scann.scann_ops_pybind.builder(dataset, 10, metric).tree(
-						num_leaves=num_leaves, num_leaves_to_search=args.num_search, training_sample_size=args.coarse_training_size).score_ah(
-						dims, anisotropic_quantization_threshold=threshold, training_sample_size=args.fine_training_size).reorder(args.reorder).build()			
+						num_leaves=num_leaves, num_leaves_to_search=leaves_to_search, training_sample_size=args.coarse_training_size).score_ah(
+						dims, anisotropic_quantization_threshold=threshold, training_sample_size=args.fine_training_size).reorder(reorder).build()			
 					print("Saving searcher to ", searcher_path)
 					os.makedirs(searcher_path, exist_ok=True)
 					searcher.serialize(searcher_path)
@@ -295,14 +295,15 @@ def run_scann():
 	f.close()
 def run_faiss(D, index_key):
 	gt, queries = prepare_eval()
-	build_config = [(4096, 64, 4, args.metric), (4096, 64, 8, args.metric), (4096, 64, 16, args.metric), (8192, 64, 4, args.metric), (8192, 64, 8, args.metric), (8192, 64, 16, args.metric)]	# L, m, log2(k*), metric
+	M = 20 if "glove" in args.dataset else 64
+	build_config = [(4096, M, 4, args.metric), (4096, M, 8, args.metric), (4096, M, 16, args.metric), (8192, M, 4, args.metric), (8192, M, 8, args.metric), (8192, M, 16, args.metric)]	# L, m, log2(k*), metric
 	search_config = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]	# nprobe
-	f = open(args.program+"_"+args.dataset+"_"+str(args.topk)+" "+str(args.num_split)+"_sweep_result.txt", "w")
-	f.write("Topk : " + str(args.topk) + " / Num_split: " + str(args.num_split)+"\n")
+	f = open(sweep_result_path, "w")
+	f.write("Program: " + args.program + " Topk: " + str(args.topk) + " Num_split: " + str(args.num_split)+"\n")
 	f.write("L\tm\tlog2(k*)\tMetric\tnprobe\n")
 	for bc in build_config:
 		L, m, log2kstar, metric = bc
-		assert D%m == 0
+		assert D%m == 0 and (m==1 or m==2 or m==3 or m==4 or m==8 or m==12 or m==16 or m==20 or m==24 or m==28 or m==32 or m==40 or m==48 or m==56 or m==64 or m==96)	# Faiss only suports these
 		index_key = "IVF"+str(L)+",PQ"+str(m)
 		for sc in search_config:
 			nprobe = sc
@@ -354,8 +355,8 @@ def run_annoy(D):
 	search_config = [100, 200, 400, 1000, 2000, 4000, 10000, 20000, 40000, 100000, 200000, 400000]
 	# build_config = [(args.metric, 100)]
 	# search_config = [100]
-	f = open(args.program+"_"+args.dataset+"_"+str(args.topk)+" "+str(args.num_split)+"_sweep_result.txt", "w")
-	f.write("Topk : " + str(args.topk) + " / Num_split: " + str(args.num_split)+"\n")
+	f = open(sweep_result_path, "w")
+	f.write("Program: " + args.program + " Topk: " + str(args.topk) + " Num_split: " + str(args.num_split)+"\n")
 	f.write("Num trees\tNum search\tMetric\n")
 	for bc in build_config:
 		metric, num_trees = bc
@@ -481,6 +482,7 @@ else:
 	basedir = "./"
 
 split_dataset_path = None
+sweep_result_path = args.program+"_"+args.dataset+"_"+str(args.topk)+"_"+str(args.num_split)+"_sweep_result.txt"
 index_key = None
 N = -1
 D = -1
@@ -489,8 +491,8 @@ qN = -1
 
 if "sift1m" in args.dataset:
 	dataset_basedir = basedir + "SIFT1M/"
-	split_dataset_path =dataset_basedir+"split_data/sift1m_"
 	if args.split != True:
+		split_dataset_path =dataset_basedir+"split_data/sift1m_"
 		groundtruth_path = dataset_basedir + "sift1m_"+args.metric+"_gt"
 	N=1000000
 	D=128
@@ -499,8 +501,8 @@ if "sift1m" in args.dataset:
 	index_key = "IVF4096,PQ64"
 elif "sift1b" in args.dataset:
 	dataset_basedir = basedir + "SIFT1B/"
-	split_dataset_path = dataset_basedir+"split_data/sift1b_"
 	if args.split != True:
+		split_dataset_path = dataset_basedir+"split_data/sift1b_"
 		groundtruth_path = dataset_basedir + "sift1b_"+args.metric+"_gt"
 	N=1000000000
 	D=128
@@ -509,8 +511,8 @@ elif "sift1b" in args.dataset:
 	index_key = "OPQ8_32,IVF262144,PQ8"
 elif "glove" in args.dataset:
 	dataset_basedir = basedir + "GLOVE/"
-	split_dataset_path = dataset_basedir+"split_data/glove_"
 	if args.split != True:
+		split_dataset_path = dataset_basedir+"split_data/glove_"
 		groundtruth_path = dataset_basedir + "glove_"+args.metric+"_gt"
 	N=1183514
 	D=100
