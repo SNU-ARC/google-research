@@ -60,7 +60,7 @@ class ScannInterface {
                        int pre_reorder_nn, int leaves) const;
   Status SearchBatchedParallel(const DenseDataset<float>& queries,
                                MutableSpan<NNResultsVector> res, int final_nn,
-                               int pre_reorder_nn, int leaves) const;
+                               int pre_reorder_nn, int leaves, int batch_size) const;   // [ANNA] batch_size
   Status Serialize(std::string path);
   StatusOr<SingleMachineFactoryOptions> ExtractOptions();
 

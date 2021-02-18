@@ -44,6 +44,7 @@ REGISTER_OP("Scann>ScannSearchBatched")
     .Input("pre_reordering_num_neighbors: int32")
     .Input("leaves_to_search: int32")
     .Input("parallel: bool")
+    .Input("batch_size: int32")
     .Output("indices: int32")
     .Output("distances: float32")
     .SetShapeFn(shape_inference::UnknownShape);

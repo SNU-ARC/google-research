@@ -286,6 +286,7 @@ Status SingleMachineSearcherBase<T>::FindNeighbors(
       FindNeighborsNoSortNoExactReorder(query, params, result));
 
   if (reordering_helper_) {
+    std::cout << "[Reorder]" << std::endl;
     SCANN_RETURN_IF_ERROR(ReorderResults(query, params, result));
   }
 

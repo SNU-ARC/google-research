@@ -62,11 +62,12 @@ class ScannSearcher(object):
                               queries,
                               final_num_neighbors=None,
                               pre_reorder_num_neighbors=None,
-                              leaves_to_search=None):
+                              leaves_to_search=None,
+                              batch_size=None):
     final_nn = -1 if final_num_neighbors is None else final_num_neighbors
     pre_nn = -1 if pre_reorder_num_neighbors is None else pre_reorder_num_neighbors
     leaves = -1 if leaves_to_search is None else leaves_to_search
-    return self.searcher.search_batched(queries, final_nn, pre_nn, leaves, True)
+    return self.searcher.search_batched(queries, final_nn, pre_nn, leaves, batch_size, True)
 
   def serialize(self, artifacts_dir):
     self.searcher.serialize(artifacts_dir)

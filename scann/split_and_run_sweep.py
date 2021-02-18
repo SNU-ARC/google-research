@@ -13,22 +13,32 @@ parser = argparse.ArgumentParser(description='Options')
 parser.add_argument('--program', type=str, help='scann, faiss ...')
 parser.add_argument('--dataset', type=str, help='sift1b, glove ...')
 parser.add_argument('--num_split', type=int, default=-1, help='# of splits')
-parser.add_argument('--split', action='store_true')
-parser.add_argument('--eval_split', action='store_true')
 parser.add_argument('--metric', type=str, default=None, help='dot_product, squared_l2')
+## Common algorithm parameters
+parser.add_argument('--L', type=int, default=-1, help='# of coarse codewords')
+parser.add_argument('--w', type=int, default=-1, help='# of clusters to search')
+parser.add_argument('--m', type=int, default=-1, help='# of dimension chunks')
+parser.add_argument('--batch', type=int, default=1, help='query batch size')
+
 ## ScaNN parameters
-parser.add_argument('--num_leaves', type=int, default=-1, help='# of leaves')
 parser.add_argument('--coarse_training_size', type=int, default=250000, help='coarse training sample size')
 parser.add_argument('--fine_training_size', type=int, default=100000, help='fine training sample size')
 parser.add_argument('--threshold', type=float, default=0.2, help='anisotropic_quantization_threshold')
 parser.add_argument('--reorder', type=int, default=-1, help='reorder size')
+## Faiss parameters
+parser.add_argument('--k_star', type=int, default=-1, help='# of a single finegrained codewords')
+
 ## Annoy parameters
 parser.add_argument('--n_trees', type=int, default=-1, help='# of trees')
 ## ScaNN & Annoy common parameters
 parser.add_argument('--num_search', type=int, default=-1, help='# of searching leaves for ScaNN, # of searching datapoints for Annoy')
 parser.add_argument('--topk', type=int, default=-1, help='# of final result')
 
+## Run options
+parser.add_argument('--split', action='store_true')
+parser.add_argument('--eval_split', action='store_true')
 parser.add_argument('--groundtruth', action='store_true')
+parser.add_argument('--sweep', action='store_true')
 args = parser.parse_args()
 
 if args.split != True:
@@ -42,13 +52,19 @@ if args.groundtruth:
 	assert args.metric!=None
 
 if args.program=='scann':
-	assert args.coarse_training_size!=-1 and args.fine_training_size!=-1 and args.topk!=-1
 	import scann
+	if args.sweep == False:
+		assert args.L!=-1 and args.w!=-1 and args.topk!=-1 and (args.topk <= args.reorder if args.reorder!=-1 else True)
+	assert args.topk!=-1
 elif args.program == "faiss":
 	from runfaiss import train_faiss, build_faiss, search_faiss
+	import math
+	if args.sweep == False:
+		assert args.L!=-1 and args.k_star!=-1 and args.w!=-1 and args.m!=-1
 elif args.program == "annoy":
 	import annoy
-	from multiprocessing.pool import ThreadPool
+	if args.batch==True:
+		from multiprocessing.pool import ThreadPool
 	assert args.topk!=-1
 
 def compute_recall(neighbors, true_neighbors):
@@ -234,24 +250,34 @@ def get_searcher_path(split):
 
 def run_scann():
 	gt, queries = prepare_eval()
-	build_config = [(2000, 0.2, 2, args.metric), (1500, 0.55, 1, args.metric), (1000, 0.2, 1, args.metric), (1400, 0.15, 3, args.metric)]
-	search_config = [[[1, 30], [2, 30], [4, 30], [8, 30], [30, 120], [35, 100], [40, 80], [45, 80], [50, 80], [55, 95], [60, 110], [65, 110], [75, 110], [90, 110], [110, 120], [130, 150], [150, 200], [170, 200], [200, 300], [220, 500], [250, 500], [310, 300], [400, 300], [500, 500], [800, 1000]],\
-	          		[[1, 30], [2, 30], [4, 30], [8, 30], [8, 25], [10, 25], [12, 25], [13, 25], [14, 27], [15, 30], [17, 30], [18, 40], [20, 40], [22, 40], [25, 50], [30, 50], [35, 55], [50, 60], [60, 60], [80, 80], [100, 100]], \
-	          		[[1, 30], [2, 30], [4, 30], [8, 30], [9, 25], [11, 35], [12, 35], [13, 35], [14, 40], [15, 40], [16, 40], [17, 45], [20, 45], [20, 55], [25, 55], [25, 70], [30, 70], [40, 90], [50, 100], [60, 120], [70, 140]], \
-	          		[[1, 30], [4, 30], [9, 30], [16, 32], [25, 50], [36, 72], [49, 98], [70, 150], [90, 200], [120, 210], [180, 270], [210, 330], [260, 400], [320, 500], [400, 600], [500, 700], [800, 900]]]
-	f = open(sweep_result_path, "w")
-	f.write("Program: " + args.program + " Topk: " + str(args.topk) + " Num_split: " + str(args.num_split)+"\n")
-	f.write("Num leaves\tThreashold\tDims\tMetric\tLeavesSearch\tReorder\n")
+	if args.sweep:
+		build_config = [(2000, 0.2, 2, args.metric), (1500, 0.55, 1, args.metric), (1000, 0.2, 1, args.metric), (1400, 0.15, 3, args.metric)]
+		search_config = [[[1, 30], [2, 30], [4, 30], [8, 30], [30, 120], [35, 100], [40, 80], [45, 80], [50, 80], [55, 95], [60, 110], [65, 110], [75, 110], [90, 110], [110, 120], [130, 150], [150, 200], [170, 200], [200, 300], [220, 500], [250, 500], [310, 300], [400, 300], [500, 500], [800, 1000]],\
+		          		[[1, 30], [2, 30], [4, 30], [8, 30], [8, 25], [10, 25], [12, 25], [13, 25], [14, 27], [15, 30], [17, 30], [18, 40], [20, 40], [22, 40], [25, 50], [30, 50], [35, 55], [50, 60], [60, 60], [80, 80], [100, 100]], \
+		          		[[1, 30], [2, 30], [4, 30], [8, 30], [9, 25], [11, 35], [12, 35], [13, 35], [14, 40], [15, 40], [16, 40], [17, 45], [20, 45], [20, 55], [25, 55], [25, 70], [30, 70], [40, 90], [50, 100], [60, 120], [70, 140]], \
+		          		[[1, 30], [4, 30], [9, 30], [16, 32], [25, 50], [36, 72], [49, 98], [70, 150], [90, 200], [120, 210], [180, 270], [210, 330], [260, 400], [320, 500], [400, 600], [500, 700], [800, 900]]]
+		f = open(sweep_result_path, "w")
+		f.write("Program: " + args.program + " Topk: " + str(args.topk) + " Num_split: " + str(args.num_split)+"\n")
+		f.write("Num leaves\tThreashold\tDims\tMetric\tLeavesSearch\tReorder\n")
+	else:
+		build_config = [(args.L, args.threshold, int(D/args.m), args.metric)]
+		search_config = [[[args.w, args.reorder]]]
 	for bc, sc in zip(build_config, search_config):
 		num_leaves, threshold, dims, metric = bc
 		for arg in sc:
 			leaves_to_search, reorder = arg[0], arg[1]
-			assert args.topk <= reorder
-			f.write(str(num_leaves)+"\t"+str(threshold)+"\t"+str(dims)+"\t"+str(metric)+"\t"+str(leaves_to_search)+"\t"+str(reorder)+"\n")
+			if args.reorder!=-1:
+				assert args.topk <= reorder
+			else:
+				if args.sweep:
+					assert False, "Do you want reordering or not?"
+			if args.sweep:
+				f.write(str(num_leaves)+"\t"+str(threshold)+"\t"+str(dims)+"\t"+str(metric)+"\t"+str(leaves_to_search)+"\t"+str(reorder)+"\n")
 			print(str(num_leaves)+"\t"+str(threshold)+"\t"+str(dims)+"\t"+str(metric)+"\t"+str(leaves_to_search)+"\t"+str(reorder))
 			neighbors=np.empty((queries.shape[0],0))
 			distances=np.empty((queries.shape[0],0))
-			query_times = np.zeros((queries.shape[0],1))
+			total_latency = 0
+			# query_times = np.zeros((queries.shape[0],1))
 			base_idx = 0
 			for split in range(args.num_split):
 				searcher_dir, searcher_path = get_searcher_path(split)  	
@@ -261,57 +287,76 @@ def run_scann():
 				# Create ScaNN searcher
 				print("Entering ScaNN builder")
 				searcher = None
-				searcher_path = searcher_path + '_' + str(num_leaves) + '_' + str(threshold) + '_' + str(dims) + '_' + metric
+				searcher_path = searcher_path + '_' + str(num_leaves) + '_' + str(threshold) + '_' + str(dims) + '_' + metric + ("_reorder" if args.reorder!=-1 else '')
 				if os.path.isdir(searcher_path):
 					print("Loading searcher from ", searcher_path)
 					searcher = scann.scann_ops_pybind.load_searcher(searcher_path)
 				else:
-					searcher = scann.scann_ops_pybind.builder(dataset, 10, metric).tree(
-						num_leaves=num_leaves, num_leaves_to_search=leaves_to_search, training_sample_size=args.coarse_training_size).score_ah(
-						dims, anisotropic_quantization_threshold=threshold, training_sample_size=args.fine_training_size).reorder(reorder).build()			
+					if reorder!=-1:
+						searcher = scann.scann_ops_pybind.builder(dataset, 10, metric).tree(
+							num_leaves=num_leaves, num_leaves_to_search=leaves_to_search, training_sample_size=args.coarse_training_size).score_ah(
+							dims, anisotropic_quantization_threshold=threshold, training_sample_size=args.fine_training_size).reorder(reorder).build()			
+					else:
+						searcher = scann.scann_ops_pybind.builder(dataset, 10, metric).tree(
+								num_leaves=num_leaves, num_leaves_to_search=leaves_to_search, training_sample_size=args.coarse_training_size).score_ah(
+								dims, anisotropic_quantization_threshold=threshold, training_sample_size=args.fine_training_size).build()			
 					print("Saving searcher to ", searcher_path)
 					os.makedirs(searcher_path, exist_ok=True)
 					searcher.serialize(searcher_path)
 
-				# ScaNN search
-				def single_query(query, base_idx):
+				if args.batch:
 					start = time.time()
-					local_neighbors, local_distances = searcher.search(query, leaves_to_search=leaves_to_search, pre_reorder_num_neighbors=reorder, final_num_neighbors=args.topk)
-					return (time.time() - start, (local_neighbors, local_distances))
-				# ScaNN search
-				print("Entering ScaNN searcher")
-				local_results = [single_query(q, base_idx) for q in queries]
-				query_times += np.array([time for time, _ in local_results]).reshape(queries.shape[0], 1)
-				nd = [nd for _, nd in local_results]
-				neighbors = np.append(neighbors, np.array([n for n,d in nd])+base_idx, axis=1)
-				distances = np.append(distances, np.array([d for n,d in nd]), axis=1)
-				# total_latency = total_latency + 1000*(end - start)
+					local_neighbors, local_distances = searcher.search_batched_parallel(queries, leaves_to_search=leaves_to_search, pre_reorder_num_neighbors=reorder, final_num_neighbors=args.topk, batch_size=args.batch)
+					# local_neighbors, local_distances = searcher.search_batched(queries, leaves_to_search=leaves_to_search, pre_reorder_num_neighbors=reorder, final_num_neighbors=args.topk)
+					end = time.time()
+					total_latency = total_latency + 1000*(end - start)
+					neighbors = np.append(neighbors, local_neighbors+base_idx, axis=1)
+					distances = np.append(distances, local_distances, axis=1)
+				else:
+					# ScaNN search
+					def single_query(query, base_idx):
+						start = time.time()
+						local_neighbors, local_distances = searcher.search(query, leaves_to_search=leaves_to_search, pre_reorder_num_neighbors=reorder, final_num_neighbors=args.topk)
+						return (time.time() - start, (local_neighbors, local_distances))
+					# ScaNN search
+					print("Entering ScaNN searcher")
+					local_results = [single_query(q, base_idx) for q in queries]
+					total_latency += np.sum(np.array([time for time, _ in local_results]).reshape(queries.shape[0], 1))
+					nd = [nd for _, nd in local_results]
+					neighbors = np.append(neighbors, np.array([n for n,d in nd])+base_idx, axis=1)
+					distances = np.append(distances, np.array([d for n,d in nd]), axis=1)
 				base_idx = base_idx + dataset.shape[0]
 
 			final_neighbors = sort_neighbors(distances, neighbors)
 			top1, top10, top100 = print_recall(final_neighbors, gt)
-			print("Top ", args.topk, " Total latency (ns): ", np.sum(query_times))
-			f.write(str(top1)+" %\t"+str(top10)+" %\t"+str(top100)+" %\t"+str(np.sum(query_times))+"\n")
-	f.close()
+			print("Top ", args.topk, " Total latency (ns): ", total_latency)
+			if args.sweep:
+				f.write(str(top1)+" %\t"+str(top10)+" %\t"+str(top100)+" %\t"+str(np.sum(query_times))+"\n")
+	if args.sweep:
+		f.close()
 def run_faiss(D, index_key):
 	gt, queries = prepare_eval()
-	M = 20 if "glove" in args.dataset else 64
-	build_config = [(4096, M, 4, args.metric), (4096, M, 8, args.metric), (4096, M, 16, args.metric), (8192, M, 4, args.metric), (8192, M, 8, args.metric), (8192, M, 16, args.metric)]	# L, m, log2(k*), metric
-	search_config = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]	# nprobe
-	f = open(sweep_result_path, "w")
-	f.write("Program: " + args.program + " Topk: " + str(args.topk) + " Num_split: " + str(args.num_split)+"\n")
-	f.write("L\tm\tlog2(k*)\tMetric\tnprobe\n")
+	if args.sweep:
+		M = 20 if "glove" in args.dataset else 64
+		build_config = [(4096, M, 4, args.metric), (4096, M, 8, args.metric), (4096, M, 16, args.metric), (8192, M, 4, args.metric), (8192, M, 8, args.metric), (8192, M, 16, args.metric)]	# L, m, log2(k*), metric
+		search_config = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]	# nprobe
+		f = open(sweep_result_path, "w")
+		f.write("Program: " + args.program + " Topk: " + str(args.topk) + " Num_split: " + str(args.num_split)+"\n")
+		f.write("L\tm\tlog2(k*)\tMetric\tnprobe\n")
+	else:
+		build_config = [(args.L, args.m, math.log(args.k_star,2), args.metric)]
+		search_config = [args.w]
 	for bc in build_config:
 		L, m, log2kstar, metric = bc
 		assert D%m == 0 and (m==1 or m==2 or m==3 or m==4 or m==8 or m==12 or m==16 or m==20 or m==24 or m==28 or m==32 or m==40 or m==48 or m==56 or m==64 or m==96)	# Faiss only suports these
 		index_key = "IVF"+str(L)+",PQ"+str(m)
 		for sc in search_config:
 			nprobe = sc
-			f.write(str(L)+"\t"+str(m)+"\t"+str(log2kstar)+"\t"+str(metric)+"\t"+str(nprobe)+"\n")
+			if args.sweep:
+				f.write(str(L)+"\t"+str(m)+"\t"+str(log2kstar)+"\t"+str(metric)+"\t"+str(nprobe)+"\n")
 			print(str(L)+"\t"+str(m)+"\t"+str(log2kstar)+"\t"+str(metric)+"\t"+str(nprobe)+"\n")
 			neighbors=np.empty((queries.shape[0],0))
 			distances=np.empty((queries.shape[0],0))
-			query_times = np.zeros((queries.shape[0],1))
 			base_idx = 0
 			total_latency = 0
 			for split in range(args.num_split):
@@ -321,7 +366,7 @@ def run_faiss(D, index_key):
 				# Build Faiss index
 				searcher_dir, searcher_path = get_searcher_path(split)
 
-				preproc = train_faiss(args.dataset, split_dataset_path, D, xt, split, args.num_split, args.metric, index_key, log2kstar, searcher_dir)
+				preproc = train_faiss(args.dataset, split_dataset_path, D, xt, split, args.num_split, args.metric, index_key, log2kstar, searcher_dir, args.batch)
 				dataset = read_data(split_dataset_path + str(args.num_split) + "_" + str(split) if args.num_split>1 else dataset_basedir, base=False if args.num_split>1 else True, offset_=None if args.num_split>1 else 0, shape_=None)
 				# Create Faiss index
 				index = build_faiss(dataset, split, preproc)
@@ -336,8 +381,10 @@ def run_faiss(D, index_key):
 			final_neighbors = sort_neighbors(distances, neighbors)
 			top1, top10, top100 = print_recall(final_neighbors, gt)
 			print("Top ", args.topk, " Total latency (ms): ", total_latency)
-			f.write(str(top1)+" %\t"+str(top10)+" %\t"+str(top100)+" %\t"+str(total_latency)+"\n")
-
+			if args.sweep:
+				f.write(str(top1)+" %\t"+str(top10)+" %\t"+str(top100)+" %\t"+str(total_latency)+"\n")
+	if args.sweep:
+		f.close()
 	# Below is for faiss's recall
 	# gtc = gt[:, :1]
 	# nq = queries.shape[0]
@@ -351,13 +398,15 @@ def run_faiss(D, index_key):
 def run_annoy(D):
 	gt, queries = prepare_eval()
 	assert args.metric!='angular', "[TODO] don't understand how angular works yet..."
-	build_config = [(args.metric, 100), (args.metric, 200), (args.metric, 400)]
-	search_config = [100, 200, 400, 1000, 2000, 4000, 10000, 20000, 40000, 100000, 200000, 400000]
-	# build_config = [(args.metric, 100)]
-	# search_config = [100]
-	f = open(sweep_result_path, "w")
-	f.write("Program: " + args.program + " Topk: " + str(args.topk) + " Num_split: " + str(args.num_split)+"\n")
-	f.write("Num trees\tNum search\tMetric\n")
+	if args.sweep:
+		build_config = [(args.metric, 100), (args.metric, 200), (args.metric, 400)]
+		search_config = [100, 200, 400, 1000, 2000, 4000, 10000, 20000, 40000, 100000, 200000, 400000]
+		f = open(sweep_result_path, "w")
+		f.write("Program: " + args.program + " Topk: " + str(args.topk) + " Num_split: " + str(args.num_split)+"\n")
+		f.write("Num trees\tNum search\tMetric\n")
+	else:
+		build_config = [(args.metric, args.num_trees)]
+		search_config = [args.num_search]
 	for bc in build_config:
 		metric, num_trees = bc
 		if metric == "dot_product":
@@ -368,11 +417,11 @@ def run_annoy(D):
 			annoy_metric = "angular"
 		for sc in search_config:
 			num_search = sc
-			f.write(str(num_trees)+"\t"+str(num_search)+"\t"+str(annoy_metric)+"\n")
+			if args.sweep:
+				f.write(str(num_trees)+"\t"+str(num_search)+"\t"+str(annoy_metric)+"\n")
 			print(str(num_trees)+"\t"+str(num_search)+"\t"+str(annoy_metric))
 			neighbors=np.empty((queries.shape[0],0))
 			distances=np.empty((queries.shape[0],0))
-			query_times = np.zeros((queries.shape[0],1))
 			base_idx = 0
 
 			for split in range(args.num_split):
@@ -398,45 +447,38 @@ def run_annoy(D):
 					os.makedirs(searcher_dir, exist_ok=True)
 					searcher.save(searcher_path)
 
-				# Annoy batch version
-				# pool = ThreadPool()
-				# start = time.time()
-				# result = pool.map(lambda q: searcher.get_nns_by_vector(q.tolist(), args.topk, num_search, include_distances=True), queries)
-				# # [YJ] just for test,, only process a single query
-				# # result = searcher.get_nns_by_vector(queries[0].tolist(), args.topk, args.num_search, include_distances=True)
-				# end = time.time()
-				# result = np.array(result)
-				# local_neighbors = result[:,0,:]
-				# local_distances = result[:,1,:]
-				# total_latency = total_latency + (end - start)
-				# neighbors = np.append(neighbors, local_neighbors+base_idx, axis=1)
-				# distances = np.append(distances, local_distances, axis=1)
-				# base_idx = base_idx + dataset.shape[0]
-
-				def single_query(query, base_idx):
-					start = time.time()
-					result = searcher.get_nns_by_vector(query.tolist(), args.topk, num_search, include_distances=True)
-					return (time.time() - start, result)
-				
-				# Annoy search
 				print("Entering Annoy searcher")
-				local_results = [single_query(q, base_idx) for q in queries]
-				query_times += np.array([time for time, _ in local_results]).reshape(queries.shape[0], 1)
-				nd = [nd for _, nd in local_results]
-				neighbors = np.append(neighbors, np.array([n for n,d in nd])+base_idx, axis=1)
-				distances = np.append(distances, np.array([d for n,d in nd]), axis=1)
+				# Annoy batch version
+				if args.batch:
+					pool = ThreadPool()
+					start = time.time()
+					result = pool.map(lambda q: searcher.get_nns_by_vector(q.tolist(), args.topk, num_search, include_distances=True), queries)
+					end = time.time()
+					result = np.array(result)
+					local_neighbors = result[:,0,:]
+					local_distances = result[:,1,:]
+					total_latency = total_latency + (end - start)
+					neighbors = np.append(neighbors, local_neighbors+base_idx, axis=1)
+					distances = np.append(distances, local_distances, axis=1)
+				else:
+					def single_query(query, base_idx):
+						start = time.time()
+						result = searcher.get_nns_by_vector(query.tolist(), args.topk, num_search, include_distances=True)
+						return (time.time() - start, result)
+					local_results = [single_query(q, base_idx) for q in queries]
+					total_latency += np.sum(np.array([time for time, _ in local_results]).reshape(queries.shape[0], 1))
+					nd = [nd for _, nd in local_results]
+					neighbors = np.append(neighbors, np.array([n for n,d in nd])+base_idx, axis=1)
+					distances = np.append(distances, np.array([d for n,d in nd]), axis=1)
 				base_idx = base_idx + dataset.shape[0]
 
 			final_neighbors = sort_neighbors(distances, neighbors)
 			top1, top10, top100 = print_recall(final_neighbors, gt)
 			print("Top ", args.topk, " Total latency (s): ", np.sum(query_times))
-			f.write(str(top1)+" %\t"+str(top10)+" %\t"+str(top100)+" %\t"+str(np.sum(query_times))+"\n")
-	f.close()
-
-	
-	# final_neighbors = sort_neighbors(distances, neighbors)
-	# print_recall(final_neighbors, gt)
-	# print("Total latency (ms): ", total_latency)
+			if args.sweep:
+				f.write(str(top1)+" %\t"+str(top10)+" %\t"+str(top100)+" %\t"+str(np.sum(query_times))+"\n")
+	if args.sweep:
+		f.close()
 
 # only for faiss
 def get_train(split=-1, total=-1):

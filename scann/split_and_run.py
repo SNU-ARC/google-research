@@ -41,7 +41,7 @@ if args.groundtruth:
 	assert args.metric!=None
 
 if args.program=='scann':
-	assert args.num_leaves!=-1 and args.num_search!=-1 and args.coarse_training_size!=-1 and args.fine_training_size!=-1 and args.reorder!=-1 and args.topk!=-1 and args.topk <= args.reorder
+	assert args.num_leaves!=-1 and args.num_search!=-1 and args.coarse_training_size!=-1 and args.fine_training_size!=-1 and args.topk!=-1 and (args.topk <= args.reorder if args.reorder!=-1 else True)
 	import scann
 elif args.program == "faiss":
 	from runfaiss import train_faiss, build_faiss, search_faiss
@@ -244,16 +244,21 @@ def run_scann():
 		print("Entering ScaNN builder")
 		searcher = None
 
-		if os.path.isdir(searcher_path):
-			print("Loading searcher from ", searcher_path)
-			searcher = scann.scann_ops_pybind.load_searcher(searcher_path)
-		else:
+		# if os.path.isdir(searcher_path):
+		# 	print("Loading searcher from ", searcher_path)
+		# 	searcher = scann.scann_ops_pybind.load_searcher(searcher_path)
+		# else:
+		if args.reorder!=-1:
 			searcher = scann.scann_ops_pybind.builder(dataset, 10, args.metric).tree(
 				num_leaves=args.num_leaves, num_leaves_to_search=args.num_search, training_sample_size=args.coarse_training_size).score_ah(
 				2, anisotropic_quantization_threshold=args.threshold, training_sample_size=args.fine_training_size).reorder(args.reorder).build()			
-			print("Saving searcher to ", searcher_path)
-			os.makedirs(searcher_path, exist_ok=True)
-			searcher.serialize(searcher_path)
+		else:
+			searcher = scann.scann_ops_pybind.builder(dataset, 10, args.metric).tree(
+				num_leaves=args.num_leaves, num_leaves_to_search=args.num_search, training_sample_size=args.coarse_training_size).score_ah(
+				2, anisotropic_quantization_threshold=args.threshold, training_sample_size=args.fine_training_size).build()			
+		print("Saving searcher to ", searcher_path)
+		os.makedirs(searcher_path, exist_ok=True)
+		searcher.serialize(searcher_path)
 
 		# ScaNN search
 		print("Entering ScaNN searcher")

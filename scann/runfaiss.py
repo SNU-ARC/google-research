@@ -13,7 +13,6 @@ ngpu = faiss.get_num_gpus()
 
 replicas = 1  # nb of replicas of sharded dataset
 add_batch_size = 32768
-query_batch_size = 16384
 use_precomputed_tables = False
 tempmem = 1536*1024*1024
 max_add = -1
@@ -420,7 +419,7 @@ def search_faiss(xq, index, preproc, nprobe, topk):
 	return I, D
 
 
-def train_faiss(db, split_dataset_path, D, xt, split, num_split, met, index_key, log2kstar_, cacheroot):
+def train_faiss(db, split_dataset_path, D, xt, split, num_split, met, index_key, log2kstar_, cacheroot, batch_size):
 	print("--------------- train_faiss ----------------")
 	global preproc_cachefile
 	global cent_cachefile
@@ -434,6 +433,7 @@ def train_faiss(db, split_dataset_path, D, xt, split, num_split, met, index_key,
 	global dbname
 	global metric
 	global log2kstar
+	global query_batch_size
 
 	dim = D
 	dbname = db
@@ -457,6 +457,7 @@ def train_faiss(db, split_dataset_path, D, xt, split, num_split, met, index_key,
 	pqflat_str = mog[3]
 	ncent = int(ivf_str[3:])
 	log2kstar = log2kstar_
+	query_batch_size = batch_size
 	prefix = ''
 
 	# check cache files
