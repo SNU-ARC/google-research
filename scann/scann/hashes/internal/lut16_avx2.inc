@@ -403,7 +403,7 @@ SCANN_AVX2_INLINE void GetTopFloatDistancesImpl(
   const DatapointIndex first_dp_index = args.first_dp_index;
   const uint32_t final_mask = GetFinalMask32(args.num_datapoints);
   DCHECK_EQ(num_32dp_simd_iters, DivRoundUp(args.num_datapoints, 32));
-
+	
   auto biases = ToLocalArray<kNumQueries>(args.biases);
   Avx2<float> simd_biases[kNumQueries];
   for (size_t j : Seq(kNumQueries)) {
@@ -430,13 +430,17 @@ SCANN_AVX2_INLINE void GetTopFloatDistancesImpl(
   }
 
   float distances_buffer[32];
+	int16_t yj_distances_buffer_int[32];
+	float yj_distances_buffer_float1[32];
+	float yj_distances_buffer_float2[32];
+		
   auto restrict_whitelist_ptrs =
       args.template GetRestrictWhitelistPtrs<kNumQueries>();
   ssize_t next_prefetch_idx =
       ComputeSmartPrefetchIndex(num_blocks, num_32dp_simd_iters);
   for (DatapointIndex k : Seq(num_32dp_simd_iters)) {
     const uint8_t* data_start = packed_dataset + k * 16 * num_blocks;
-
+		
     auto int16_accums = PrefetchDispatcher<kNumQueries, kPrefetch>(
         data_start, lookups, num_blocks, next_partition, &next_prefetch_idx);
     for (size_t j : Seq(kNumQueries)) {
@@ -452,6 +456,9 @@ SCANN_AVX2_INLINE void GetTopFloatDistancesImpl(
                        .template ConvertTo<float>();
 
       (fvals * inv_mults[j] + simd_biases[j]).Store(distances_buffer);
+			(int16_accums[j]).Store(yj_distances_buffer_int);
+			(fvals).Store(yj_distances_buffer_float1);
+			(fvals * inv_mults[j]).Store(yj_distances_buffer_float2);
 
       if (k == num_32dp_simd_iters - 1) {
         push_mask &= final_mask;
@@ -460,10 +467,32 @@ SCANN_AVX2_INLINE void GetTopFloatDistancesImpl(
         push_mask &= restrict_whitelist_ptrs[j][k];
       }
 
+			/*if(first_dp_index == 0 && k == 12){
+				std::cout << "/hashes/internal/lut16_avx2.inc::459" << std::endl;
+        std::cout << "inv_mults : " << 1/args.fixed_point_multipliers[0] << std::endl;
+				std::cout << "int1, fval1, fval*mult1 :" << yj_distances_buffer_int[8] << "  " << yj_distances_buffer_float1[8] << "  "  << "  " << yj_distances_buffer_float2[8] << std::endl;
+			}
+			if(first_dp_index == 1948254208 && k == 18){
+        std::cout << "int2, fval2, fval*mult2 :" << yj_distances_buffer_int[25] << "  " << yj_distances_buffer_float1[25] << "  "  << "  " << yj_distances_buffer_float2[25] << std::endl;
+      }*/
+
       while (push_mask) {
         const int offset = bits::FindLSBSetNonZero(push_mask);
         push_mask &= (push_mask - 1);
         const DatapointIndex dp_idx = first_dp_index + 32 * k + offset;
+				/*if(first_dp_index == 1948254208 && k == 12)
+					std::cout << "first_dp_index: " << first_dp_index << " offset: " << offset << " dp_idx:" << dp_idx << std::endl;	
+				if(first_dp_index == 1948254208 && k == 18 && offset == 25)
+          std::cout << "first_dp_index: " << first_dp_index << " offset: " << offset << " dp_idx:" << dp_idx << std::endl << std::endl;*/
+				if(first_dp_index == 2147483648 && (offset == 1 || offset == 2|| offset == 3)){
+					if(offset == 1){
+						std::cout << "/hashes/internal/lut16_avx2.inc::459" << std::endl;
+						std::cout << "inv_mults : " << 1/args.fixed_point_multipliers[0] << std::endl;
+					}
+					std::cout << "offset" << offset << " int, fval, fval*mult : " << yj_distances_buffer_int[offset] << "  " << yj_distances_buffer_float1[offset] <<  "  " << yj_distances_buffer_float2[offset] << std::endl;
+					if (offset == 3)
+						std::cout << std::endl;
+				}
         DCHECK(
             !restrict_whitelist_ptrs[j] ||
             args.restrict_whitelists[j].IsWhitelisted(dp_idx - first_dp_index))

@@ -379,6 +379,7 @@ Status TreeAHHybridResidual::FindNeighborsImpl(const DatapointPtr<float>& query,
   vector<KMeansTreeSearchResult> centers_to_search;
   SCANN_RETURN_IF_ERROR(query_tokenizer_->TokensForDatapointWithSpilling(
       query, num_centers, &centers_to_search));
+
   return FindNeighborsInternal1(query, params, centers_to_search, result);
 }
 
@@ -611,6 +612,19 @@ Status TreeAHHybridResidual::FindNeighborsInternal1(
           leaf_searchers_[token]->FindNeighborsNoSortNoExactReorder(
               query, leaf_params, &unused_leaf_results));
     }
+		std::cout << "/tree_x_hybrid/tree_ah_hybrid_residual.cc::615" << std::endl;
+		for(int i = 0; i < datapoints_by_token_.size(); ++i){
+			std::cout << "leaf[" << i << "] size : " << datapoints_by_token_[i].size() << std::endl;
+			for(int j = 0; j < datapoints_by_token_[i].size(); ++j){
+				if(datapoints_by_token_[i][j] == 1 || datapoints_by_token_[i][j] == 2 || datapoints_by_token_[i][j] == 3 || datapoints_by_token_[i][j] == 5 || datapoints_by_token_[i][j] == 14){
+					for(int k = 0; k < centers_to_search.size(); ++k){
+						if(centers_to_search[k].node->LeafId() == i)
+							std::cout << "query-center center_num, index, leaf_id, dist : " << k << "  " << j << "  " <<  centers_to_search[k].node->LeafId() << "  "  << centers_to_search[k].distance_to_center << std::endl;
+					}
+				}
+			}
+		}
+		std::cout << std::endl;
 
     AssignResults(&top_n, result);
 

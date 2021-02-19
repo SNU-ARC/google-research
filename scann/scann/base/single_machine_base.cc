@@ -284,7 +284,12 @@ Status SingleMachineSearcherBase<T>::FindNeighbors(
   DCHECK_LE((compressed_reordering_enabled() + exact_reordering_enabled()), 1);
   SCANN_RETURN_IF_ERROR(
       FindNeighborsNoSortNoExactReorder(query, params, result));
-
+	std::cout << "/base/single_machine_base.cc::287" << std::endl;
+	std::cout << " result[0] index and dist : " << (*result)[0].first << "   " << (*result)[0].second << std::endl;
+	std::cout << " result[1] index and dist : " << (*result)[1].first << "   " << (*result)[1].second << std::endl;	
+	std::cout << " result[2] index and dist : " << (*result)[2].first << "   " << (*result)[2].second << std::endl;
+	std::cout << " result[3] index and dist : " << (*result)[3].first << "   " << (*result)[3].second << std::endl;
+	std::cout << " result[4] index and dist : " << (*result)[4].first << "   " << (*result)[4].second << std::endl;
   if (reordering_helper_) {
     SCANN_RETURN_IF_ERROR(ReorderResults(query, params, result));
   }

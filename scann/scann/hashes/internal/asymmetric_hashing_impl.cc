@@ -554,6 +554,54 @@ StatusOr<vector<float>> AhImpl<T>::CreateRawFloatLookupTable(
     const DatapointPtr<T>& query, const ChunkingProjection<T>& projection,
     const DistanceMeasure& lookup_distance,
     ConstSpan<DenseDataset<FloatT>> centers, int32_t num_clusters_per_block) {
+	std::cout << "scann/hashes/internal/asymmetric_hashing_impl.cc::557" << std::endl;
+	//std::cout << "centers.size() : " << centers.size() << "  center[0].size : " << centers[0].size() << std::endl;
+	//std::cout << "centers[0][0][0], centers[0][0][1] : " << centers[0][0].values()[0] << "  " << centers[0][0].values()[1] << std::endl;6
+	//for(int i = 0; i < centers.size(); ++i){
+	//	std::cout << "-------------------------" << i << "----------------------" << std::endl;
+	//	for(int j = 0; j < centers[i].size(); ++j){
+	//		std::cout << centers[i][j].values()[0] << ", " << centers[i][j].values()[1] << ", ";
+	//	}
+	//	std::cout << std::endl << std::endl;
+	//}
+	float DIST = 0.0f;
+	float DIST2 = 0.0f;
+	float DIST3 = 0.0f;
+	//vector<int>INDEX = {4, 14, 2, 15, 5, 14, 3, 13, 4, 8, 
+	//										0, 11, 7, 11, 1, 10, 9, 9, 5, 14, 
+	//										10, 13, 1, 10, 11, 9, 10, 8, 13, 15,
+	//										0, 1, 0, 12, 1, 12, 7, 5, 0, 14,
+	//										2, 15, 2, 15, 3, 2, 1, 5, 4, 12};
+	//vector<int>INDEX2 = {3, 9, 2, 15, 1, 15, 5, 13, 0, 0,
+	//										 2, 15, 10, 13, 14, 12, 0, 15, 1, 10,
+	//										 9, 15, 5, 12, 5, 13, 0, 15, 0, 7,
+	//										 5, 10, 2, 13, 2, 12, 5, 12, 4, 14,
+	//										 0, 13, 2, 2, 7, 11, 0, 12, 3, 3};
+	//vector<int> INDEX = {14, 14,  8,  1, 13,  1, 14,  1, 14,  5, 14,  1,  9,  6,  8,  6, 15,  0,
+	//										 10,  1, 15,  6, 15,  1,  8,  6, 13,  3, 14,  4, 10,  2, 13,  2, 11,  0,
+	//										 11,  0, 14,  2, 12,  4, 10,  1, 10,  3, 13,  6, 10,  3};
+	//vector<int> INDEX2 = {14, 14, 14,  5, 13,  0, 13,  0, 14,  2, 10,  1, 12,  2, 15,  8,  9,  0,
+	//										  10,  6, 15,  1, 11,  0, 10,  1,  9,  3, 10,  0, 11,  4, 13,  5,  9,  4,
+	//										  14,  6, 12,  5, 12,  0, 10,  4, 10,  5, 15,  6, 12,  6};
+	//vector<int> INDEX = {12, 11, 13,  0, 10,  8, 11,  2, 13,  0, 15,  5, 15,  5, 14,  0,  9,  4,
+	//										 15,  3,  8,  0,  8,  0, 12,  3, 12,  2,  9,  3, 11,  5, 10,  1, 12,  2,
+	//										 10,  1,  8,  3, 10,  5, 12,  5, 13,  1, 12,  2, 13,  1};
+	//vector<int> INDEX2 = {12, 11, 15,  6, 11,  6, 15,  1, 13,  7, 13,  2, 15,  4, 11,  1, 15,  4,
+	//											15,  0,  9,  0, 14,  1, 15,  2, 14,  7, 15,  2,  9,  6, 10,  0, 14,  1,
+	//										  13,  3, 15,  1,  9,  8, 12,  1, 11,  2, 14,  2, 11,  0};
+	vector<int> INDEX = {6, 10, 13, 10, 8};
+	vector<int> INDEX2 = {14, 9, 15, 14, 9};
+	vector<int> INDEX3 = {8, 6, 5, 7, 0};
+	for(int i = 0; i < centers.size(); ++i){
+		for(int j = 0; j < 2; ++j){
+			DIST += query.values()[i*2+j] * centers[i][INDEX[i]].values()[j];
+			DIST2 += query.values()[i*2+j] * centers[i][INDEX2[i]].values()[j];
+			DIST3 += query.values()[i*2+j] * centers[i][INDEX3[i]].values()[j];
+		}
+	}
+	std::cout << "query-fine codebook dist1 : " << DIST << std::endl;
+	std::cout << "query-fine codebook dist2 : " << DIST2 << std::endl;
+	std::cout << "query-fine codebook dist3 : " << DIST3 << std::endl << std::endl;
   ChunkedDatapoint<FloatT> projected;
   SCANN_RETURN_IF_ERROR(projection.ProjectInput(query, &projected));
   SCANN_RET_CHECK_EQ(centers.size(), projected.size());
@@ -594,6 +642,8 @@ float ComputeMultiplierByQuantile(ConstSpan<float> raw_lookup, float quantile,
   if (k == 1) {
     const float max_abs_lookup_element = std::max(
         std::sqrt(numeric_limits<float>::epsilon()), MaxAbsValue(raw_lookup));
+		std::cout << "/hashes/internal/asymmetric_hashing_impl.cc::617" << std::endl;
+		std::cout << "max_integer_value : " << max_integer_value << "   numeric_limits<float>::epsilon() : " << numeric_limits<float>::epsilon() << "   std::sqrt(numeric_limits<float>::epsilon()) : " << std::sqrt(numeric_limits<float>::epsilon()) << "   MaxAbsValue(raw_lookup) : " << MaxAbsValue(raw_lookup) << "   max_abs_lookup_element : " << max_abs_lookup_element << "   multiplier : " << max_integer_value / max_abs_lookup_element << std::endl << std::endl;
     return max_integer_value / max_abs_lookup_element;
   } else {
     DCHECK_LT(quantile, 1.0f);

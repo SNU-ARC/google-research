@@ -513,7 +513,6 @@ Status AsymmetricQueryer<T>::FindApproximateTopNeighborsTopNDispatch(
       params.restricts_enabled()
           ? RestrictAllowlistConstView(*params.restrict_whitelist())
           : RestrictAllowlistConstView()};
-
   asymmetric_hashing_internal::LUT16ArgsTopN<float> args;
   args.packed_dataset = packed_dataset.bit_packed_data.data();
   args.num_32dp_simd_iters = DivRoundUp(packed_dataset.num_datapoints, 32);
@@ -528,6 +527,66 @@ Status AsymmetricQueryer<T>::FindApproximateTopNeighborsTopNDispatch(
   asymmetric_hashing_internal::LUT16Interface::GetTopFloatDistances(
       std::move(args));
 
+	//pair<MutableSpan<DatapointIndex>, MutableSpan<DistT>> unsorted = args.fast_topns[0]->FinishUnsorted();
+	//std::cout << "unsorted index-dist 1 : "  << unsorted.first[0] << "  " << unsorted.second[0] << std::endl;
+  float approximate_distance1 = 0.0f;
+	float approximate_distance2 = 0.0f;
+	float approximate_distance3 = 0.0f;
+  //vector<int> INDEX = {14, 14,  8,  1, 13,  1, 14,  1, 14,  5, 14,  1,  9,  6,  8,  6, 15,  0,
+  //                    10,  1, 15,  6, 15,  1,  8,  6, 13,  3, 14,  4, 10,  2, 13,  2, 11,  0,
+  //                     11,  0, 14,  2, 12,  4, 10,  1, 10,  3, 13,  6, 10,  3};
+  //vector<int> INDEX2 = {14, 14, 14,  5, 13,  0, 13,  0, 14,  2, 10,  1, 12,  2, 15,  8,  9,  0,
+  //                     10,  6, 15,  1, 11,  0, 10,  1,  9,  3, 10,  0, 11,  4, 13,  5,  9,  4,
+  //                      14,  6, 12,  5, 12,  0, 10,  4, 10,  5, 15,  6, 12,  6};
+	//vector<int> INDEX = {12, 11, 13,  0, 10,  8, 11,  2, 13,  0, 15,  5, 15,  5, 14,  0,  9,  4,                                                                                      15,  3,  8,  0,  8,  0, 12,  3, 12,  2,  9,  3, 11,  5, 10,  1, 12,  2,                                                                                      10,  1,  8,  3, 10,  5, 12,  5, 13,  1, 12,  2, 13,  1};
+  //vector<int> INDEX2 = {12, 11, 15,  6, 11,  6, 15,  1, 13,  7, 13,  2, 15,  4, 11,  1, 15,  4,                                                                                      15,  0,  9,  0, 14,  1, 15,  2, 14,  7, 15,  2,  9,  6, 10,  0, 14,  1,                                                                                      13,  3, 15,  1,  9,  8, 12,  1, 11,  2, 14,  2, 11,  0};
+  vector<int> INDEX = {6, 10, 13, 10, 8};
+	vector<int> INDEX2 = {14, 9, 15, 14, 9};
+	vector<int> INDEX3 = {8, 6, 5, 7, 0};
+	if(args.first_dp_index == 2147483648){ 
+		std::cout << "/hashes/asymmetric_hashing2/querying.h::531" << std::endl;
+		std::cout << "[YJ] packed_dataset: " << packed_dataset.bit_packed_data.size() << ", " << packed_dataset.bit_packed_data[0] << std::endl;
+		for(auto i=0; i<packed_dataset.num_blocks; i++){
+			auto packed1 = packed_dataset.bit_packed_data[i*16];
+			auto packed2 = packed_dataset.bit_packed_data[i*16 + 1];
+			auto packed3 = packed_dataset.bit_packed_data[i*16 + 2];
+			auto packed4 = packed_dataset.bit_packed_data[i*16 + 3];
+			auto packed5 = packed_dataset.bit_packed_data[i*16 + 4];
+			auto look1 = (packed1 & 15);
+			auto look2 = (packed1 & 240) >> 4;
+			auto look3 = (packed2 & 15);
+			auto look4 = (packed2 & 240) >> 4;
+			auto look5 = (packed3 & 15);
+			auto look6 = (packed3 & 240) >> 4;
+			auto look7 = (packed4 & 15);
+			auto look8 = (packed4 & 240) >> 4;
+			auto look9 = (packed5 & 15);
+			auto look10 = (packed5 & 240) >> 4;
+			std::cout << "lookup1, 2, 3, 4, 5, 6, 7, 8 : " << look1 << "  " << look2 << "  " << look3 << "  " << look4 << "  " << look5 << "  " << look6 << "  " << look7 << "  " << look8 << "  " << look9 << "  " << look10 << std::endl;
+			//auto packed2 = packed_dataset.bit_packed_data[i*16 + 16*packed_dataset.num_blocks*12 + 12];
+			//auto lookup_index1 = (packed1 & 15);
+			//auto lookup_index2 = (packed2 & 240) >> 4;
+			auto lookup_index1 = INDEX[i];
+			auto lookup_index2 = INDEX2[i];
+			auto lookup_index3 = INDEX3[i];
+			//std::cout << "i : " << i << "  index : " << lookup_index1 << std::endl;
+		//}
+		//std::cout << std::endl;
+	//}
+			approximate_distance1 += (float)lookups[0][16*i+lookup_index1];
+			approximate_distance2 += (float)lookups[0][16*i+lookup_index2];
+			approximate_distance3 += (float)lookups[0][16*i+lookup_index3];
+		}
+		std::cout << "[YJ] approximate distance1 : " << approximate_distance1 << std::endl;
+		std::cout << "[YJ] approximate distance2 : " << approximate_distance2 << std::endl;
+		std::cout << "[YJ] approximate distance3 : " << approximate_distance3 << std::endl << std::endl;
+    // std::cout << lookups[0][16*i+lookup_index] << " ";
+  //}
+	//std::cout << std::endl;
+  // std::cout << std::endl;
+		//std::cout << "[YJ] approximate distance1 : " << approximate_distance1 << std::endl;
+		//std::cout << "[YJ] approximate distance2 : " << approximate_distance2 << std::endl << std::endl;
+	}
   return OkStatus();
 }
 

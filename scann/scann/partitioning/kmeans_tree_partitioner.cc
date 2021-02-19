@@ -190,7 +190,12 @@ Status KMeansTreePartitioner<T>::TokensForDatapointWithSpilling(
     const DatapointPtr<T>& dptr, int32_t max_centers_override,
     vector<KMeansTreeSearchResult>* result) const {
   DCHECK(result);
-
+	std::cout << "/scann/partitioning/kmeans_tree_partitioner.cc::193" << std::endl;
+	const DenseDataset<float>& centers = kmeans_tree_->root()->Centers();
+	for(int i = 0; i < 10; ++i){
+		std::cout << centers[2].values()[i] << ", ";
+	}
+	std::cout << std::endl << std::endl;
   if (this->tokenization_mode() == UntypedPartitioner::QUERY) {
     const auto max_centers = max_centers_override > 0
                                  ? max_centers_override
