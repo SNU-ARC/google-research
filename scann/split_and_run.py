@@ -284,6 +284,7 @@ def run_scann():
 				print("Split ", split)
 				# Load splitted dataset
 				dataset = read_data(split_dataset_path + str(args.num_split) + "_" + str(split) if args.num_split>1 else dataset_basedir, base=False if args.num_split>1 else True, offset_=None if args.num_split>1 else 0, shape_=None)
+				batch_size = min(args.batch, queries.shape[0])
 				# Create ScaNN searcher
 				print("Entering ScaNN builder")
 				searcher = None
@@ -306,7 +307,7 @@ def run_scann():
 
 				if args.batch:
 					start = time.time()
-					local_neighbors, local_distances = searcher.search_batched_parallel(queries, leaves_to_search=leaves_to_search, pre_reorder_num_neighbors=reorder, final_num_neighbors=args.topk, batch_size=args.batch)
+					local_neighbors, local_distances = searcher.search_batched_parallel(queries, leaves_to_search=leaves_to_search, pre_reorder_num_neighbors=reorder, final_num_neighbors=args.topk, batch_size=batch_size)
 					# local_neighbors, local_distances = searcher.search_batched(queries, leaves_to_search=leaves_to_search, pre_reorder_num_neighbors=reorder, final_num_neighbors=args.topk)
 					end = time.time()
 					total_latency = total_latency + 1000*(end - start)
@@ -365,14 +366,14 @@ def run_faiss(D, index_key):
 				xt = get_train(split, args.num_split)
 				# Build Faiss index
 				searcher_dir, searcher_path = get_searcher_path(split)
-
-				preproc = train_faiss(args.dataset, split_dataset_path, D, xt, split, args.num_split, args.metric, index_key, log2kstar, searcher_dir, args.batch)
+				preproc = train_faiss(args.dataset, split_dataset_path, D, xt, split, args.num_split, args.metric, index_key, log2kstar, searcher_dir)
 				dataset = read_data(split_dataset_path + str(args.num_split) + "_" + str(split) if args.num_split>1 else dataset_basedir, base=False if args.num_split>1 else True, offset_=None if args.num_split>1 else 0, shape_=None)
+				batch_size = min(args.batch, queries.shape[0])
 				# Create Faiss index
 				index = build_faiss(dataset, split, preproc)
 				start = time.time()
 				# Faiss search
-				local_neighbors, local_distances = search_faiss(queries, index, preproc, nprobe, args.topk)
+				local_neighbors, local_distances = search_faiss(queries, index, preproc, nprobe, args.topk, batch_size)
 				end = time.time()
 				total_latency = total_latency + 1000*(end - start)
 				neighbors = np.append(neighbors, local_neighbors+base_idx, axis=1)
