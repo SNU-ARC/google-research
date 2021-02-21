@@ -277,7 +277,6 @@ def run_scann():
 			neighbors=np.empty((queries.shape[0],0))
 			distances=np.empty((queries.shape[0],0))
 			total_latency = 0
-			# query_times = np.zeros((queries.shape[0],1))
 			base_idx = 0
 			for split in range(args.num_split):
 				searcher_dir, searcher_path = get_searcher_path(split)  	
@@ -322,7 +321,7 @@ def run_scann():
 					# ScaNN search
 					print("Entering ScaNN searcher")
 					local_results = [single_query(q, base_idx) for q in queries]
-					total_latency += np.sum(np.array([time for time, _ in local_results]).reshape(queries.shape[0], 1))
+					total_latency += (np.sum(np.array([time for time, _ in local_results]).reshape(queries.shape[0], 1)))*1000
 					nd = [nd for _, nd in local_results]
 					neighbors = np.append(neighbors, np.array([n for n,d in nd])+base_idx, axis=1)
 					distances = np.append(distances, np.array([d for n,d in nd]), axis=1)
@@ -330,9 +329,9 @@ def run_scann():
 
 			final_neighbors = sort_neighbors(distances, neighbors)
 			top1, top10, top100 = print_recall(final_neighbors, gt)
-			print("Top ", args.topk, " Total latency (ns): ", total_latency)
+			print("Top ", args.topk, " Total latency (ms): ", total_latency)
 			if args.sweep:
-				f.write(str(top1)+" %\t"+str(top10)+" %\t"+str(top100)+" %\t"+str(np.sum(query_times))+"\n")
+				f.write(str(top1)+" %\t"+str(top10)+" %\t"+str(top100)+" %\t"+str(total_latency)+"\n")
 	if args.sweep:
 		f.close()
 def run_faiss(D, index_key):
@@ -455,7 +454,7 @@ def run_annoy(D):
 					result = np.array(result)
 					local_neighbors = result[:,0,:]
 					local_distances = result[:,1,:]
-					total_latency = total_latency + (end - start)
+					total_latency = total_latency + (end - start)*1000
 					neighbors = np.append(neighbors, local_neighbors+base_idx, axis=1)
 					distances = np.append(distances, local_distances, axis=1)
 				else:
@@ -464,7 +463,7 @@ def run_annoy(D):
 						result = searcher.get_nns_by_vector(query.tolist(), args.topk, num_search, include_distances=True)
 						return (time.time() - start, result)
 					local_results = [single_query(q, base_idx) for q in queries]
-					total_latency += np.sum(np.array([time for time, _ in local_results]).reshape(queries.shape[0], 1))
+					total_latency += (np.sum(np.array([time for time, _ in local_results]).reshape(queries.shape[0], 1)))*1000
 					nd = [nd for _, nd in local_results]
 					neighbors = np.append(neighbors, np.array([n for n,d in nd])+base_idx, axis=1)
 					distances = np.append(distances, np.array([d for n,d in nd]), axis=1)
@@ -472,9 +471,9 @@ def run_annoy(D):
 
 			final_neighbors = sort_neighbors(distances, neighbors)
 			top1, top10, top100 = print_recall(final_neighbors, gt)
-			print("Top ", args.topk, " Total latency (s): ", np.sum(query_times))
+			print("Top ", args.topk, " Total latency (ms): ", total_latency)
 			if args.sweep:
-				f.write(str(top1)+" %\t"+str(top10)+" %\t"+str(top100)+" %\t"+str(np.sum(query_times))+"\n")
+				f.write(str(top1)+" %\t"+str(top10)+" %\t"+str(top100)+" %\t"+str(total_latency)+"\n")
 	if args.sweep:
 		f.close()
 
