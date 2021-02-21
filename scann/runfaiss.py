@@ -398,10 +398,14 @@ def search_faiss(xq, index, preproc, nprobe, topk, batch_size):
 	sl = batch_size
 	nq = xq.shape[0]
 	ps.set_index_parameter(index, 'nprobe', nprobe)
-	print(index.metric_type)
+	# print(index.metric_type)
+	print("Batch size: ", batch_size)
 	nnn = topk
+	total_latency = 0
 	if sl == 0:
+		start = time.time()
 		D, I = index.search(preproc.apply_py(sanitize(xq)), nnn)
+		total_latency = 1000*(time.time()-start)
 	else:
 		I = np.empty((nq, nnn), dtype='int32')
 		D = np.empty((nq, nnn), dtype='float32')
@@ -410,13 +414,14 @@ def search_faiss(xq, index, preproc, nprobe, topk, batch_size):
 
 		for i0, xs in dataset_iterator(xq, preproc, sl):
 			i1 = i0 + xs.shape[0]
+			start = time.time()
 			Di, Ii = index.search(xs, nnn)
-
+			total_latency += 1000*(time.time()-start)
 			I[i0:i1] = Ii
 			D[i0:i1] = Di
 
 	print("--------------------------------------------\n")
-	return I, D
+	return I, D, total_latency
 
 
 def train_faiss(db, split_dataset_path, D, xt, split, num_split, met, index_key, log2kstar_, cacheroot):

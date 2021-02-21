@@ -371,11 +371,8 @@ def run_faiss(D, index_key):
 				batch_size = min(args.batch, queries.shape[0])
 				# Create Faiss index
 				index = build_faiss(dataset, split, preproc)
-				start = time.time()
 				# Faiss search
-				local_neighbors, local_distances = search_faiss(queries, index, preproc, nprobe, args.topk, batch_size)
-				end = time.time()
-				total_latency = total_latency + 1000*(end - start)
+				local_neighbors, local_distances, total_latency = search_faiss(queries, index, preproc, nprobe, args.topk, batch_size)
 				neighbors = np.append(neighbors, local_neighbors+base_idx, axis=1)
 				distances = np.append(distances, local_distances, axis=1)
 				base_idx = base_idx + dataset.shape[0]
@@ -496,14 +493,18 @@ def get_train(split=-1, total=-1):
 def get_groundtruth():
 	if "sift1m" in args.dataset:
 		filename = dataset_basedir + 'sift_groundtruth.ivecs' if args.metric=="squared_l2" else groundtruth_path
+		print("Reading from ", filename)
 		return ivecs_read(filename)
 	elif "sift1b" in args.dataset:
 		filename = dataset_basedir +  'gnd/idx_1000M.ivecs' if args.metric=="squared_l2" else groundtruth_path
+		print("Reading from ", filename)
 		return ivecs_read(filename)
 	elif "glove" in args.dataset:
 		if args.metric == "dot_product":
-			return h5py.File( dataset_basedir+"glove-100-angular.hdf5", "r")['neighbors']
+			print("Reading from ", dataset_basedir+"glove-100-angular.hdf5")
+			return h5py.File(dataset_basedir+"glove-100-angular.hdf5", "r")['neighbors']
 		else:
+			print("Reading from ", groundtruth_path)
 			return read_data(groundtruth_path, base=False)
 	else:
 		assert False
