@@ -8,6 +8,7 @@ import time
 import argparse
 import os
 import h5py
+import math
 
 parser = argparse.ArgumentParser(description='Options')
 parser.add_argument('--program', type=str, help='scann, faiss ...')
@@ -45,7 +46,7 @@ if args.split != True:
 	assert args.metric == "squared_l2" or args.metric == "dot_product" or args.metric=="angular"
 
 if args.eval_split or args.sweep:
-	assert args.program!=None and args.metric!=None and args.num_split!=-1 and args.topk!=-1
+	assert args.program!=None and args.metric!=None and args.num_split!=-1 and args.topk!=-1 and args.m!=-1
 
 if args.groundtruth:
 	import ctypes
@@ -304,7 +305,7 @@ def run_scann():
 					os.makedirs(searcher_path, exist_ok=True)
 					searcher.serialize(searcher_path)
 
-				if args.batch!=1:
+				if args.batch > 1:
 					start = time.time()
 					local_neighbors, local_distances = searcher.search_batched_parallel(queries, leaves_to_search=leaves_to_search, pre_reorder_num_neighbors=reorder, final_num_neighbors=args.topk, batch_size=batch_size)
 					# local_neighbors, local_distances = searcher.search_batched(queries, leaves_to_search=leaves_to_search, pre_reorder_num_neighbors=reorder, final_num_neighbors=args.topk)
@@ -317,14 +318,19 @@ def run_scann():
 					def single_query(query, base_idx):
 						start = time.time()
 						local_neighbors, local_distances = searcher.search(query, leaves_to_search=leaves_to_search, pre_reorder_num_neighbors=reorder, final_num_neighbors=args.topk)
+						if local_neighbors.shape[0] < args.topk:
+							plus_dim = args.topk-local_neighbors.shape[0]
+							local_neighbors=np.concatenate((local_neighbors, np.full((plus_dim), N)), axis=-1)
+							local_distances=np.concatenate((local_distances, np.full((plus_dim), math.inf if metric=="squared_l2" else -math.inf)), axis=-1)
+
 						return (time.time() - start, (local_neighbors, local_distances))
 					# ScaNN search
 					print("Entering ScaNN searcher")
 					local_results = [single_query(q, base_idx) for q in queries]
 					total_latency += (np.sum(np.array([time for time, _ in local_results]).reshape(queries.shape[0], 1)))*1000
 					nd = [nd for _, nd in local_results]
-					neighbors = np.append(neighbors, np.array([n for n,d in nd])+base_idx, axis=1)
-					distances = np.append(distances, np.array([d for n,d in nd]), axis=1)
+					neighbors = np.append(neighbors, np.vstack([n for n,d in nd])+base_idx, axis=1)
+					distances = np.append(distances, np.vstack([d for n,d in nd]), axis=1)
 				base_idx = base_idx + dataset.shape[0]
 
 			final_neighbors = sort_neighbors(distances, neighbors)
@@ -524,8 +530,9 @@ if os.path.isdir("/arc-share"):
 else:
 	basedir = "./"
 
+os.makedirs("./result", exist_ok=True)
 split_dataset_path = None
-sweep_result_path = args.program+"_"+args.dataset+"_"+str(args.topk)+"_"+str(args.num_split)+"_sweep_result.txt"
+sweep_result_path = "./result/"+args.program+"_"+args.dataset+"_topk_"+str(args.topk)+"_num_split_"+str(args.num_split)+"_batch_"+str(args.batch)+"_sweep_result.txt"
 index_key = None
 N = -1
 D = -1
