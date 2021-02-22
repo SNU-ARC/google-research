@@ -44,7 +44,7 @@ args = parser.parse_args()
 if args.split != True:
 	assert args.metric == "squared_l2" or args.metric == "dot_product" or args.metric=="angular"
 
-if args.eval_split:
+if args.eval_split or args.sweep:
 	assert args.program!=None and args.metric!=None and args.num_split!=-1 and args.topk!=-1
 
 if args.groundtruth:
@@ -304,7 +304,7 @@ def run_scann():
 					os.makedirs(searcher_path, exist_ok=True)
 					searcher.serialize(searcher_path)
 
-				if args.batch:
+				if args.batch!=1:
 					start = time.time()
 					local_neighbors, local_distances = searcher.search_batched_parallel(queries, leaves_to_search=leaves_to_search, pre_reorder_num_neighbors=reorder, final_num_neighbors=args.topk, batch_size=batch_size)
 					# local_neighbors, local_distances = searcher.search_batched(queries, leaves_to_search=leaves_to_search, pre_reorder_num_neighbors=reorder, final_num_neighbors=args.topk)
@@ -566,7 +566,7 @@ elif "glove" in args.dataset:
 # main
 if args.split:
 	split(args.dataset, num_iter, N, D)
-if args.eval_split:
+if args.eval_split or args.sweep:
 	if args.program == "scann":
 		run_scann()
 	elif args.program == "faiss":
