@@ -46,7 +46,7 @@ if args.split != True:
 	assert args.metric == "squared_l2" or args.metric == "dot_product" or args.metric=="angular"
 
 if args.eval_split or args.sweep:
-	assert args.program!=None and args.metric!=None and args.num_split!=-1 and args.topk!=-1 and args.m!=-1
+	assert args.program!=None and args.metric!=None and args.num_split!=-1 and args.topk!=-1
 
 if args.groundtruth:
 	import ctypes
@@ -55,7 +55,7 @@ if args.groundtruth:
 if args.program=='scann':
 	import scann
 	if args.sweep == False:
-		assert args.L!=-1 and args.w!=-1 and args.topk!=-1 and args.k_star == -1 and (args.topk <= args.reorder if args.reorder!=-1 else True)
+		assert args.L!=-1 and args.w!=-1 and args.topk!=-1 and args.k_star == -1 and args.m!=-1 and (args.topk <= args.reorder if args.reorder!=-1 else True)
 	assert args.topk!=-1
 elif args.program == "faiss":
 	from runfaiss import train_faiss, build_faiss, search_faiss
@@ -201,12 +201,14 @@ def split(filename, num_iter, N, D):
 	print("num_split_lists: ", num_split_list)
 
 def run_groundtruth():
+	print("Making groud truth file")
+	import ctypes
 	groundtruth_dir = dataset_basedir + "groundtruth/"
 	if os.path.isdir(groundtruth_dir)!=True:
 		os.mkdir(groundtruth_dir)
 	dataset = read_data(dataset_basedir, base=True, offset_=0, shape_=None).astype('float32')
 	queries = np.array(get_queries(), dtype='float32')
-	groundtruth = np.empty([qN, 100], dtype=np.int32)
+	groundtruth = np.empty([qN, 1000], dtype=np.int32)
 	xpp_handles = [np.ctypeslib.as_ctypes(row) for row in dataset]
 	ypp_handles = [np.ctypeslib.as_ctypes(row) for row in queries]
 	gpp_handles = [np.ctypeslib.as_ctypes(row) for row in groundtruth]
@@ -230,18 +232,17 @@ def sort_neighbors(distances, neighbors):
 def prepare_eval():
 	gt = get_groundtruth()
 	queries = get_queries()
-	# neighbors=np.empty((queries.shape[0],0))
-	# distances=np.empty((queries.shape[0],0))
-	# return gt, queries, neighbors, distances	
 	return gt, queries
 
 def print_recall(final_neighbors, gt):
 	top1 = compute_recall(final_neighbors[:,:1], gt[:, :1])
 	top10 = compute_recall(final_neighbors[:,:10], gt[:, :10])
 	top100 = compute_recall(final_neighbors[:,:100], gt[:, :100])
-	print("Recall@1:", top1)
-	print("Recall@10:", top10)
-	print("Recall@100:", top100)
+	top1000 = compute_recall(final_neighbors[:,:10000], gt[:, :1000])
+	print("Recall1@1:", top1)
+	print("Recall1@10:", top10)
+	print("Recall1@100:", top100)
+	print("Recall1000@10000:", top1000)
 	return top1, top10, top100
 
 def get_searcher_path(split):
@@ -426,7 +427,7 @@ def run_annoy(D):
 			neighbors=np.empty((queries.shape[0],0))
 			distances=np.empty((queries.shape[0],0))
 			base_idx = 0
-
+			total_latency = 0
 			for split in range(args.num_split):
 				searcher_dir, searcher_path = get_searcher_path(split)
 				searcher_path = searcher_path + '_' + str(num_trees) + '_' + metric
@@ -452,7 +453,7 @@ def run_annoy(D):
 
 				print("Entering Annoy searcher")
 				# Annoy batch version
-				if args.batch:
+				if args.batch > 1:
 					pool = ThreadPool()
 					start = time.time()
 					result = pool.map(lambda q: searcher.get_nns_by_vector(q.tolist(), args.topk, num_search, include_distances=True), queries)
@@ -496,23 +497,32 @@ def get_train(split=-1, total=-1):
 		assert False
 
 def get_groundtruth():
-	if "sift1m" in args.dataset:
-		filename = dataset_basedir + 'sift_groundtruth.ivecs' if args.metric=="squared_l2" else groundtruth_path
-		print("Reading from ", filename)
-		return ivecs_read(filename)
-	elif "sift1b" in args.dataset:
-		filename = dataset_basedir +  'gnd/idx_1000M.ivecs' if args.metric=="squared_l2" else groundtruth_path
-		print("Reading from ", filename)
-		return ivecs_read(filename)
-	elif "glove" in args.dataset:
-		if args.metric == "dot_product":
-			print("Reading from ", dataset_basedir+"glove-100-angular.hdf5")
-			return h5py.File(dataset_basedir+"glove-100-angular.hdf5", "r")['neighbors']
-		else:
-			print("Reading from ", groundtruth_path)
-			return read_data(groundtruth_path, base=False)
+	print("Reading grountruth from ", groundtruth_path)
+	if os.path.isfile(groundtruth_path)==False:
+		run_groundtruth()
 	else:
-		assert False
+		if "glove" in args.dataset:
+			return read_data(groundtruth_path, base=False)
+		else:
+			return ivecs_read(groundtruth_path)
+
+	# if "sift1m" in args.dataset:
+	# 	filename = dataset_basedir + 'sift_groundtruth.ivecs' if args.metric=="squared_l2" else groundtruth_path
+	# 	print("Reading from ", filename)
+	# 	return ivecs_read(filename)
+	# elif "sift1b" in args.dataset:
+	# 	filename = dataset_basedir +  'gnd/idx_1000M.ivecs' if args.metric=="squared_l2" else groundtruth_path
+	# 	print("Reading from ", filename)
+	# 	return ivecs_read(filename)
+	# elif "glove" in args.dataset:
+	# 	if args.metric == "dot_product":
+	# 		print("Reading from ", dataset_basedir+"glove-100-angular.hdf5")
+	# 		return h5py.File(dataset_basedir+"glove-100-angular.hdf5", "r")['neighbors']
+	# 	else:
+	# 		print("Reading from ", groundtruth_path)
+	# 		return read_data(groundtruth_path, base=False)
+	# else:
+	# 	assert False
 
 def get_queries():
 	if "sift1m" in args.dataset:
