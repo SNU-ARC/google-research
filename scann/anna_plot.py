@@ -122,9 +122,11 @@ def collect_result(path):
                     acc.append(float(result[0]))
                 elif topk == 10:
                     acc.append(float(result[2]))
-                else:       # topk == 100
+                elif topk == 100:       # topk == 100
                     acc.append(float(result[4]))
-                time.append(float(result[6]))
+                else:
+                    acc.append(float(result[6]))
+                time.append(float(result[8]))
 
     # import operator 
     res = sorted(zip(acc, time), key = lambda x: x[0]) 

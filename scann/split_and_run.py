@@ -238,12 +238,14 @@ def print_recall(final_neighbors, gt):
 	top1 = compute_recall(final_neighbors[:,:1], gt[:, :1])
 	top10 = compute_recall(final_neighbors[:,:10], gt[:, :10])
 	top100 = compute_recall(final_neighbors[:,:100], gt[:, :100])
-	top1000 = compute_recall(final_neighbors[:,:10000], gt[:, :1000])
-	print("Recall1@1:", top1)
-	print("Recall1@10:", top10)
-	print("Recall1@100:", top100)
-	print("Recall1000@10000:", top1000)
-	return top1, top10, top100
+	top1000 = compute_recall(final_neighbors[:,:1000], gt[:, :1000])
+	top1000_10000 = compute_recall(final_neighbors[:,:10000], gt[:, :1000])
+	print("Recall 1@1:", top1)
+	print("Recall 10@10:", top10)
+	print("Recall 100@100:", top100)
+	print("Recall 1000@1000:", top100)
+	print("Recall 1000@10000:", top1000)
+	return top1, top10, top100, top1000
 
 def get_searcher_path(split):
 	searcher_dir = basedir + args.program + '_searcher_' + args.metric + '/' + args.dataset + '/Split_' + str(args.num_split) + '/'
@@ -259,7 +261,7 @@ def run_scann():
 		          		[[1, 30], [2, 30], [4, 30], [8, 30], [9, 25], [11, 35], [12, 35], [13, 35], [14, 40], [15, 40], [16, 40], [17, 45], [20, 45], [20, 55], [25, 55], [25, 70], [30, 70], [40, 90], [50, 100], [60, 120], [70, 140]], \
 		          		[[1, 30], [4, 30], [9, 30], [16, 32], [25, 50], [36, 72], [49, 98], [70, 150], [90, 200], [120, 210], [180, 270], [210, 330], [260, 400], [320, 500], [400, 600], [500, 700], [800, 900]]]
 		f = open(sweep_result_path, "w")
-		f.write("Program: " + args.program + " Topk: " + str(args.topk) + " Num_split: " + str(args.num_split)+"\n")
+		f.write("Program: " + args.program + " Topk: " + str(args.topk) + " Num_split: " + str(args.num_split)+ " Batch: "+str(args.batch)+"\n")
 		f.write("Num leaves\tThreashold\tDims\tMetric\tLeavesSearch\tReorder\n")
 	else:
 		build_config = [(args.L, args.threshold, int(D/args.m), args.metric)]
@@ -335,10 +337,10 @@ def run_scann():
 				base_idx = base_idx + dataset.shape[0]
 
 			final_neighbors = sort_neighbors(distances, neighbors)
-			top1, top10, top100 = print_recall(final_neighbors, gt)
+			top1, top10, top100, top1000 = print_recall(final_neighbors, gt)
 			print("Top ", args.topk, " Total latency (ms): ", total_latency)
 			if args.sweep:
-				f.write(str(top1)+" %\t"+str(top10)+" %\t"+str(top100)+" %\t"+str(total_latency)+"\n")
+				f.write(str(top1)+" %\t"+str(top10)+" %\t"+str(top100)+" %\t"+str(top1000)+" %\t"+str(total_latency)+"\n")
 	if args.sweep:
 		f.close()
 def run_faiss(D, index_key):
@@ -383,10 +385,10 @@ def run_faiss(D, index_key):
 				distances = np.append(distances, local_distances, axis=1)
 				base_idx = base_idx + dataset.shape[0]
 			final_neighbors = sort_neighbors(distances, neighbors)
-			top1, top10, top100 = print_recall(final_neighbors, gt)
+			top1, top10, top100, top1000 = print_recall(final_neighbors, gt)
 			print("Top ", args.topk, " Total latency (ms): ", total_latency)
 			if args.sweep:
-				f.write(str(top1)+" %\t"+str(top10)+" %\t"+str(top100)+" %\t"+str(total_latency)+"\n")
+				f.write(str(top1)+" %\t"+str(top10)+" %\t"+str(top100)+" %\t"+str(top1000)+" %\t"+str(total_latency)+"\n")
 	if args.sweep:
 		f.close()
 	# Below is for faiss's recall
@@ -477,10 +479,10 @@ def run_annoy(D):
 				base_idx = base_idx + dataset.shape[0]
 
 			final_neighbors = sort_neighbors(distances, neighbors)
-			top1, top10, top100 = print_recall(final_neighbors, gt)
+			top1, top10, top100, top1000 = print_recall(final_neighbors, gt)
 			print("Top ", args.topk, " Total latency (ms): ", total_latency)
 			if args.sweep:
-				f.write(str(top1)+" %\t"+str(top10)+" %\t"+str(top100)+" %\t"+str(total_latency)+"\n")
+				f.write(str(top1)+" %\t"+str(top10)+" %\t"+str(top100)+" %\t"+str(top1000)+" %\t"+str(total_latency)+"\n")
 	if args.sweep:
 		f.close()
 
@@ -500,11 +502,10 @@ def get_groundtruth():
 	print("Reading grountruth from ", groundtruth_path)
 	if os.path.isfile(groundtruth_path)==False:
 		run_groundtruth()
+	if "glove" in args.dataset:
+		return read_data(groundtruth_path, base=False)
 	else:
-		if "glove" in args.dataset:
-			return read_data(groundtruth_path, base=False)
-		else:
-			return ivecs_read(groundtruth_path)
+		return ivecs_read(groundtruth_path)
 
 	# if "sift1m" in args.dataset:
 	# 	filename = dataset_basedir + 'sift_groundtruth.ivecs' if args.metric=="squared_l2" else groundtruth_path
