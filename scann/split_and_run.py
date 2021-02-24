@@ -418,7 +418,7 @@ def run_annoy(D):
 		build_config = [(args.metric, args.n_trees)]
 		search_config = [args.num_search]
 	for bc in build_config:
-		metric, num_trees = bc
+		metric, n_trees = bc
 		if metric == "dot_product":
 			annoy_metric = "dot"
 		elif metric == "squared_l2":
@@ -428,8 +428,8 @@ def run_annoy(D):
 		for sc in search_config:
 			num_search = sc
 			if args.sweep:
-				f.write(str(num_trees)+"\t"+str(num_search)+"\t"+str(annoy_metric)+"\n")
-			print(str(num_trees)+"\t"+str(num_search)+"\t"+str(annoy_metric))
+				f.write(str(n_trees)+"\t"+str(num_search)+"\t"+str(annoy_metric)+"\n")
+			print(str(n_trees)+"\t"+str(num_search)+"\t"+str(annoy_metric))
 			neighbors=np.empty((queries.shape[0],0))
 			distances=np.empty((queries.shape[0],0))
 			base_idx = 0
@@ -452,7 +452,7 @@ def run_annoy(D):
 					for i, x in enumerate(dataset):
 					    searcher.add_item(i, x.tolist())
 					print("Annoy, building trees")
-					searcher.build(num_trees)
+					searcher.build(n_trees)
 					print("Saving searcher to ", searcher_path)
 					os.makedirs(searcher_dir, exist_ok=True)
 					searcher.save(searcher_path)
