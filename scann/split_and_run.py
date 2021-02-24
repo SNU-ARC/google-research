@@ -448,11 +448,14 @@ def run_annoy(D):
 					print("Loading searcher from ", searcher_path)
 					searcher.load(searcher_path)
 				else:
+					start = time.time()
 					print("Annoy, adding items")
 					for i, x in enumerate(dataset):
 					    searcher.add_item(i, x.tolist())
 					print("Annoy, building trees")
 					searcher.build(n_trees)
+					end = time.time()
+					print("Train latency (ms): ", (end - start)*1000)
 					print("Saving searcher to ", searcher_path)
 					os.makedirs(searcher_dir, exist_ok=True)
 					searcher.save(searcher_path)
