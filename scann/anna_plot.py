@@ -18,7 +18,7 @@ from anna_plot_util import *
 
 # def create_plot(all_data, raw, x_scale, y_scale, xn, yn, fn_out, linestyles,
 #                 batch):
-def create_plot(dataset, results, linestyles):
+def create_plot(dataset, results, linestyles, build_config):
     # xm, ym = (metrics[xn], metrics[yn])
     # Now generate each plot
     handles = []
@@ -33,22 +33,34 @@ def create_plot(dataset, results, linestyles):
     # Find range for logit x-scale
     min_x, max_x = 1, 0
     for algo in results:
-        # xs, ys, ls, axs, ays, als = create_pointset(all_data[algo], xn, yn)
         xs = algo['acc']
         ys = algo['time']
         min_x = min([min_x]+[x for x in xs if x > 0])
         max_x = max([max_x]+[x for x in xs if x < 1])
-        color, faded, linestyle, marker = linestyles[algo['algorithm']]
-        color, faded, linestyle, marker = linestyles[algo['algorithm']]
-        handle, = plt.plot(xs, ys, '-', label='scann', color=color,
-                           ms=4, mew=3, lw=3, linestyle=linestyle,
-                           marker=marker)
-        handles.append(handle)
-    # if raw:
-    #     handle2, = plt.plot(axs, ays, '-', label=algo, color=faded,
-    #                         ms=5, mew=2, lw=2, linestyle=linestyle,
-    #                         marker=marker)
-        labels.append(algo['algorithm'])
+        if build_config:
+            print(algo['build_key'])
+            color, faded, linestyle, marker = linestyles[algo['build_key']]
+            # handle, = plt.plot(xs, ys, '-', label=algo['build_key'], color=color,
+            #                    ms=4, mew=3, lw=3, linestyle=linestyle,
+            #                    marker=marker)
+            handle, = plt.plot(xs, ys, '-', label=algo['build_key'], color=color,
+                               ms=4, mew=3, lw=3, linestyle=linestyle,
+                               marker='${}$'.format('1'))
+            for i, sc in enumerate(algo['search_key']):
+                test = [plt.annotate('${}$'.format(sc), xy=(xs[i], ys[i]), xytext=(xs[i]-0.07, ys[i]+1000), color=color, arrowprops=dict(facecolor=color, width=1, headwidth=5, headlength=5, lw=0))]
+                # from adjustText import adjust_text
+                # adjust_text(test)
+
+
+            handles.append(handle)
+            labels.append(algo['algorithm']+"_"+algo['build_key'])
+        else:
+            color, faded, linestyle, marker = linestyles[algo['algorithm']]
+            handle, = plt.plot(xs, ys, '-', label=algo['algorithm'], color=color,
+                               ms=4, mew=3, lw=3, linestyle=linestyle,
+                               marker=marker)
+            handles.append(handle)
+            labels.append(algo['algorithm'])
 
     ax = plt.gca()
     # ax.set_ylabel(ym['description'])
@@ -75,7 +87,7 @@ def create_plot(dataset, results, linestyles):
     #     ax.set_xscale(x_scale)
     ax.set_xscale('linear')
     ax.set_yscale('linear')
-    ax.set_title(get_plot_label(dataset))
+    ax.set_title(get_plot_label(dataset, program, batch_size, metric, topk))
     box = plt.gca().get_position()
     # plt.gca().set_position([box.x0, box.y0, box.width * 0.8, box.height])
     ax.legend(handles, labels, loc='center left',
@@ -102,20 +114,50 @@ def create_plot(dataset, results, linestyles):
     plt.savefig("./result.png", bbox_inches='tight')
     plt.close()
 
-def collect_result(path):
+def collect_result(path, args):
+    global batch_size
+    global program
+    global metric
+    global topk
+    print("Reading result from ", path)
     acc = []
     time = []
+    sc = []
+    build_keys = []
+    collected_result = []
     with open(path, 'r') as file:
         lines = file.readlines()
         for i, line in enumerate(lines):
-            print(line)
+            # print(line)
             if i==0:
-                program, topk, num_split = line.split()[1], int(line.split()[3]), int(line.split()[5])
-                print("Program: ", program, " / Topk: ", topk, " / Num split: ", num_split)
+                program, topk, num_split, batch_size = line.split()[1], int(line.split()[3]), int(line.split()[5]), int(line.split()[7])
+                print("Program: ", program, " / Topk: ", topk, " / Num split: ", num_split, " / Batch size: ", batch_size)
+                if args.build_config:
+                    assert program == args.program
             elif i==1:
                 continue
             elif i%2==0:
-                line.split()
+                result = line.split()
+                temp_build_key = '/'.join(result[:result.index("|")])
+                search_key = "/".join(result[result.index("|")+1:-2])  # make sure the last two is reorder and metric
+                reorder = result[-2]
+                metric = result[-1]
+                if args.build_config:
+                    if temp_build_key not in build_keys:
+                        build_keys.append(temp_build_key)
+                        if i==2:
+                            build_key = temp_build_key
+                            # search_key = temp_search_key
+                            continue                            
+                        if len(acc)>0 and len(time)>0:
+                            res = sorted(zip(acc, time, sc), key = lambda x: x[0]) 
+                            acc, time, sc = zip(*res)
+                            collected_result.append({'acc': acc, 'time': time, 'algorithm': program, 'build_key': build_key, 'search_key': sc})
+                            acc = []
+                            time = []
+                            sc = []
+                            build_key = temp_build_key
+                            # search_key = temp_search_key
             else:
                 result = line.split()
                 if topk == 1:
@@ -127,14 +169,20 @@ def collect_result(path):
                 else:
                     acc.append(float(result[6]))
                 time.append(float(result[8]))
+                sc.append(search_key)
 
-    # import operator 
-    res = sorted(zip(acc, time), key = lambda x: x[0]) 
-    # res = sorted(zip(acc, time), key = operator.itemgetter(0)) 
-    acc, time = zip(*res)
-    print("acc: ", acc)
-    print("time: ", time)
-    return {'acc': acc, 'time': time, 'algorithm': program}
+    res = sorted(zip(acc, time, sc), key = lambda x: x[0]) 
+    acc, time, sc = zip(*res)
+    # print("acc: ", acc)
+    # print("time: ", time)
+    collected_result.append({'acc': acc, 'time': time, 'algorithm': program, 'build_key': build_key, 'search_key': sc})
+    assert len(collected_result) == len(build_keys)
+    print("build_keys:", build_keys)
+
+    for res in collected_result:
+        print("--")
+        print(res)
+    return collected_result
 
 
 
@@ -143,57 +191,68 @@ if __name__ == "__main__":
     parser.add_argument(
         '--dataset',
         metavar="DATASET",
-        default='glove')
+        default=None)
     parser.add_argument(
-        '--count',
-        default=10)
-    parser.add_argument(
-        '--definitions',
-        metavar='FILE',
-        help='load algorithm definitions from FILE',
-        default='algos.yaml')
-    parser.add_argument(
-        '--limit',
-        default=-1)
+        '--program',
+        metavar="ALGO",
+        default=None)
+    # parser.add_argument(
+    #     '--count',
+    #     default=10)
+    # parser.add_argument(
+    #     '--definitions',
+    #     metavar='FILE',
+    #     help='load algorithm definitions from FILE',
+    #     default='algos.yaml')
+    # parser.add_argument(
+    #     '--limit',
+    #     default=-1)
     parser.add_argument(
         '-o', '--output')
+    # parser.add_argument(
+    #     '-x', '--x-axis',
+    #     help='Which metric to use on the X-axis',
+    #     # choices=metrics.keys(),
+    #     default="k-nn")
+    # parser.add_argument(
+    #     '-y', '--y-axis',
+    #     help='Which metric to use on the Y-axis',
+    #     # choices=metrics.keys(),
+    #     default="qps")
+    # parser.add_argument(
+    #     '-X', '--x-scale',
+    #     help='Scale to use when drawing the X-axis. Typically linear, logit or a2',
+    #     default='linear')
+    # parser.add_argument(
+    #     '-Y', '--y-scale',
+    #     help='Scale to use when drawing the Y-axis',
+    #     choices=["linear", "log", "symlog", "logit"],
+    #     default='linear')
+    # parser.add_argument(
+    #     '--raw',
+    #     help='Show raw results (not just Pareto frontier) in faded colours',
+    #     action='store_true')
+    # parser.add_argument(
+    #     '--batch',
+    #     help='Plot runs in batch mode',
+    #     action='store_true')
+    # parser.add_argument(
+    #     '--recompute',
+    #     help='Clears the cache and recomputes the metrics',
+    #     action='store_true')
     parser.add_argument(
-        '-x', '--x-axis',
-        help='Which metric to use on the X-axis',
-        # choices=metrics.keys(),
-        default="k-nn")
-    parser.add_argument(
-        '-y', '--y-axis',
-        help='Which metric to use on the Y-axis',
-        # choices=metrics.keys(),
-        default="qps")
-    parser.add_argument(
-        '-X', '--x-scale',
-        help='Scale to use when drawing the X-axis. Typically linear, logit or a2',
-        default='linear')
-    parser.add_argument(
-        '-Y', '--y-scale',
-        help='Scale to use when drawing the Y-axis',
-        choices=["linear", "log", "symlog", "logit"],
-        default='linear')
-    parser.add_argument(
-        '--raw',
-        help='Show raw results (not just Pareto frontier) in faded colours',
-        action='store_true')
-    parser.add_argument(
-        '--batch',
-        help='Plot runs in batch mode',
-        action='store_true')
-    parser.add_argument(
-        '--recompute',
-        help='Clears the cache and recomputes the metrics',
-        action='store_true')
+        '--build_config',
+        help='Whether to plot according to the build_config',
+        action='store_true',
+        default=False)
     args = parser.parse_args()
 
     if not args.output:
-        args.output = 'results/%s.png' % (args.dataset + ('-batch' if args.batch else ''))
+        args.output = 'results/%s.png' % (args.dataset)
         print('writing output to %s' % args.output)
 
+    if args.build_config:
+        assert args.program!=None and args.dataset!=None
     # dataset = get_dataset(args.dataset)
     # count = int(args.count)
     # unique_algorithms = get_unique_algorithms()
@@ -207,12 +266,12 @@ if __name__ == "__main__":
     results = list()
     for root, _, files in os.walk('./result'):
         for fn in files:
-            if args.dataset in fn: 
-                res = collect_result(os.path.join(root, fn))
-                results.append(res)
-    linestyles = create_linestyles([key['algorithm'] for key in results])
+            if args.dataset in fn and (args.program in fn if args.program!=None else True): 
+                res = collect_result(os.path.join(root, fn), args)
+                results+=res
+    linestyles = create_linestyles([key['build_key'] for key in results])
 
     # create_plot(runs, args.raw, args.x_scale,
     #             args.y_scale, args.x_axis, args.y_axis, args.output,
     #             linestyles, args.batch)
-    create_plot(args.dataset, results, linestyles)
+    create_plot(args.dataset, results, linestyles, args.build_config)
