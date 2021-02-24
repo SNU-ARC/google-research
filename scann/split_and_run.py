@@ -559,9 +559,8 @@ qN = -1
 
 if "sift1m" in args.dataset:
 	dataset_basedir = basedir + "SIFT1M/"
-	if args.split != True:
-		split_dataset_path =dataset_basedir+"split_data/sift1m_"
-		groundtruth_path = dataset_basedir + "sift1m_"+args.metric+"_gt"
+	split_dataset_path =dataset_basedir+"split_data/sift1m_"
+	groundtruth_path = dataset_basedir + "sift1m_"+args.metric+"_gt"
 	N=1000000
 	D=128
 	num_iter = 1
@@ -569,9 +568,8 @@ if "sift1m" in args.dataset:
 	index_key = "IVF4096,PQ64"
 elif "sift1b" in args.dataset:
 	dataset_basedir = basedir + "SIFT1B/"
-	if args.split != True:
-		split_dataset_path = dataset_basedir+"split_data/sift1b_"
-		groundtruth_path = dataset_basedir + "sift1b_"+args.metric+"_gt"
+	split_dataset_path = dataset_basedir+"split_data/sift1b_"
+	groundtruth_path = dataset_basedir + "sift1b_"+args.metric+"_gt"
 	N=1000000000
 	D=128
 	num_iter = 4
@@ -579,9 +577,8 @@ elif "sift1b" in args.dataset:
 	index_key = "OPQ8_32,IVF262144,PQ8"
 elif "glove" in args.dataset:
 	dataset_basedir = basedir + "GLOVE/"
-	if args.split != True:
-		split_dataset_path = dataset_basedir+"split_data/glove_"
-		groundtruth_path = dataset_basedir + "glove_"+args.metric+"_gt"
+	split_dataset_path = dataset_basedir+"split_data/glove_"
+	groundtruth_path = dataset_basedir + "glove_"+args.metric+"_gt"
 	N=1183514
 	D=100
 	num_iter = 10
