@@ -201,7 +201,7 @@ def split(filename, num_iter, N, D):
 	print("num_split_lists: ", num_split_list)
 
 def run_groundtruth():
-	print("Making groud truth file")
+	print("Making groudtruth file")
 	import ctypes
 	groundtruth_dir = dataset_basedir + "groundtruth/"
 	if os.path.isdir(groundtruth_dir)!=True:
@@ -255,28 +255,32 @@ def get_searcher_path(split):
 def run_scann():
 	gt, queries = prepare_eval()
 	if args.sweep:
-		build_config = [(2000, 0.2, 2, args.metric), (1500, 0.55, 1, args.metric), (1000, 0.2, 1, args.metric), (1400, 0.15, 3, args.metric)]
-		search_config = [[[1, 30], [2, 30], [4, 30], [8, 30], [30, 120], [35, 100], [40, 80], [45, 80], [50, 80], [55, 95], [60, 110], [65, 110], [75, 110], [90, 110], [110, 120], [130, 150], [150, 200], [170, 200], [200, 300], [220, 500], [250, 500], [310, 300], [400, 300], [500, 500], [800, 1000]],\
-		          		[[1, 30], [2, 30], [4, 30], [8, 30], [8, 25], [10, 25], [12, 25], [13, 25], [14, 27], [15, 30], [17, 30], [18, 40], [20, 40], [22, 40], [25, 50], [30, 50], [35, 55], [50, 60], [60, 60], [80, 80], [100, 100]], \
-		          		[[1, 30], [2, 30], [4, 30], [8, 30], [9, 25], [11, 35], [12, 35], [13, 35], [14, 40], [15, 40], [16, 40], [17, 45], [20, 45], [20, 55], [25, 55], [25, 70], [30, 70], [40, 90], [50, 100], [60, 120], [70, 140]], \
-		          		[[1, 30], [4, 30], [9, 30], [16, 32], [25, 50], [36, 72], [49, 98], [70, 150], [90, 200], [120, 210], [180, 270], [210, 330], [260, 400], [320, 500], [400, 600], [500, 700], [800, 900]]]
+		build_config = [(2000, 0.2, 2, args.metric), (2000, 0.2, 1, args.metric), (1500, 0.55, 2, args.metric), (1500, 0.55, 1, args.metric), (1000, 0.55, 2, args.metric), (1000, 0.55, 1, args.metric), (1000, 0.2, 2, args.metric), (1000, 0.2, 1, args.metric), (1400, 0.15, 1, args.metric), (1400, 0.15, 2, args.metric), (1400, 0.15, 3, args.metric), (800, 0.15, 2, args.metric), (800, 0.15, 1, args.metric)]
+		# search_config = [[[1, 30], [2, 30], [4, 30], [8, 30], [30, 120], [35, 100], [40, 80], [45, 80], [50, 80], [55, 95], [60, 110], [65, 110], [75, 110], [90, 110], [110, 120], [130, 150], [150, 200], [170, 200], [200, 300], [220, 500], [250, 500], [310, 300], [400, 300], [500, 500], [800, 1000]],\
+		#           		[[1, 30], [2, 30], [4, 30], [8, 30], [8, 25], [10, 25], [12, 25], [13, 25], [14, 27], [15, 30], [17, 30], [18, 40], [20, 40], [22, 40], [25, 50], [30, 50], [35, 55], [50, 60], [60, 60], [80, 80], [100, 100]], \
+		#           		[[1, 30], [2, 30], [4, 30], [8, 30], [9, 25], [11, 35], [12, 35], [13, 35], [14, 40], [15, 40], [16, 40], [17, 45], [20, 45], [20, 55], [25, 55], [25, 70], [30, 70], [40, 90], [50, 100], [60, 120], [70, 140]], \
+		#           		[[1, 30], [4, 30], [9, 30], [16, 32], [25, 50], [36, 72], [49, 98], [70, 150], [90, 200], [120, 210], [180, 270], [210, 330], [260, 400], [320, 500], [400, 600], [500, 700], [800, 900]]]
+		search_config = [1, 2, 4, 8, 16, 25, 30, 35, 40, 45, 50, 55, 60, 65, 75, 90, 110, 130, 150, 170, 200, 220, 250, 310, 400, 500, 800, 1000, 1250, 1500, 1750, 1900, 2000] 
+		          		
 		f = open(sweep_result_path, "w")
 		f.write("Program: " + args.program + " Topk: " + str(args.topk) + " Num_split: " + str(args.num_split)+ " Batch: "+str(args.batch)+"\n")
-		f.write("Num leaves\tThreashold\tDims\tMetric\tLeavesSearch\tReorder\n")
+		f.write("L\tThreashold\tm\t|\tw\tr\tMetric\n")
 	else:
 		build_config = [(args.L, args.threshold, int(D/args.m), args.metric)]
 		search_config = [[[args.w, args.reorder]]]
-	for bc, sc in zip(build_config, search_config):
+	# for bc, sc in zip(build_config, search_config):
+	for bc in build_config:
 		num_leaves, threshold, dims, metric = bc
-		for arg in sc:
-			leaves_to_search, reorder = arg[0], arg[1]
+		for arg in search_config:
+			# leaves_to_search, reorder = arg[0], arg[1]
+			leaves_to_search, reorder = arg[0], args.reorder
 			if args.reorder!=-1:
 				assert args.topk <= reorder
 			else:
 				if args.sweep:
 					assert False, "Do you want reordering or not?"
 			if args.sweep:
-				f.write(str(num_leaves)+"\t"+str(threshold)+"\t"+str(dims)+"\t"+str(metric)+"\t"+str(leaves_to_search)+"\t"+str(reorder)+"\n")
+				f.write(str(num_leaves)+"\t"+str(threshold)+"\t"+str(int(D/dims))+"\t|\t"+str(leaves_to_search)+"\t"+str(reorder)+"\t"+str(metric)+"\n")
 			print(str(num_leaves)+"\t"+str(threshold)+"\t"+str(dims)+"\t"+str(metric)+"\t"+str(leaves_to_search)+"\t"+str(reorder))
 			neighbors=np.empty((queries.shape[0],0))
 			distances=np.empty((queries.shape[0],0))
@@ -351,7 +355,7 @@ def run_faiss(D, index_key):
 		search_config = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]	# nprobe
 		f = open(sweep_result_path, "w")
 		f.write("Program: " + args.program + " Topk: " + str(args.topk) + " Num_split: " + str(args.num_split)+"\n")
-		f.write("L\tm\tlog2(k*)\tMetric\tnprobe\n")
+		f.write("L\tm\tk_star\t|\tw\tMetric\n")
 	else:
 		build_config = [(args.L, args.m, math.log(args.k_star,2), args.metric)]
 		search_config = [args.w]
@@ -362,7 +366,7 @@ def run_faiss(D, index_key):
 		for sc in search_config:
 			nprobe = sc
 			if args.sweep:
-				f.write(str(L)+"\t"+str(m)+"\t"+str(log2kstar)+"\t"+str(metric)+"\t"+str(nprobe)+"\n")
+				f.write(str(L)+"\t"+str(m)+"\t"+str(2**log2kstar)+"\t|\t"+str(nprobe)+"\t"+str(metric)+"\n")
 			print(str(L)+"\t"+str(m)+"\t"+str(log2kstar)+"\t"+str(metric)+"\t"+str(nprobe)+"\n")
 			neighbors=np.empty((queries.shape[0],0))
 			distances=np.empty((queries.shape[0],0))

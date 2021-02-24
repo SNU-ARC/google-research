@@ -125,11 +125,10 @@ def create_linestyles(unique_algorithms):
 #     return "right"
 
 
-def get_plot_label(dataset):
-    template = ("%(dataset)s-%(xlabel)s-%(ylabel)s tradeoff - %(updown)s and"
-                " to the %(leftright)s is better")
+def get_plot_label(dataset, algorithm, batch, metric, topk):
+    template = ("%(dataset)s-%(metric)s-%(algorithm)s-Batch_%(batch)s-Recall%(recall)s")
     return template % {"dataset":dataset,
-                       "xlabel": 'Recall',
-                       "ylabel": 'Query Totel Latency',
-                       "updown": 'down',
-                       "leftright": 'right'}
+                       "metric": metric,
+                       "algorithm": algorithm,
+                       "batch": batch,
+                       "recall": str(topk)+"@"+str(topk)}
