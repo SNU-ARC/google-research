@@ -64,7 +64,7 @@ normalized_dataset = dataset / np.linalg.norm(dataset, axis=1)[:, np.newaxis]
 # anisotropic quantization as described in the paper; see README
 
 # use scann.scann_ops.build() to instead create a TensorFlow-compatible searcher
-searcher = scann.scann_ops_pybind.builder(normalized_dataset, 10, "dot_product").tree(
+searcher = scann.scann_ops_pybind.builder(normalized_dataset, 10, "squared_l2").tree(
     num_leaves=2000, num_leaves_to_search=100, training_sample_size=250000).score_ah(
     2, anisotropic_quantization_threshold=0.2).reorder(100).build()
 
@@ -79,12 +79,12 @@ def compute_recall(neighbors, true_neighbors):
 # this will search the top 100 of the 2000 leaves, and compute
 # the exact dot products of the top 100 candidates from asymmetric
 # hashing to get the final top 10 candidates.
-#start = time.time()
-#neighbors, distances = searcher.search_batched(queries)
-#end = time.time()
-## we are given top 100 neighbors in the ground truth, so select top 10
-#print("Recall:", compute_recall(neighbors, glove_h5py['neighbors'][:, :10]))
-#print("Time:", end - start)
+start = time.time()
+neighbors, distances = searcher.search_batched(queries)
+end = time.time()
+# we are given top 100 neighbors in the ground truth, so select top 10
+print("Recall:", compute_recall(neighbors, glove_h5py['neighbors'][:, :10]))
+print("Time:", end - start)
 #
 ## increasing the leaves to search increases recall at the cost of speed
 #start = time.time()
@@ -112,10 +112,10 @@ def compute_recall(neighbors, true_neighbors):
 #print(neighbors.shape, distances.shape)
 
 # we have been exclusively calling batch search so far; the single-query call has the same API
-print("[YJ] PY,,,query : ", queries[0])
-start = time.time()
-neighbors, distances = searcher.search(queries[0], final_num_neighbors=5)
-end = time.time()
+# print("[YJ] PY,,,query : ", queries[0])
+# start = time.time()
+# neighbors, distances = searcher.search(queries[0], final_num_neighbors=5)
+# end = time.time()
 
 print(neighbors)
 print(distances)

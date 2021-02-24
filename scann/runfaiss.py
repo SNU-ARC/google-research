@@ -9,21 +9,16 @@ import re
 from multiprocessing.dummy import Pool as ThreadPool
 
 ########### Set Faiss arguments here #############
-index_key = "IVF512,PQ8"
-#index_key = "OPQ8_32,IVF262144,PQ8"
-
 ngpu = faiss.get_num_gpus()
 
 replicas = 1  # nb of replicas of sharded dataset
 add_batch_size = 32768
-query_batch_size = 16384
-nprobe = 32
 use_precomputed_tables = False
 tempmem = 1536*1024*1024
 max_add = -1
 use_float16 = True
 use_cache = True
-nnn = 100
+# nnn = 100
 altadd = False
 I_fname = None
 D_fname = None
@@ -66,67 +61,41 @@ def rate_limited_imap(f, l):
 		res = res_next
 	yield res.get()
 
-# def prepare_trained_index(preproc, xt):
-
-# 	coarse_quantizer = prepare_coarse_quantizer(preproc, xt)
-# 	# d = preproc.d_out
-# 	# if pqflat_str == 'Flat':
-# 	# 	print("making an IVFFlat index")
-# 	# 	idx_model = faiss.IndexIVFFlat(coarse_quantizer, d, ncent,
-# 	# 								   faiss.METRIC_L2)
-# 	# else:
-# 	# 	m = int(pqflat_str[2:])
-# 	# 	assert m < 56 or use_float16, "PQ%d will work only with -float16" % m
-# 	# 	print("making an IVFPQ index, m = ", m)
-# 	# 	idx_model = faiss.IndexIVFPQ(coarse_quantizer, d, ncent, m, 8)
-
-# 	coarse_quantizer.this.disown()
-
-# 	# # finish training on CPU
-# 	# # idx_model = prepare_pq_quantizer(idx_model, xt)
-
-# 	# # finish training on CPU
-# 	# t0 = time.time()
-# 	# print("Training vector codes")
-# 	# x = preproc.apply_py(sanitize(xt[:1000000]))
-# 	# idx_model.train(x)
-# 	# print("  done %.3f s" % (time.time() - t0))
-# 	idx_model = prepare_pq_quantizer(preproc, xt, coarse_quantizer)
-# 	idx_model.own_fields = True
-
-# 	# get PQ centroids
-# 	cen = get_centroids(idx_model)
-# 	# print(cen)
-# 	# print(cen.shape)
-# 	return idx_model
-
 
 def prepare_trained_index(preproc, xt):
+	fmetric = None
+	if "dot_product" == metric or "angular" == metric:
+		fmetric = faiss.METRIC_INNER_PRODUCT
+	elif "squared_l2" == metric:
+		fmetric = faiss.METRIC_L2
+	else:
+		assert False
 
-    coarse_quantizer = prepare_coarse_quantizer(preproc, xt)
-    d = preproc.d_out
-    if pqflat_str == 'Flat':
-        print("making an IVFFlat index")
-        idx_model = faiss.IndexIVFFlat(coarse_quantizer, d, ncent,
-                                       faiss.METRIC_L2)
-    else:
-        m = int(pqflat_str[2:])
-        assert m < 56 or use_float16, "PQ%d will work only with -float16" % m
-        print("making an IVFPQ index, m = ", m)
-        idx_model = faiss.IndexIVFPQ(coarse_quantizer, d, ncent, m, 8)
+	coarse_quantizer = prepare_coarse_quantizer(preproc, xt)
+	d = preproc.d_out
 
-    coarse_quantizer.this.disown()
-    idx_model.own_fields = True
+	if pqflat_str == 'Flat':
+		print("making an IVFFlat index")
+		idx_model = faiss.IndexIVFFlat(coarse_quantizer, d, ncent,
+									   fmetric)
+	else:
+		m = int(pqflat_str[2:])
+		assert m < 56 or use_float16, "PQ%d will work only with -float16" % m
+		print("making an IVFPQ index, m = ", m)
+		idx_model = faiss.IndexIVFPQ(coarse_quantizer, d, ncent, m, 8, fmetric)
 
-    # finish training on CPU
-    t0 = time.time()
-    print("Training vector codes")
-    x = preproc.apply_py(sanitize(xt[:1000000]))
-    idx_model.train(x)
-    print("  done %.3f s" % (time.time() - t0))
+	coarse_quantizer.this.disown()
+	idx_model.own_fields = True
 
-    return idx_model
-    
+	# finish training on CPU
+	t0 = time.time()
+	print("Training vector codes")
+	x = preproc.apply_py(sanitize(xt[:1000000]))
+	idx_model.train(x)
+	print("  done %.3f s" % (time.time() - t0))
+
+	return idx_model
+	
 def compute_populated_index(preproc, xb):
 	"""Add elements to a sharded index. Return the index and if available
 	a sharded gpu_index that contains the same data. """
@@ -189,21 +158,51 @@ def compute_populated_index(preproc, xb):
 
 	return gpu_index, indexall
 
-def get_populated_index(preproc, xb, split):
-	# split_index_cachefile = index_cachefile + str(split)
+def compute_populated_index_2(preproc):
 
-	# if not split_index_cachefile or not os.path.exists(split_index_cachefile):
-	# 	if not altadd:
-	# 		gpu_index, indexall = compute_populated_index(preproc, xb, indexall)
-	# 	else:
-	# 		gpu_index, indexall = compute_populated_index_2(preproc)
-	# 	if split_index_cachefile:
-	# 		print("store", split_index_cachefile)
-	# 		faiss.write_index(indexall, split_index_cachefile)
-	# else:
-	# 	print("load", split_index_cachefile)
-	# 	indexall = faiss.read_index(split_index_cachefile)
-	# 	gpu_index = None
+    indexall = prepare_trained_index(preproc)
+
+    # set up a 3-stage pipeline that does:
+    # - stage 1: load + preproc
+    # - stage 2: assign on GPU
+    # - stage 3: add to index
+
+    stage1 = dataset_iterator(xb, preproc, add_batch_size)
+
+    vres, vdev = make_vres_vdev()
+    coarse_quantizer_gpu = faiss.index_cpu_to_gpu_multiple(
+        vres, vdev, indexall.quantizer)
+
+    def quantize(args):
+        (i0, xs) = args
+        _, assign = coarse_quantizer_gpu.search(xs, 1)
+        return i0, xs, assign.ravel()
+
+    stage2 = rate_limited_imap(quantize, stage1)
+
+    print("add...")
+    t0 = time.time()
+    nb = xb.shape[0]
+
+    for i0, xs, assign in stage2:
+        i1 = i0 + xs.shape[0]
+        if indexall.__class__ == faiss.IndexIVFPQ:
+            indexall.add_core_o(i1 - i0, faiss.swig_ptr(xs),
+                                None, None, faiss.swig_ptr(assign))
+        elif indexall.__class__ == faiss.IndexIVFFlat:
+            indexall.add_core(i1 - i0, faiss.swig_ptr(xs), None,
+                              faiss.swig_ptr(assign))
+        else:
+            assert False
+
+        print('\r%d/%d (%.3f s)  ' % (
+            i0, nb, time.time() - t0), end=' ')
+        sys.stdout.flush()
+    print("Add time: %.3f s" % (time.time() - t0))
+
+    return None, indexall
+
+def get_populated_index(preproc, xb, split):
 
 	if not index_cachefile or not os.path.exists(index_cachefile):
 		if not altadd:
@@ -260,7 +259,7 @@ def get_populated_index(preproc, xb, split):
 	print("move to GPU done in %.3f s" % (time.time() - t0))
 	return index
 
-def train_preprocessor():
+def train_preprocessor(xt):
 	print("train preproc", preproc_str)
 	d = xt.shape[1]
 	t0 = time.time()
@@ -278,10 +277,10 @@ def train_preprocessor():
 	print("preproc train done in %.3f s" % (time.time() - t0))
 	return preproc
 
-def get_preprocessor():
+def get_preprocessor(xt):
 	if preproc_str:
 		if not preproc_cachefile or not os.path.exists(preproc_cachefile):
-			preproc = train_preprocessor()
+			preproc = train_preprocessor(xt)
 			if preproc_cachefile:
 				print("store", preproc_cachefile)
 				faiss.write_VectorTransform(preproc, preproc_cachefile)
@@ -353,7 +352,7 @@ def prepare_pq_quantizer(preproc, xt, coarse_quantizer):
 		m = int(pqflat_str[2:])
 		assert m < 56 or use_float16, "PQ%d will work only with -float16" % m
 		print("making an IVFPQ index, m = ", m)
-		idx_model = faiss.IndexIVFPQ(coarse_quantizer, d, ncent, m, 8)
+		idx_model = faiss.IndexIVFPQ(coarse_quantizer, d, ncent, m, log2kstar)
 
 	if pq_cachefile and os.path.exists(pq_cachefile):
 		print("load sub-quantizers", pq_cachefile)
@@ -390,18 +389,23 @@ def dataset_iterator(x, preproc, bs):
 
 	return rate_limited_imap(prepare_block, block_ranges)
 
-def search_faiss(xq, index, preproc):
+def search_faiss(xq, index, preproc, nprobe, topk, batch_size):
 	print("--------------- search_faiss ----------------")
 	ps = faiss.GpuParameterSpace()
 	ps.initialize(index)
 
 	print("search...")
-	sl = query_batch_size
+	sl = batch_size
 	nq = xq.shape[0]
 	ps.set_index_parameter(index, 'nprobe', nprobe)
-
+	# print(index.metric_type)
+	print("Batch size: ", batch_size)
+	nnn = topk
+	total_latency = 0
 	if sl == 0:
+		start = time.time()
 		D, I = index.search(preproc.apply_py(sanitize(xq)), nnn)
+		total_latency = 1000*(time.time()-start)
 	else:
 		I = np.empty((nq, nnn), dtype='int32')
 		D = np.empty((nq, nnn), dtype='float32')
@@ -410,17 +414,18 @@ def search_faiss(xq, index, preproc):
 
 		for i0, xs in dataset_iterator(xq, preproc, sl):
 			i1 = i0 + xs.shape[0]
+			start = time.time()
 			Di, Ii = index.search(xs, nnn)
-
+			total_latency += 1000*(time.time()-start)
 			I[i0:i1] = Ii
 			D[i0:i1] = Di
 
 	print("--------------------------------------------\n")
-	return I, D
+	return I, D, total_latency
 
-def train_faiss(db, split_dataset_path, D, xt, split, num_split):
+
+def train_faiss(db, split_dataset_path, D, xt, split, num_split, met, index_key, log2kstar_, cacheroot):
 	print("--------------- train_faiss ----------------")
-	global cacheroot
 	global preproc_cachefile
 	global cent_cachefile
 	global pq_cachefile
@@ -431,14 +436,18 @@ def train_faiss(db, split_dataset_path, D, xt, split, num_split):
 	global ncent
 	global dim
 	global dbname
-	
+	global metric
+	global log2kstar
+
 	dim = D
 	dbname = db
-	cacheroot = split_dataset_path + 'tmp'
+	metric = met
+
 	# cacheroot
 	if not os.path.isdir(cacheroot):
 		print("%s does not exist, creating it" % cacheroot)
-		os.mkdir(cacheroot)
+		# os.mkdir(cacheroot)
+		os.makedirs(cacheroot, exist_ok=True)
 
 	# index pattern
 	pat = re.compile('(OPQ[0-9]+(_[0-9]+)?,|PCAR[0-9]+,)?' +
@@ -451,24 +460,25 @@ def train_faiss(db, split_dataset_path, D, xt, split, num_split):
 	ivf_str = mog[2]
 	pqflat_str = mog[3]
 	ncent = int(ivf_str[3:])
+	log2kstar = log2kstar_
 	prefix = ''
 
 	# check cache files
 	if preproc_str:
-		preproc_cachefile = '%s/%spreproc_%s_%s.vectrans' % (
+		preproc_cachefile = '%s%spreproc_%s_%s.vectrans' % (
 			cacheroot, prefix, dbname, preproc_str[:-1])
 	else:
 		preproc_cachefile = None
 		preproc_str = ''
 
-	cent_cachefile = '%s/%scent_%s_%s_%s_%s%s.npy' % (
-		cacheroot, prefix, dbname, split, num_split, preproc_str, ivf_str)
+	cent_cachefile = '%s%s_%scent_%s_%s_%s_%s%s.npy' % (
+		cacheroot, metric, prefix, dbname, split, num_split, preproc_str, ivf_str)
 
-	pq_cachefile = '%s/%spq_%s_%s_%s_%s%s,%s.npy' % (
-		cacheroot, prefix, dbname, split, num_split, preproc_str, ivf_str, pqflat_str)
+	pq_cachefile = '%s%s_%spq_%s_%s_%s_%s%s,%s,%s.npy' % (
+		cacheroot, metric, prefix, dbname, split, num_split, preproc_str, ivf_str, pqflat_str, int(2**log2kstar))
 
-	index_cachefile = '%s/%s%s_%s_%s_%s%s,%s.index' % (
-		cacheroot, prefix, dbname, split, num_split, preproc_str, ivf_str, pqflat_str)
+	index_cachefile = '%s%s_%s%s_%s_%s_%s%s,%s,%s.index' % (
+		cacheroot, metric, prefix, dbname, split, num_split, preproc_str, ivf_str, pqflat_str, int(2**log2kstar))
 
 
 	print("cachefiles:")
@@ -499,7 +509,7 @@ def train_faiss(db, split_dataset_path, D, xt, split, num_split):
 	co.verbose = True
 	co.shard = True    # the replicas will be made "manually"
 
-	preproc = get_preprocessor()
+	preproc = get_preprocessor(xt)
 	# indexall = prepare_trained_index(preproc, xt)
 	print("--------------------------------------------\n")
 	# return preproc, indexall

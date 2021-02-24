@@ -155,6 +155,7 @@ class ScannSearchBatchedOp : public OpKernel {
     const Tensor* reorder_nn_tensor;
     const Tensor* leaves_tensor;
     const Tensor* parallel_tensor;
+    const Tensor* batch_size_tensor;
     OP_REQUIRES_OK(context, context->input("queries", &query_tensor));
     OP_REQUIRES_OK(context,
                    context->input("final_num_neighbors", &final_nn_tensor));
@@ -162,6 +163,7 @@ class ScannSearchBatchedOp : public OpKernel {
                                            &reorder_nn_tensor));
     OP_REQUIRES_OK(context, context->input("leaves_to_search", &leaves_tensor));
     OP_REQUIRES_OK(context, context->input("parallel", &parallel_tensor));
+    OP_REQUIRES_OK(context, context->input("batch_size", &batch_size_tensor));
 
     OP_REQUIRES(context, query_tensor->dims() == 2,
                 errors::InvalidArgument(
@@ -170,6 +172,7 @@ class ScannSearchBatchedOp : public OpKernel {
     int leaves = leaves_tensor->scalar<int>()();
     int final_nn = final_nn_tensor->scalar<int>()();
     int pre_reorder_nn = reorder_nn_tensor->scalar<int>()();
+    int batch_size = batch_size_tensor->scalar<int>()();
 
     research_scann::DenseDataset<float> queries;
     OP_REQUIRES_OK(context, scann_ops::PopulateDenseDatasetFromTensor(
@@ -179,7 +182,7 @@ class ScannSearchBatchedOp : public OpKernel {
     if (parallel_tensor->scalar<bool>()())
       OP_REQUIRES_OK(
           context, ConvertStatus(scann_resource->scann_->SearchBatchedParallel(
-                       queries, res_span, final_nn, pre_reorder_nn, leaves)));
+                       queries, res_span, final_nn, pre_reorder_nn, leaves, batch_size)));
     else
       OP_REQUIRES_OK(context,
                      ConvertStatus(scann_resource->scann_->SearchBatched(
