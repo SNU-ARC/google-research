@@ -255,26 +255,32 @@ def get_searcher_path(split):
 def run_scann():
 	gt, queries = prepare_eval()
 	if args.sweep:
-		build_config = [(2000, 0.2, 2, args.metric), (2000, 0.2, 1, args.metric), (1500, 0.55, 2, args.metric), (1500, 0.55, 1, args.metric), (1000, 0.55, 2, args.metric), (1000, 0.55, 1, args.metric), (1000, 0.2, 2, args.metric), (1000, 0.2, 1, args.metric), (1400, 0.15, 1, args.metric), (1400, 0.15, 2, args.metric), (1400, 0.15, 3, args.metric), (800, 0.15, 2, args.metric), (800, 0.15, 1, args.metric)]
-		# search_config = [[[1, 30], [2, 30], [4, 30], [8, 30], [30, 120], [35, 100], [40, 80], [45, 80], [50, 80], [55, 95], [60, 110], [65, 110], [75, 110], [90, 110], [110, 120], [130, 150], [150, 200], [170, 200], [200, 300], [220, 500], [250, 500], [310, 300], [400, 300], [500, 500], [800, 1000]],\
-		#           		[[1, 30], [2, 30], [4, 30], [8, 30], [8, 25], [10, 25], [12, 25], [13, 25], [14, 27], [15, 30], [17, 30], [18, 40], [20, 40], [22, 40], [25, 50], [30, 50], [35, 55], [50, 60], [60, 60], [80, 80], [100, 100]], \
-		#           		[[1, 30], [2, 30], [4, 30], [8, 30], [9, 25], [11, 35], [12, 35], [13, 35], [14, 40], [15, 40], [16, 40], [17, 45], [20, 45], [20, 55], [25, 55], [25, 70], [30, 70], [40, 90], [50, 100], [60, 120], [70, 140]], \
-		#           		[[1, 30], [4, 30], [9, 30], [16, 32], [25, 50], [36, 72], [49, 98], [70, 150], [90, 200], [120, 210], [180, 270], [210, 330], [260, 400], [320, 500], [400, 600], [500, 700], [800, 900]]]
-		search_config = [1, 2, 4, 8, 16, 25, 30, 35, 40, 45, 50, 55, 60, 65, 75, 90, 110, 130, 150, 170, 200, 220, 250, 310, 400, 500, 800, 1000, 1250, 1500, 1750, 1900, 2000] 
-		# search_config = [110, 130, 150, 170, 200, 220, 250, 310, 400, 500, 800, 1000, 1250, 1500, 1750, 1900, 2000] 
+		# build_config = [[2000, 0.2, 2, args.metric], [2000, 0.2, 1, args.metric], [1500, 0.55, 2, args.metric], [1500, 0.55, 1, args.metric], [1000, 0.55, 2, args.metric], [1000, 0.55, 1, args.metric], \
+		 				  # [1000, 0.2, 2, args.metric], [1000, 0.2, 1, args.metric], [1400, 0.15, 1, args.metric], [1400, 0.15, 2, args.metric], [1400, 0.15, 3, args.metric], \
+		 				  # [800, 0.15, 2, args.metric], [800, 0.15, 1, args.metric]
+		# search_config = [1, 2, 4, 8, 16, 25, 30, 35, 40, 45, 50, 55, 60, 65, 75, 90, 110, 130, 150, 170, 200, 220, 250, 310, 400, 500, 800, 1000, 1250, 1500, 1750, 1900, 2000] 
+
+		# For sift 1b
+		build_config = [[7000, 0.2, 2, args.metric],# (70000, 0.2, 3, args.metric), (5500, 0.2, 2, args.metric), (5500, 0.2, 3, args.metric), \
+						[7500, 0.2, 2, args.metric],\
+						[6500, 0.2, 2, args.metric]]
+		search_config = [[1, args.reorder], [2, args.reorder], [4, args.reorder], [8, args.reorder], [16, args.reorder], [32, args.reorder], [64, args.reorder], [128, args.reorder], \
+						 [256, args.reorder], [320, args.reorder], [384, args.reorder], [448, args.reorder], [512, args.reorder], [576, args.reorder], [640, args.reorder], [704, args.reorder], [768, args.reorder] \
+						 [1024, args.reorder], [1280, args.reorder], [1536, args.reorder], [2048, args.reorder], [2560, args.reorder], [3072, args.reorder], [4096, args.reorder], [8192, args.reorder], [16384, args.reorder]]
 		          		
 		f = open(sweep_result_path, "w")
 		f.write("Program: " + args.program + " Topk: " + str(args.topk) + " Num_split: " + str(args.num_split)+ " Batch: "+str(args.batch)+"\n")
 		f.write("L\tThreashold\tm\t|\tw\tr\tMetric\n")
 	else:
 		build_config = [(args.L, args.threshold, int(D/args.m), args.metric)]
-		search_config = [[[args.w, args.reorder]]]
-	# for bc, sc in zip(build_config, search_config):
+		search_config = [[args.w, args.reorder]]
+
 	for bc in build_config:
 		num_leaves, threshold, dims, metric = bc
-		for arg in search_config:
-			# leaves_to_search, reorder = arg[0], arg[1]
-			leaves_to_search, reorder = arg, args.reorder
+		build_config_key = ''.join(bc)
+		for sc in search_config:
+			leaves_to_search, reorder = sc[0], sc[1]
+			search_config_key = ''.join(sc)			
 			if leaves_to_search > num_leaves:
 				continue
 			if args.reorder!=-1:
@@ -293,7 +299,6 @@ def run_scann():
 				searcher_dir, searcher_path = get_searcher_path(split)  	
 				print("Split ", split)
 				# Load splitted dataset
-				dataset = read_data(split_dataset_path + str(args.num_split) + "_" + str(split) if args.num_split>1 else dataset_basedir, base=False if args.num_split>1 else True, offset_=None if args.num_split>1 else 0, shape_=None)
 				batch_size = min(args.batch, queries.shape[0])
 				# Create ScaNN searcher
 				print("Entering ScaNN builder")
@@ -303,6 +308,7 @@ def run_scann():
 					print("Loading searcher from ", searcher_path)
 					searcher = scann.scann_ops_pybind.load_searcher(searcher_path)
 				else:
+					dataset = read_data(split_dataset_path + str(args.num_split) + "_" + str(split) if args.num_split>1 else dataset_basedir, base=False if args.num_split>1 else True, offset_=None if args.num_split>1 else 0, shape_=None)
 					if reorder!=-1:
 						searcher = scann.scann_ops_pybind.builder(dataset, 10, metric).tree(
 							num_leaves=num_leaves, num_leaves_to_search=leaves_to_search, training_sample_size=args.coarse_training_size).score_ah(
@@ -338,7 +344,7 @@ def run_scann():
 					nd = [nd for _, nd in local_results]
 					neighbors = np.append(neighbors, np.vstack([n for n,d in nd])+base_idx, axis=1)
 					distances = np.append(distances, np.vstack([d for n,d in nd]), axis=1)
-				base_idx = base_idx + dataset.shape[0]
+				base_idx = base_idx + int(N/args.num_split)
 
 			final_neighbors = sort_neighbors(distances, neighbors)
 			top1, top10, top100, top1000 = print_recall(final_neighbors, gt)
@@ -347,6 +353,7 @@ def run_scann():
 				f.write(str(top1)+" %\t"+str(top10)+" %\t"+str(top100)+" %\t"+str(top1000)+" %\t"+str(total_latency)+"\n")
 	if args.sweep:
 		f.close()
+
 def run_faiss(D, index_key):
 	gt, queries = prepare_eval()
 	if args.sweep:
