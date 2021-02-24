@@ -64,7 +64,7 @@ elif args.program == "faiss":
 		assert args.L!=-1 and args.k_star!=-1 and args.w!=-1 and args.m!=-1
 elif args.program == "annoy":
 	import annoy
-	if args.batch==True:
+	if args.batch > 1:
 		from multiprocessing.pool import ThreadPool
 	assert args.topk!=-1
 
@@ -436,7 +436,7 @@ def run_annoy(D):
 			total_latency = 0
 			for split in range(args.num_split):
 				searcher_dir, searcher_path = get_searcher_path(split)
-				searcher_path = searcher_path + '_' + str(num_trees) + '_' + metric
+				searcher_path = searcher_path + '_' + str(n_trees) + '_' + metric
 				print("Split ", split)
 
 				# Load splitted dataset
