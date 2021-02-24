@@ -186,11 +186,13 @@ Status ScannInterface::SearchBatched(const DenseDataset<float>& queries,
                                      MutableSpan<NNResultsVector> res,
                                      int final_nn, int pre_reorder_nn,
                                      int leaves) const {
+  std::cout << "[YJ] FindNeighborsBatched,. queries: " << queries.size() << std::endl;
   if (queries.dimensionality() != dimensionality_)
     return InvalidArgumentError("Query doesn't match dataset dimsensionality");
   if (!std::isinf(scann_->default_pre_reordering_epsilon()) ||
       !std::isinf(scann_->default_post_reordering_epsilon()))
     return InvalidArgumentError("Batch querying isn't supported with epsilon");
+  std::cout << "[YJ] FindNeighborsBatched 111" << std::endl;
   bool has_reordering =
       config_.has_exact_reordering() || config_.has_compressed_reordering();
   int post_reorder_nn = -1;
@@ -198,13 +200,16 @@ Status ScannInterface::SearchBatched(const DenseDataset<float>& queries,
     post_reorder_nn = final_nn;
   else
     pre_reorder_nn = final_nn;
+  std::cout << "[YJ] FindNeighborsBatched 222" << std::endl;
 
   std::vector<SearchParameters> params(queries.size());
+  std::cout << "[YJ] FindNeighborsBatched 333" << std::endl;
   std::shared_ptr<research_scann::TreeXOptionalParameters> tree_params;
   if (leaves > 0) {
     tree_params = std::make_shared<TreeXOptionalParameters>();
     tree_params->set_num_partitions_to_search_override(leaves);
   }
+  std::cout << "[YJ] FindNeighborsBatched 444" << std::endl;
 
   for (auto& p : params) {
     p.set_pre_reordering_num_neighbors(pre_reorder_nn);
@@ -212,8 +217,11 @@ Status ScannInterface::SearchBatched(const DenseDataset<float>& queries,
     if (tree_params) p.set_searcher_specific_optional_parameters(tree_params);
     scann_->SetUnspecifiedParametersToDefaults(&p);
   }
+  std::cout << "[YJ] FindNeighborsBatched 555, res.size(): " << res.size() << std::endl;
 
-  return scann_->FindNeighborsBatched(queries, params, MakeMutableSpan(res));
+  auto test = scann_->FindNeighborsBatched(queries, params, MakeMutableSpan(res));
+  std::cout << "hihi" << std::endl;
+  return test;
 }
 
 Status ScannInterface::SearchBatchedParallel(const DenseDataset<float>& queries,
@@ -222,7 +230,6 @@ Status ScannInterface::SearchBatchedParallel(const DenseDataset<float>& queries,
                                              int leaves, int batch_size) const {    // [ANNA] batch_size added
   const size_t numQueries = queries.size();
   const size_t numCPUs = GetNumCPUs();
-
   // const size_t kBatchSize = std::min(
   //     std::max(min_batch_size_, DivRoundUp(numQueries, numCPUs)), 256ul);
   

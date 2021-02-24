@@ -132,7 +132,6 @@ ScannNumpy::SearchBatched(const np_row_major_arr<float>& queries, int final_nn,
   else
     status = scann_.SearchBatched(query_dataset, MakeMutableSpan(res), final_nn,
                                   pre_reorder_nn, leaves);
-  std::cout << "NOW" << std::endl;
   RuntimeErrorIfNotOk("Error during search: ", status);
 
   if (!res.empty()) final_nn = res.front().size();
@@ -142,9 +141,7 @@ ScannNumpy::SearchBatched(const np_row_major_arr<float>& queries, int final_nn,
       {static_cast<long>(query_dataset.size()), static_cast<long>(final_nn)});
   auto idx_ptr = reinterpret_cast<DatapointIndex*>(indices.request().ptr);
   auto dis_ptr = reinterpret_cast<float*>(distances.request().ptr);
-  std::cout << "NOW 222, Res: " << res.size()  << std::endl;
   scann_.ReshapeBatchedNNResult(MakeConstSpan(res), idx_ptr, dis_ptr, final_nn);
-  std::cout << "NOW 333" << std::endl;
   return {indices, distances};
 }
 

@@ -109,7 +109,6 @@ void ScannInterface::ReshapeNNResult(const NNResultsVector& res, T_idx* indices,
 template <typename T_idx>
 void ScannInterface::ReshapeBatchedNNResult(ConstSpan<NNResultsVector> res,
                                             T_idx* indices, float* distances, int final_nn) {
-  std::cout << "ReshapeBatchedNNResult" << std::endl;
   auto i=0;
   for (const auto& result_vec : res) {
       i++;
