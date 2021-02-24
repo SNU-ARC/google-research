@@ -64,7 +64,7 @@ elif args.program == "faiss":
 		assert args.L!=-1 and args.k_star!=-1 and args.w!=-1 and args.m!=-1
 elif args.program == "annoy":
 	import annoy
-	if args.batch==True:
+	if args.batch > 1:
 		from multiprocessing.pool import ThreadPool
 	assert args.topk!=-1
 
@@ -438,7 +438,7 @@ def run_annoy(D):
 			total_latency = 0
 			for split in range(args.num_split):
 				searcher_dir, searcher_path = get_searcher_path(split)
-				searcher_path = searcher_path + '_' + str(num_trees) + '_' + metric
+				searcher_path = searcher_path + '_' + str(n_trees) + '_' + metric
 				print("Split ", split)
 
 				# Load splitted dataset
@@ -558,9 +558,8 @@ qN = -1
 
 if "sift1m" in args.dataset:
 	dataset_basedir = basedir + "SIFT1M/"
-	if args.split != True:
-		split_dataset_path =dataset_basedir+"split_data/sift1m_"
-		groundtruth_path = dataset_basedir + "sift1m_"+args.metric+"_gt"
+	split_dataset_path =dataset_basedir+"split_data/sift1m_"
+	groundtruth_path = dataset_basedir + "sift1m_"+args.metric+"_gt"
 	N=1000000
 	D=128
 	num_iter = 1
@@ -568,9 +567,8 @@ if "sift1m" in args.dataset:
 	index_key = "IVF4096,PQ64"
 elif "sift1b" in args.dataset:
 	dataset_basedir = basedir + "SIFT1B/"
-	if args.split != True:
-		split_dataset_path = dataset_basedir+"split_data/sift1b_"
-		groundtruth_path = dataset_basedir + "sift1b_"+args.metric+"_gt"
+	split_dataset_path = dataset_basedir+"split_data/sift1b_"
+	groundtruth_path = dataset_basedir + "sift1b_"+args.metric+"_gt"
 	N=1000000000
 	D=128
 	num_iter = 4
@@ -578,9 +576,8 @@ elif "sift1b" in args.dataset:
 	index_key = "OPQ8_32,IVF262144,PQ8"
 elif "glove" in args.dataset:
 	dataset_basedir = basedir + "GLOVE/"
-	if args.split != True:
-		split_dataset_path = dataset_basedir+"split_data/glove_"
-		groundtruth_path = dataset_basedir + "glove_"+args.metric+"_gt"
+	split_dataset_path = dataset_basedir+"split_data/glove_"
+	groundtruth_path = dataset_basedir + "glove_"+args.metric+"_gt"
 	N=1183514
 	D=100
 	num_iter = 10
