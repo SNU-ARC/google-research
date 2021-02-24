@@ -389,19 +389,23 @@ def dataset_iterator(x, preproc, bs):
 
 	return rate_limited_imap(prepare_block, block_ranges)
 
-def search_faiss(xq, index, preproc, nprobe, topk):
+def search_faiss(xq, index, preproc, nprobe, topk, batch_size):
 	print("--------------- search_faiss ----------------")
 	ps = faiss.GpuParameterSpace()
 	ps.initialize(index)
 
 	print("search...")
-	sl = query_batch_size
+	sl = batch_size
 	nq = xq.shape[0]
 	ps.set_index_parameter(index, 'nprobe', nprobe)
-	print(index.metric_type)
+	# print(index.metric_type)
+	print("Batch size: ", batch_size)
 	nnn = topk
+	total_latency = 0
 	if sl == 0:
+		start = time.time()
 		D, I = index.search(preproc.apply_py(sanitize(xq)), nnn)
+		total_latency = 1000*(time.time()-start)
 	else:
 		I = np.empty((nq, nnn), dtype='int32')
 		D = np.empty((nq, nnn), dtype='float32')
@@ -410,16 +414,17 @@ def search_faiss(xq, index, preproc, nprobe, topk):
 
 		for i0, xs in dataset_iterator(xq, preproc, sl):
 			i1 = i0 + xs.shape[0]
+			start = time.time()
 			Di, Ii = index.search(xs, nnn)
-
+			total_latency += 1000*(time.time()-start)
 			I[i0:i1] = Ii
 			D[i0:i1] = Di
 
 	print("--------------------------------------------\n")
-	return I, D
+	return I, D, total_latency
 
 
-def train_faiss(db, split_dataset_path, D, xt, split, num_split, met, index_key, log2kstar_, cacheroot, batch_size):
+def train_faiss(db, split_dataset_path, D, xt, split, num_split, met, index_key, log2kstar_, cacheroot):
 	print("--------------- train_faiss ----------------")
 	global preproc_cachefile
 	global cent_cachefile
@@ -433,7 +438,6 @@ def train_faiss(db, split_dataset_path, D, xt, split, num_split, met, index_key,
 	global dbname
 	global metric
 	global log2kstar
-	global query_batch_size
 
 	dim = D
 	dbname = db
@@ -457,25 +461,24 @@ def train_faiss(db, split_dataset_path, D, xt, split, num_split, met, index_key,
 	pqflat_str = mog[3]
 	ncent = int(ivf_str[3:])
 	log2kstar = log2kstar_
-	query_batch_size = batch_size
 	prefix = ''
 
 	# check cache files
 	if preproc_str:
-		preproc_cachefile = '%s/%spreproc_%s_%s.vectrans' % (
+		preproc_cachefile = '%s%spreproc_%s_%s.vectrans' % (
 			cacheroot, prefix, dbname, preproc_str[:-1])
 	else:
 		preproc_cachefile = None
 		preproc_str = ''
 
-	cent_cachefile = '%s/%s_%scent_%s_%s_%s_%s%s.npy' % (
+	cent_cachefile = '%s%s_%scent_%s_%s_%s_%s%s.npy' % (
 		cacheroot, metric, prefix, dbname, split, num_split, preproc_str, ivf_str)
 
-	pq_cachefile = '%s/%s_%spq_%s_%s_%s_%s%s,%s.npy' % (
-		cacheroot, metric, prefix, dbname, split, num_split, preproc_str, ivf_str, pqflat_str)
+	pq_cachefile = '%s%s_%spq_%s_%s_%s_%s%s,%s,%s.npy' % (
+		cacheroot, metric, prefix, dbname, split, num_split, preproc_str, ivf_str, pqflat_str, int(2**log2kstar))
 
-	index_cachefile = '%s/%s_%s%s_%s_%s_%s%s,%s.index' % (
-		cacheroot, metric, prefix, dbname, split, num_split, preproc_str, ivf_str, pqflat_str)
+	index_cachefile = '%s%s_%s%s_%s_%s_%s%s,%s,%s.index' % (
+		cacheroot, metric, prefix, dbname, split, num_split, preproc_str, ivf_str, pqflat_str, int(2**log2kstar))
 
 
 	print("cachefiles:")

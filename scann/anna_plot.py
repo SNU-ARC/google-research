@@ -41,7 +41,7 @@ def create_plot(dataset, results, linestyles):
         color, faded, linestyle, marker = linestyles[algo['algorithm']]
         color, faded, linestyle, marker = linestyles[algo['algorithm']]
         handle, = plt.plot(xs, ys, '-', label='scann', color=color,
-                           ms=7, mew=3, lw=3, linestyle=linestyle,
+                           ms=4, mew=3, lw=3, linestyle=linestyle,
                            marker=marker)
         handles.append(handle)
     # if raw:
@@ -53,7 +53,7 @@ def create_plot(dataset, results, linestyles):
     ax = plt.gca()
     # ax.set_ylabel(ym['description'])
     # ax.set_xlabel(xm['description'])
-    ax.set_ylabel('Queries per sec (1/s)')
+    ax.set_ylabel('Query Total Latency (ms)')
     ax.set_xlabel('Recall (%)')
 
     # # Custom scales of the type --x-scale a3
@@ -122,9 +122,11 @@ def collect_result(path):
                     acc.append(float(result[0]))
                 elif topk == 10:
                     acc.append(float(result[2]))
-                else:       # topk == 100
+                elif topk == 100:       # topk == 100
                     acc.append(float(result[4]))
-                time.append(float(result[6]))
+                else:
+                    acc.append(float(result[6]))
+                time.append(float(result[8]))
 
     # import operator 
     res = sorted(zip(acc, time), key = lambda x: x[0]) 

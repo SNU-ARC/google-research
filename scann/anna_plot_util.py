@@ -130,6 +130,6 @@ def get_plot_label(dataset):
                 " to the %(leftright)s is better")
     return template % {"dataset":dataset,
                        "xlabel": 'Recall',
-                       "ylabel": 'Queries per sec (1/s)',
-                       "updown": 'up',
+                       "ylabel": 'Query Totel Latency',
+                       "updown": 'down',
                        "leftright": 'right'}
