@@ -405,7 +405,7 @@ def run_annoy(D):
 		f.write("Program: " + args.program + " Topk: " + str(args.topk) + " Num_split: " + str(args.num_split)+"\n")
 		f.write("Num trees\tNum search\tMetric\n")
 	else:
-		build_config = [(args.metric, args.num_trees)]
+		build_config = [(args.metric, args.n_trees)]
 		search_config = [args.num_search]
 	for bc in build_config:
 		metric, num_trees = bc
