@@ -1,7 +1,7 @@
 # Install bazel
 # sudo apt-get install -y software-properties-common curl gnupg rsync
 # sudo curl https://bazel.build/bazel-release.pub.gpg | sudo apt-key add -
-# sudo echo "deb [arch=amd64] https://storage.googleapis.com/bazel-apt stable jdk1.8" |sudo tee /etc/apt/sources.list.d/bazel.list
+# sudo echo "deb [arch=amd64] https://storage.googleapis.com/bazel-apt stable jdk1.8" | sudo tee /etc/apt/sources.list.d/bazel.list
 # sudo apt-get update && sudo apt-get install -y bazel-2.2.0
 
 # Install g++-9

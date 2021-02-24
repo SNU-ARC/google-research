@@ -273,7 +273,7 @@ def run_scann():
 		num_leaves, threshold, dims, metric = bc
 		for arg in search_config:
 			# leaves_to_search, reorder = arg[0], arg[1]
-			leaves_to_search, reorder = arg[0], args.reorder
+			leaves_to_search, reorder = arg, args.reorder
 			if args.reorder!=-1:
 				assert args.topk <= reorder
 			else:
