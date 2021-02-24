@@ -274,6 +274,8 @@ def run_scann():
 		for arg in search_config:
 			# leaves_to_search, reorder = arg[0], arg[1]
 			leaves_to_search, reorder = arg, args.reorder
+			if leaves_to_search > num_leaves:
+				continue
 			if args.reorder!=-1:
 				assert args.topk <= reorder
 			else:

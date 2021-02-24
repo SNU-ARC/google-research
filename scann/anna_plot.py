@@ -87,7 +87,7 @@ def create_plot(dataset, results, linestyles, build_config):
     #     ax.set_xscale(x_scale)
     ax.set_xscale('linear')
     ax.set_yscale('linear')
-    ax.set_title(get_plot_label(dataset, program, batch_size, metric, topk))
+    ax.set_title(get_plot_label(dataset, program, batch_size, metric, topk, reorder))
     box = plt.gca().get_position()
     # plt.gca().set_position([box.x0, box.y0, box.width * 0.8, box.height])
     ax.legend(handles, labels, loc='center left',
@@ -119,6 +119,7 @@ def collect_result(path, args):
     global program
     global metric
     global topk
+    global reorder
     print("Reading result from ", path)
     acc = []
     time = []
