@@ -261,6 +261,7 @@ def run_scann():
 		#           		[[1, 30], [2, 30], [4, 30], [8, 30], [9, 25], [11, 35], [12, 35], [13, 35], [14, 40], [15, 40], [16, 40], [17, 45], [20, 45], [20, 55], [25, 55], [25, 70], [30, 70], [40, 90], [50, 100], [60, 120], [70, 140]], \
 		#           		[[1, 30], [4, 30], [9, 30], [16, 32], [25, 50], [36, 72], [49, 98], [70, 150], [90, 200], [120, 210], [180, 270], [210, 330], [260, 400], [320, 500], [400, 600], [500, 700], [800, 900]]]
 		search_config = [1, 2, 4, 8, 16, 25, 30, 35, 40, 45, 50, 55, 60, 65, 75, 90, 110, 130, 150, 170, 200, 220, 250, 310, 400, 500, 800, 1000, 1250, 1500, 1750, 1900, 2000] 
+		# search_config = [110, 130, 150, 170, 200, 220, 250, 310, 400, 500, 800, 1000, 1250, 1500, 1750, 1900, 2000] 
 		          		
 		f = open(sweep_result_path, "w")
 		f.write("Program: " + args.program + " Topk: " + str(args.topk) + " Num_split: " + str(args.num_split)+ " Batch: "+str(args.batch)+"\n")
@@ -318,7 +319,8 @@ def run_scann():
 					start = time.time()
 					local_neighbors, local_distances = searcher.search_batched_parallel(queries, leaves_to_search=leaves_to_search, pre_reorder_num_neighbors=reorder, final_num_neighbors=args.topk, batch_size=batch_size)
 					# local_neighbors, local_distances = searcher.search_batched(queries, leaves_to_search=leaves_to_search, pre_reorder_num_neighbors=reorder, final_num_neighbors=args.topk)
-					end = time.time()
+					end = time.time() 
+					local_distances[local_neighbors==2147483647] =  math.inf if metric=="squared_l2" else -math.inf 		# 2147483647: maximum integer value
 					total_latency = total_latency + 1000*(end - start)
 					neighbors = np.append(neighbors, local_neighbors+base_idx, axis=1)
 					distances = np.append(distances, local_distances, axis=1)
@@ -327,11 +329,7 @@ def run_scann():
 					def single_query(query, base_idx):
 						start = time.time()
 						local_neighbors, local_distances = searcher.search(query, leaves_to_search=leaves_to_search, pre_reorder_num_neighbors=reorder, final_num_neighbors=args.topk)
-						if local_neighbors.shape[0] < args.topk:
-							plus_dim = args.topk-local_neighbors.shape[0]
-							local_neighbors=np.concatenate((local_neighbors, np.full((plus_dim), N)), axis=-1)
-							local_distances=np.concatenate((local_distances, np.full((plus_dim), math.inf if metric=="squared_l2" else -math.inf)), axis=-1)
-
+						local_distances[local_neighbors==2147483647] =  math.inf if metric=="squared_l2" else -math.inf 		# 2147483647: maximum integer value
 						return (time.time() - start, (local_neighbors, local_distances))
 					# ScaNN search
 					print("Entering ScaNN searcher")

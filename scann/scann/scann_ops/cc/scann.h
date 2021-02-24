@@ -66,10 +66,10 @@ class ScannInterface {
 
   template <typename T_idx>
   void ReshapeNNResult(const NNResultsVector& res, T_idx* indices,
-                       float* distances);
+                       float* distances, int final_nn);
   template <typename T_idx>
   void ReshapeBatchedNNResult(ConstSpan<NNResultsVector> res, T_idx* indices,
-                              float* distances);
+                              float* distances, int final_nn);
 
   bool needs_dataset() const { return scann_->needs_dataset(); }
   const Dataset* dataset() const { return scann_->dataset(); }
@@ -91,7 +91,7 @@ class ScannInterface {
 
 template <typename T_idx>
 void ScannInterface::ReshapeNNResult(const NNResultsVector& res, T_idx* indices,
-                                     float* distances) {
+                                     float* distances, int final_nn) {
   auto j=0;
   for (const auto& p : res) {
     *(indices++) = static_cast<T_idx>(p.first);
@@ -100,7 +100,7 @@ void ScannInterface::ReshapeNNResult(const NNResultsVector& res, T_idx* indices,
   }
   if(j<final_nn){
     for(;j<final_nn; j++) {
-      *(indices++) = static_cast<T_idx>(-1);
+      *(indices++) = static_cast<T_idx>(std::numeric_limits<int>::max());
       *(distances++) = -1;
     }
   }
@@ -121,11 +121,10 @@ void ScannInterface::ReshapeBatchedNNResult(ConstSpan<NNResultsVector> res,
     }
     if(j<final_nn){
       for(;j<final_nn; j++) {
-        *(indices++) = static_cast<T_idx>(-1);
+        *(indices++) = static_cast<T_idx>(std::numeric_limits<int>::max());
         *(distances++) = -1;
       }
     }
-
   }
 }
 
