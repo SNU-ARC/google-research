@@ -271,6 +271,7 @@ if __name__ == "__main__":
             if args.dataset in fn and (args.program in fn if args.program!=None else True) and (args.metric in fn if args.build_config else True): 
                 res = collect_result(os.path.join(root, fn), args)
                 results+=res
+    assert len(results) > 0
     linestyles = create_linestyles([key['build_key'] for key in results])
 
     # create_plot(runs, args.raw, args.x_scale,
