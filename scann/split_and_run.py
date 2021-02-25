@@ -60,8 +60,7 @@ if args.program=='scann':
 		assert args.L!=-1 and args.w!=-1 and args.topk!=-1 and args.k_star == -1 and args.m!=-1 and (args.topk <= args.reorder if args.reorder!=-1 else True)
 	assert args.topk!=-1
 elif args.program == "faiss":
-	from runfaiss import train_faiss, build_faiss, search_faiss
-	from runfaiss2 import run_local_faiss
+	from runfaiss import run_local_faiss
 	import math
 	if args.sweep == False:
 		assert args.L!=-1 and args.k_star!=-1 and args.w!=-1 and args.m!=-1
@@ -286,11 +285,12 @@ def run_scann():
 		num_leaves, threshold, dims, metric = bc
 		# build_config_key = ''.join(bc)
 		for sc in search_config:
-			assert D%dims == 0
 			leaves_to_search, reorder = sc[0], sc[1]
 			# search_config_key = ''.join(sc)			
-			if leaves_to_search > num_leaves:
+			if leaves_to_search > num_leaves or (D%dims!=0 and args.sweep==True):
 				continue
+			else:
+				assert D%dims == 0
 			if args.reorder!=-1:
 				assert args.topk <= reorder
 			else:
@@ -298,7 +298,7 @@ def run_scann():
 					assert False, "Do you want reordering or not?"
 			if args.sweep:
 				f.write(str(num_leaves)+"\t"+str(threshold)+"\t"+str(int(D/dims))+"\t|\t"+str(leaves_to_search)+"\t"+str(reorder)+"\t"+str(metric)+"\n")
-			print(str(num_leaves)+"\t"+str(threshold)+"\t"+str(dims)+"\t"+str(metric)+"\t"+str(leaves_to_search)+"\t"+str(reorder))
+			print(str(num_leaves)+"\t"+str(threshold)+"\t"+str(int(D/dims))+"\t|\t"+str(leaves_to_search)+"\t"+str(reorder)+"\t"+str(metric)+"\n")
 			neighbors=np.empty((queries.shape[0],0))
 			distances=np.empty((queries.shape[0],0))
 			total_latency = 0
@@ -401,25 +401,36 @@ def faiss_pad_dataset(dataset, train_dataset, queries, m):
 
 		return padded_D, faiss_m, dataset, train_dataset, queries
 
-def run_faiss(D, index_key):
+def run_faiss(D):
 	gt, queries = prepare_eval()
 	if args.sweep:
-		M = 20 if "glove" in args.dataset else 64
-		build_config = [(4096, M, 4, args.metric), (4096, M, 8, args.metric), (4096, M, 16, args.metric), (8192, M, 4, args.metric), (8192, M, 8, args.metric), (8192, M, 16, args.metric)]	# L, m, log2(k*), metric
-		search_config = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]	# nprobe
+		if args.is_gpu:
+			log2kstar_ = 8
+		else:
+			assert False, "still thinking how to configure this"
+		build_config = [[1000, int(D/3), log2kstar_, args.metric], [1000, int(D/2), log2kstar_, args.metric], [1000, D, log2kstar_, args.metric], [2000, int(D/3), log2kstar_, args.metric], [2000, int(D/2), log2kstar_, args.metric], [2000, D, log2kstar_, args.metric], \
+						[800, int(D/3), log2kstar_, args.metric], [800, int(D/2), log2kstar_, args.metric], [800, D, log2kstar_, args.metric]]	# L, m, log2(k*), metric
+		search_config = [[1, args.reorder], [2, args.reorder], [4, args.reorder], [8, args.reorder], [16, args.reorder], [25, args.reorder], [130, args.reorder], [35, args.reorder], [40, args.reorder], \
+						 [45, args.reorder], [50, args.reorder], [55, args.reorder], [60, args.reorder], [65, args.reorder], [75, args.reorder], [90, args.reorder], [110, args.reorder], [130, args.reorder], [150, args.reorder], \
+						 [170, args.reorder], [200, args.reorder], [220, args.reorder], [250, args.reorder], [310, args.reorder], [400, args.reorder], [500, args.reorder], [800, args.reorder], [1000, args.reorder], \
+						 [1250, args.reorder], [1500, args.reorder], [1750, args.reorder], [1900, args.reorder], [2000, args.reorder]]
+		
 		f = open(sweep_result_path, "w")
-		f.write("Program: " + args.program + " Topk: " + str(args.topk) + " Num_split: " + str(args.num_split)+"\n")
+		f.write("Program: " + args.program + " Topk: " + str(args.topk) + " Num_split: " + str(args.num_split)+ " Batch: "+str(args.batch)+"\n")
 		f.write("L\tm\tk_star\t|\tw\tMetric\n")
 	else:
-		build_config = [(args.L, args.m, math.log(args.k_star,2), args.metric)]
-		search_config = [args.w]
+		build_config = [[args.L, args.m, math.log(args.k_star,2), args.metric]]
+		search_config = [[args.w, args.reorder]]
 	for bc in build_config:
 		L, m, log2kstar, metric = bc
+		assert (not args.is_gpu) or (log2kstar == 8)
 		for sc in search_config:
-			nprobe = sc
+			nprobe, args.reorder = sc[0], sc[1]
+			if nprobe > L or (D%m!=0 and args.sweep==True):
+				continue
 			if args.sweep:
-				f.write(str(L)+"\t"+str(m)+"\t"+str(2**log2kstar)+"\t|\t"+str(nprobe)+"\t"+str(-1)+"\t"+str(metric)+"\n")		# faiss-gpu has no reorder
-			print(str(L)+"\t"+str(m)+"\t"+str(log2kstar)+"\t"+str(metric)+"\t"+str(nprobe)+"\n")
+				f.write(str(L)+"\t"+str(m)+"\t"+str(2**log2kstar)+"\t|\t"+str(nprobe)+"\t"+str(args.reorder)+"\t"+str(metric)+"\n")		# faiss-gpu has no reorder
+			print(str(L)+"\t"+str(m)+"\t"+str(2**log2kstar)+"\t|\t"+str(nprobe)+"\t"+str(args.reorder)+"\t"+str(metric)+"\n")		# faiss-gpu has no reorder
 			neighbors=np.empty((queries.shape[0],0))
 			distances=np.empty((queries.shape[0],0))
 			base_idx = 0
@@ -432,69 +443,10 @@ def run_faiss(D, index_key):
 				padded_D, faiss_m, dataset, train_dataset, queries = faiss_pad_dataset(dataset, train_dataset, queries, m)
 				# Build Faiss index
 				searcher_dir, searcher_path = get_searcher_path(split)
-				preproc = train_faiss(args.dataset, split_dataset_path, padded_D, train_dataset, split, args.num_split, args.metric, "IVF"+str(L)+",PQ"+str(faiss_m), log2kstar, searcher_dir)
-				batch_size = min(args.batch, queries.shape[0])
-				# Create Faiss index
-				index = build_faiss(dataset, split, preproc)
-				# Faiss search
-				local_neighbors, local_distances, total_latency = search_faiss(queries, index, preproc, nprobe, args.topk, batch_size)
-				neighbors = np.append(neighbors, local_neighbors+base_idx, axis=1)
-				distances = np.append(distances, local_distances, axis=1)
-				base_idx = base_idx + dataset.shape[0]
-			final_neighbors = sort_neighbors(distances, neighbors)
-			top1, top10, top100, top1000 = print_recall(final_neighbors, gt)
-			print("Top ", args.topk, " Total latency (ms): ", total_latency)
-			if args.sweep:
-				f.write(str(top1)+" %\t"+str(top10)+" %\t"+str(top100)+" %\t"+str(top1000)+" %\t"+str(total_latency)+"\n")
-	if args.sweep:
-		f.close()
-	# Below is for faiss's recall
-	# gtc = gt[:, :1]
-	# nq = queries.shape[0]
-	# for rank in 1, 10, 100:
-	# 	if rank > 100: continue
-	# 	nok = (final_neighbors[:, :rank] == gtc).sum()
-	# 	print("1-R@%d: %.4f" % (rank, nok / float(nq)), end=' ')
-	# print()
-	# print("Total latency (ms): ", total_latency)
-
-def run_faiss2(D):
-	gt, queries = prepare_eval()
-	if args.sweep:
-		M = 20 if "glove" in args.dataset else 64
-		build_config = [(4096, M, 4, args.metric), (4096, M, 8, args.metric), (4096, M, 16, args.metric), (8192, M, 4, args.metric), (8192, M, 8, args.metric), (8192, M, 16, args.metric)]	# L, m, log2(k*), metric
-		search_config = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]	# nprobe
-		f = open(sweep_result_path, "w")
-		f.write("Program: " + args.program + " Topk: " + str(args.topk) + " Num_split: " + str(args.num_split)+"\n")
-		f.write("L\tm\tk_star\t|\tw\tMetric\n")
-	else:
-		build_config = [(args.L, args.m, math.log(args.k_star,2), args.metric)]
-		search_config = [args.w]
-	for bc in build_config:
-		L, m, log2kstar, metric = bc
-		assert D%m == 0 and (m==1 or m==2 or m==3 or m==4 or m==8 or m==12 or m==16 or m==20 or m==24 or m==28 or m==32 or m==40 or m==48 or m==56 or m==64 or m==96)	# Faiss only suports these
-		assert (not args.is_gpu) or (log2kstar == 8)
-		index_key = "IVF"+str(L)+",PQ"+str(m)+"x"+str(log2kstar)
-		for sc in search_config:
-			nprobe = sc
-			if args.sweep:
-				f.write(str(L)+"\t"+str(m)+"\t"+str(2**log2kstar)+"\t|\t"+str(nprobe)+"\t"+str(metric)+"\n")
-			print(str(L)+"\t"+str(m)+"\t"+str(log2kstar)+"\t"+str(metric)+"\t"+str(nprobe)+"\n")
-			neighbors=np.empty((queries.shape[0],0))
-			distances=np.empty((queries.shape[0],0))
-			base_idx = 0
-			total_latency = 0
-			for split in range(args.num_split):
-				print("Split ", split)
-				# Load splitted dataset
-				xt = get_train(split, args.num_split)
-				# Build Faiss index
-				searcher_dir, searcher_path = get_searcher_path(split)
-				dataset = read_data(split_dataset_path + str(args.num_split) + "_" + str(split) if args.num_split>1 else dataset_basedir, base=False if args.num_split>1 else True, offset_=None if args.num_split>1 else 0, shape_=None)
 				args.batch = min(args.batch, queries.shape[0])
 				args.w = nprobe
 				# Faiss search
-				local_neighbors, local_distances, total_latency = run_local_faiss(args, searcher_dir, split, D, index_key, xt, dataset, queries)
+				local_neighbors, local_distances, total_latency = run_local_faiss(args, searcher_dir, split, padded_D, "IVF"+str(L)+",PQ"+str(faiss_m)+"x"+str(log2kstar), train_dataset, dataset, queries)
 				neighbors = np.append(neighbors, local_neighbors+base_idx, axis=1)
 				distances = np.append(distances, local_distances, axis=1)
 				base_idx = base_idx + dataset.shape[0]
@@ -503,6 +455,7 @@ def run_faiss2(D):
 			print("Top ", args.topk, " Total latency (ms): ", total_latency)
 			if args.sweep:
 				f.write(str(top1)+" %\t"+str(top10)+" %\t"+str(top100)+" %\t"+str(top1000)+" %\t"+str(total_latency)+"\n")
+
 	if args.sweep:
 		f.close()
 
@@ -690,8 +643,7 @@ if args.eval_split or args.sweep:
 	if args.program == "scann":
 		run_scann()
 	elif args.program == "faiss":
-		#run_faiss(D, index_key)
-		run_faiss2(D)
+		run_faiss(D)
 	elif args.program == "annoy":
 		run_annoy(D)
 	else:
