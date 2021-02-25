@@ -354,7 +354,6 @@ def run_scann():
 	if args.sweep:
 		f.close()
 
->>>>>>> c0c607d4dc11869032d636d7f0501b736d11d200
 def run_faiss(D, index_key):
 	gt, queries = prepare_eval()
 	if args.sweep:
