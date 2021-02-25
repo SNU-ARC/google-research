@@ -99,11 +99,7 @@ def create_plot(dataset, results, linestyles, build_config):
     ax.spines['bottom']._adjust_location()
     os.makedirs("./result/plots/", exist_ok=True)
 
-<<<<<<< HEAD
-    plt.savefig("./"+title+".pdf", bbox_inches='tight')
-=======
-    plt.savefig("./result/plots/"+title+".png", bbox_inches='tight')
->>>>>>> 4e140eb3fd56113a5492e79cd04268e3718d10cf
+    plt.savefig("./result/plots/"+title+".pdf", bbox_inches='tight')
     plt.close()
 
 def collect_result(path, args):
