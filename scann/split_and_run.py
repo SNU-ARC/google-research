@@ -57,7 +57,7 @@ if args.groundtruth:
 if args.program=='scann':
 	import scann
 	if args.sweep == False:
-		assert args.L!=-1 and args.w!=-1 and args.topk!=-1 and args.k_star == -1 and args.m!=-1 and (args.topk <= args.reorder if args.reorder!=-1 else True)
+		assert args.L!=-1 and args.w!=-1 and args.topk!=-1 and args.k_star == -1 and args.m!=-1 and (args.topk <= args.reorder if args.reorder!=-1 else True) and args.is_gpu==False
 	assert args.topk!=-1
 elif args.program == "faiss":
 	from runfaiss import run_local_faiss
@@ -68,7 +68,7 @@ elif args.program == "annoy":
 	import annoy
 	if args.batch > 1:
 		from multiprocessing.pool import ThreadPool
-	assert args.topk!=-1
+	assert args.topk!=-1 and args.is_gpu==False
 
 def compute_recall(neighbors, true_neighbors):
     total = 0
@@ -362,6 +362,12 @@ def run_scann():
 	if args.sweep:
 		f.close()
 
+def check_m_available(m):
+	if m>96:
+		return False
+	else:
+		return True
+
 def faiss_pad_dataset(dataset, train_dataset, queries, m):
 	D = dataset.shape[1]
 	if m==1 or m==2 or m==3 or m==4 or m==8 or m==12 or m==16 or m==20 or m==24 or m==28 or m==32 or m==40 or m==48 or m==56 or m==64 or m==96:
@@ -392,6 +398,8 @@ def faiss_pad_dataset(dataset, train_dataset, queries, m):
 			faiss_m = 64
 		elif m<96:
 			faiss_m = 96
+		else:
+			assert False, "somethings wrong.."
 		padded_D = dim_per_block * faiss_m
 		plus_dim = padded_D-D
 		dataset=np.concatenate((dataset, np.full((dataset.shape[0], plus_dim), 0)), axis=-1)
@@ -408,8 +416,9 @@ def run_faiss(D):
 			log2kstar_ = 8
 		else:
 			assert False, "still thinking how to configure this"
-		build_config = [[1000, int(D/3), log2kstar_, args.metric], [1000, int(D/2), log2kstar_, args.metric], [1000, D, log2kstar_, args.metric], [2000, int(D/3), log2kstar_, args.metric], [2000, int(D/2), log2kstar_, args.metric], [2000, D, log2kstar_, args.metric], \
-						[800, int(D/3), log2kstar_, args.metric], [800, int(D/2), log2kstar_, args.metric], [800, D, log2kstar_, args.metric]]	# L, m, log2(k*), metric
+		build_config = [[1000, int(D/32), log2kstar_, args.metric], [1000, int(D/16), log2kstar_, args.metric], [1000, int(D/8), log2kstar_, args.metric], [1000, int(D/4), log2kstar_, args.metric], [1000, int(D/3), log2kstar_, args.metric], [1000, int(D/2), log2kstar_, args.metric], [1000, D, log2kstar_, args.metric], \
+						[2000, int(D/32), log2kstar_, args.metric], [2000, int(D/16), log2kstar_, args.metric], [2000, int(D/8), log2kstar_, args.metric], [2000, int(D/4), log2kstar_, args.metric], [2000, int(D/3), log2kstar_, args.metric], [2000, int(D/2), log2kstar_, args.metric], [2000, D, log2kstar_, args.metric], \
+						[800, int(D/32), log2kstar_, args.metric], [800, int(D/16), log2kstar_, args.metric], [800, int(D/8), log2kstar_, args.metric], [800, int(D/4), log2kstar_, args.metric], [800, int(D/3), log2kstar_, args.metric], [800, int(D/2), log2kstar_, args.metric], [800, D, log2kstar_, args.metric]]	# L, m, log2(k*), metric
 		search_config = [[1, args.reorder], [2, args.reorder], [4, args.reorder], [8, args.reorder], [16, args.reorder], [25, args.reorder], [130, args.reorder], [35, args.reorder], [40, args.reorder], \
 						 [45, args.reorder], [50, args.reorder], [55, args.reorder], [60, args.reorder], [65, args.reorder], [75, args.reorder], [90, args.reorder], [110, args.reorder], [130, args.reorder], [150, args.reorder], \
 						 [170, args.reorder], [200, args.reorder], [220, args.reorder], [250, args.reorder], [310, args.reorder], [400, args.reorder], [500, args.reorder], [800, args.reorder], [1000, args.reorder], \
@@ -426,7 +435,7 @@ def run_faiss(D):
 		assert (not args.is_gpu) or (log2kstar == 8)
 		for sc in search_config:
 			nprobe, args.reorder = sc[0], sc[1]
-			if nprobe > L or (D%m!=0 and args.sweep==True):
+			if nprobe > L or (D%m!=0 and args.sweep==True) or check_m_available(m)==False:
 				continue
 			if args.sweep:
 				f.write(str(L)+"\t"+str(m)+"\t"+str(2**log2kstar)+"\t|\t"+str(nprobe)+"\t"+str(args.reorder)+"\t"+str(metric)+"\n")		# faiss-gpu has no reorder
@@ -440,13 +449,13 @@ def run_faiss(D):
 				# Load splitted dataset
 				train_dataset = get_train(split, args.num_split)
 				dataset = read_data(split_dataset_path + str(args.num_split) + "_" + str(split) if args.num_split>1 else dataset_basedir, base=False if args.num_split>1 else True, offset_=None if args.num_split>1 else 0, shape_=None)
-				padded_D, faiss_m, dataset, train_dataset, queries = faiss_pad_dataset(dataset, train_dataset, queries, m)
+				padded_D, faiss_m, padded_dataset, padded_train_dataset, padded_queries = faiss_pad_dataset(dataset, train_dataset, queries, m)
 				# Build Faiss index
 				searcher_dir, searcher_path = get_searcher_path(split)
 				args.batch = min(args.batch, queries.shape[0])
 				args.w = nprobe
 				# Faiss search
-				local_neighbors, local_distances, total_latency = run_local_faiss(args, searcher_dir, split, padded_D, "IVF"+str(L)+",PQ"+str(faiss_m)+"x"+str(log2kstar), train_dataset, dataset, queries)
+				local_neighbors, local_distances, total_latency = run_local_faiss(args, searcher_dir, split, padded_D, "IVF"+str(L)+",PQ"+str(faiss_m)+"x"+str(log2kstar), padded_train_dataset, padded_dataset, padded_queries)
 				neighbors = np.append(neighbors, local_neighbors+base_idx, axis=1)
 				distances = np.append(distances, local_distances, axis=1)
 				base_idx = base_idx + dataset.shape[0]
@@ -601,7 +610,8 @@ else:
 
 os.makedirs("./result", exist_ok=True)
 split_dataset_path = None
-sweep_result_path = "./result/"+args.program+"_"+args.dataset+"_topk_"+str(args.topk)+"_num_split_"+str(args.num_split)+"_batch_"+str(args.batch)+"_"+args.metric+"_sweep_result.txt"
+if args.sweep:
+	sweep_result_path = "./result/"+args.program+("_gpu" if args.is_gpu else "_")+args.dataset+"_topk_"+str(args.topk)+"_num_split_"+str(args.num_split)+"_batch_"+str(args.batch)+"_"+args.metric+"_sweep_result.txt"
 index_key = None
 N = -1
 D = -1

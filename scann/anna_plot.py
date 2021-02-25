@@ -126,7 +126,7 @@ def collect_result(path, args):
                 program, topk, num_split, batch_size = line.split()[1], int(line.split()[3]), int(line.split()[5]), int(line.split()[7])
                 print("Program: ", program, " / Topk: ", topk, " / Num split: ", num_split, " / Batch size: ", batch_size)
                 if args.build_config:
-                    assert program == args.program
+                    assert program == args.program and batch_size==128
             elif i==1:
                 continue
             elif i%2==0:
@@ -249,10 +249,18 @@ if __name__ == "__main__":
         help='Whether to plot according to the build_config',
         action='store_true',
         default=False)
+    parser.add_argument(
+        '--is_gpu',
+        help='gpu or not',
+        action='store_true',
+        default=False)
     args = parser.parse_args()
 
     if args.build_config:
         assert args.program!=None and args.dataset!=None and args.metric!=None
+
+    def check_build_config(fn):
+        return (args.metric in fn) and ("gpu" in fn if args.is_gpu==True else True)
     # dataset = get_dataset(args.dataset)
     # count = int(args.count)
     # unique_algorithms = get_unique_algorithms()
