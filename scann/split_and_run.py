@@ -12,7 +12,7 @@ import math
 
 parser = argparse.ArgumentParser(description='Options')
 parser.add_argument('--program', type=str, help='scann, faiss ...')
-parser.add_argument('--dataset', type=str, help='sift1b, glove ...')
+parser.add_argument('--dataset', type=str, default=None, help='sift1b, glove ...')
 parser.add_argument('--num_split', type=int, default=-1, help='# of splits')
 parser.add_argument('--metric', type=str, default=None, help='dot_product, squared_l2')
 ## Common algorithm parameters
@@ -42,6 +42,7 @@ parser.add_argument('--groundtruth', action='store_true')
 parser.add_argument('--sweep', action='store_true')
 args = parser.parse_args()
 
+assert args.dataset != None and args.topk <= 1000
 if args.split != True:
 	assert args.metric == "squared_l2" or args.metric == "dot_product" or args.metric=="angular"
 
