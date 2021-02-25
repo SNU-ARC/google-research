@@ -415,7 +415,7 @@ def run_faiss(D, index_key):
 		for sc in search_config:
 			nprobe = sc
 			if args.sweep:
-				f.write(str(L)+"\t"+str(m)+"\t"+str(2**log2kstar)+"\t|\t"+str(nprobe)+"\t"+str(metric)+"\n")
+				f.write(str(L)+"\t"+str(m)+"\t"+str(2**log2kstar)+"\t|\t"+str(nprobe)+"\t"+str(-1)+"\t"+str(metric)+"\n")		# faiss-gpu has no reorder
 			print(str(L)+"\t"+str(m)+"\t"+str(log2kstar)+"\t"+str(metric)+"\t"+str(nprobe)+"\n")
 			neighbors=np.empty((queries.shape[0],0))
 			distances=np.empty((queries.shape[0],0))
