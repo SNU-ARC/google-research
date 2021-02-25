@@ -97,8 +97,13 @@ def create_plot(dataset, results, linestyles, build_config):
 
     # # Workaround for bug https://github.com/matplotlib/matplotlib/issues/6789
     ax.spines['bottom']._adjust_location()
+    os.makedirs("./result/plots/", exist_ok=True)
 
+<<<<<<< HEAD
     plt.savefig("./"+title+".pdf", bbox_inches='tight')
+=======
+    plt.savefig("./result/plots/"+title+".png", bbox_inches='tight')
+>>>>>>> 4e140eb3fd56113a5492e79cd04268e3718d10cf
     plt.close()
 
 def collect_result(path, args):
@@ -115,6 +120,7 @@ def collect_result(path, args):
     sc = []
     build_keys = []
     collected_result = []
+    reorder = -2
     with open(path, 'r') as file:
         lines = file.readlines()
         for i, line in enumerate(lines):
@@ -130,7 +136,10 @@ def collect_result(path, args):
                 result = line.split()
                 temp_build_key = '/'.join(result[:result.index("|")])
                 search_key = "/".join(result[result.index("|")+1:-2])  # make sure the last two is reorder and metric
-                reorder = result[-2]
+                if reorder == -2:
+                    reorder = result[-2]
+                elif reorder!=result[-2]:
+                    reorder="various"
                 metric = result[-1]
                 if args.build_config:
                     if temp_build_key not in build_keys:
@@ -150,6 +159,7 @@ def collect_result(path, args):
                             # search_key = temp_search_key
             else:
                 result = line.split()
+                print(result)
                 if topk == 1:
                     acc.append(float(result[0]))
                 elif topk == 10:
@@ -239,10 +249,6 @@ if __name__ == "__main__":
         default=False)
     args = parser.parse_args()
 
-    if not args.output:
-        args.output = 'results/%s.png' % (args.dataset)
-        print('writing output to %s' % args.output)
-
     if args.build_config:
         assert args.program!=None and args.dataset!=None
     # dataset = get_dataset(args.dataset)
@@ -257,6 +263,8 @@ if __name__ == "__main__":
 
     results = list()
     for root, _, files in os.walk('./result'):
+        if "plot" in root:
+            continue
         for fn in files:
             if args.dataset in fn and (args.program in fn if args.program!=None else True): 
                 res = collect_result(os.path.join(root, fn), args)
