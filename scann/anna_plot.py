@@ -28,14 +28,12 @@ def create_plot(dataset, results, linestyles, build_config):
         if build_config:
             print(algo['build_key'])
             color, faded, linestyle, marker = linestyles[algo['build_key']]
-            # handle, = plt.plot(xs, ys, '-', label=algo['build_key'], color=color,
-            #                    ms=4, mew=3, lw=3, linestyle=linestyle,
-            #                    marker=marker)
             handle, = plt.plot(xs, ys, '-', label=algo['build_key'], color=color,
-                               ms=4, mew=3, lw=3, linestyle=linestyle,
-                               marker='${}$'.format('1'))
+                               ms=0.5, mew=3, lw=1.5, linestyle=linestyle,
+                               marker=marker)
             for i, sc in enumerate(algo['search_key']):
-                test = [plt.annotate('${}$'.format(sc), xy=(xs[i], ys[i]), xytext=(xs[i]-0.7*(len(results)-i), ys[i]+max_time/100*i*10), color=color, arrowprops=dict(facecolor=color, width=0.1, headwidth=5, headlength=5, lw=0))]
+                #test = [plt.annotate('${}$'.format(sc), xy=(xs[i], ys[i]), xytext=(xs[i]-0.7*(len(results)-i), ys[i]+max_time/100*i*10), color=color, arrowprops=dict(facecolor=color, width=0.1, headwidth=5, headlength=5, lw=0))]
+                plt.annotate('${}$'.format(sc), xy=(xs[i], ys[i]), xytext=(xs[i]-0.3, ys[i]+max_time/1000*i), color=color, arrowprops=dict(facecolor=color, width=0.1, headwidth=0.5, headlength=0.5, lw=0))
                 # from adjustText import adjust_text
                 # adjust_text(test)
 
@@ -100,7 +98,7 @@ def create_plot(dataset, results, linestyles, build_config):
     # # Workaround for bug https://github.com/matplotlib/matplotlib/issues/6789
     ax.spines['bottom']._adjust_location()
 
-    plt.savefig("./"+title+".png", bbox_inches='tight')
+    plt.savefig("./"+title+".pdf", bbox_inches='tight')
     plt.close()
 
 def collect_result(path, args):
