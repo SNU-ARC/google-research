@@ -41,7 +41,7 @@ extern "C" {
           similarity = compute_similarity(data[i], query[j], D, ip);
           vec_private.push_back(make_pair(i,similarity));
         }
-        int sortrange = min(500, N);
+        int sortrange = min(1000, N);
         partial_sort(vec_private.begin(), vec_private.begin() + sortrange, vec_private.end(), compare_descending);
         for(int k = 0; k <sortrange; k++) {
           groundtruth[j][k] = vec_private[k].first;

@@ -213,18 +213,22 @@ Status ScannInterface::SearchBatched(const DenseDataset<float>& queries,
     scann_->SetUnspecifiedParametersToDefaults(&p);
   }
 
-  return scann_->FindNeighborsBatched(queries, params, MakeMutableSpan(res));
+  auto test = scann_->FindNeighborsBatched(queries, params, MakeMutableSpan(res));
+  return test;
 }
 
 Status ScannInterface::SearchBatchedParallel(const DenseDataset<float>& queries,
                                              MutableSpan<NNResultsVector> res,
                                              int final_nn, int pre_reorder_nn,
-                                             int leaves) const {
+                                             int leaves, int batch_size) const {    // [ANNA] batch_size added
   const size_t numQueries = queries.size();
   const size_t numCPUs = GetNumCPUs();
-
-  const size_t kBatchSize = std::min(
-      std::max(min_batch_size_, DivRoundUp(numQueries, numCPUs)), 256ul);
+  // const size_t kBatchSize = std::min(
+  //     std::max(min_batch_size_, DivRoundUp(numQueries, numCPUs)), 256ul);
+  
+  // [ANNA] batch_size
+  const size_t kBatchSize = batch_size;
+  std::cout << "kBatchSize: " << kBatchSize << std::endl;
   auto pool = StartThreadPool("pool", numCPUs - 1);
   return ParallelForWithStatus<1>(
       Seq(DivRoundUp(numQueries, kBatchSize)), pool.get(), [&](size_t i) {
