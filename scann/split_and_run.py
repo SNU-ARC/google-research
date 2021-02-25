@@ -285,6 +285,7 @@ def run_scann():
 		num_leaves, threshold, dims, metric = bc
 		# build_config_key = ''.join(bc)
 		for sc in search_config:
+			assert D%dims == 0
 			leaves_to_search, reorder = sc[0], sc[1]
 			# search_config_key = ''.join(sc)			
 			if leaves_to_search > num_leaves:
@@ -360,6 +361,45 @@ def run_scann():
 	if args.sweep:
 		f.close()
 
+def faiss_pad_dataset(dataset, train_dataset, queries, m):
+	D = dataset.shape[1]
+	if m==1 or m==2 or m==3 or m==4 or m==8 or m==12 or m==16 or m==20 or m==24 or m==28 or m==32 or m==40 or m==48 or m==56 or m==64 or m==96:
+		return D, m, dataset, train_dataset, queries
+	else:
+		dim_per_block = int(D/m)
+		if m<8:		# 4<m<8
+			faiss_m = 8
+		elif m<12:
+			faiss_m = 12
+		elif m<16:
+			faiss_m = 16
+		elif m<20:
+			faiss_m = 20
+		elif m<24:
+			faiss_m = 24
+		elif m<28:
+			faiss_m = 28
+		elif m<32:
+			faiss_m = 32
+		elif m<40:
+			faiss_m = 40
+		elif m<48:
+			faiss_m = 48
+		elif m<56:
+			faiss_m = 56
+		elif m<64:
+			faiss_m = 64
+		elif m<96:
+			faiss_m = 96
+		padded_D = dim_per_block * faiss_m
+		plus_dim = padded_D-D
+		dataset=np.concatenate((dataset, np.full((dataset.shape[0], plus_dim), 0)), axis=-1)
+		train_dataset=np.concatenate((train_dataset, np.full((train_dataset.shape[0], plus_dim), 0)), axis=-1)
+		queries=np.concatenate((queries, np.full((queries.shape[0], plus_dim), 0)), axis=-1)
+		print("Dataset dimension is padded from ", D, " to ", dataset.shape[1])
+
+		return padded_D, faiss_m, dataset, train_dataset, queries
+
 def run_faiss(D, index_key):
 	gt, queries = prepare_eval()
 	if args.sweep:
@@ -374,12 +414,10 @@ def run_faiss(D, index_key):
 		search_config = [args.w]
 	for bc in build_config:
 		L, m, log2kstar, metric = bc
-		assert D%m == 0 and (m==1 or m==2 or m==3 or m==4 or m==8 or m==12 or m==16 or m==20 or m==24 or m==28 or m==32 or m==40 or m==48 or m==56 or m==64 or m==96)	# Faiss only suports these
-		index_key = "IVF"+str(L)+",PQ"+str(m)
 		for sc in search_config:
 			nprobe = sc
 			if args.sweep:
-				f.write(str(L)+"\t"+str(m)+"\t"+str(2**log2kstar)+"\t|\t"+str(nprobe)+"\t"+str(metric)+"\n")
+				f.write(str(L)+"\t"+str(m)+"\t"+str(2**log2kstar)+"\t|\t"+str(nprobe)+"\t"+str(-1)+"\t"+str(metric)+"\n")		# faiss-gpu has no reorder
 			print(str(L)+"\t"+str(m)+"\t"+str(log2kstar)+"\t"+str(metric)+"\t"+str(nprobe)+"\n")
 			neighbors=np.empty((queries.shape[0],0))
 			distances=np.empty((queries.shape[0],0))
@@ -388,11 +426,12 @@ def run_faiss(D, index_key):
 			for split in range(args.num_split):
 				print("Split ", split)
 				# Load splitted dataset
-				xt = get_train(split, args.num_split)
+				train_dataset = get_train(split, args.num_split)
+				dataset = read_data(split_dataset_path + str(args.num_split) + "_" + str(split) if args.num_split>1 else dataset_basedir, base=False if args.num_split>1 else True, offset_=None if args.num_split>1 else 0, shape_=None)
+				padded_D, faiss_m, dataset, train_dataset, queries = faiss_pad_dataset(dataset, train_dataset, queries, m)
 				# Build Faiss index
 				searcher_dir, searcher_path = get_searcher_path(split)
-				preproc = train_faiss(args.dataset, split_dataset_path, D, xt, split, args.num_split, args.metric, index_key, log2kstar, searcher_dir)
-				dataset = read_data(split_dataset_path + str(args.num_split) + "_" + str(split) if args.num_split>1 else dataset_basedir, base=False if args.num_split>1 else True, offset_=None if args.num_split>1 else 0, shape_=None)
+				preproc = train_faiss(args.dataset, split_dataset_path, padded_D, train_dataset, split, args.num_split, args.metric, "IVF"+str(L)+",PQ"+str(faiss_m), log2kstar, searcher_dir)
 				batch_size = min(args.batch, queries.shape[0])
 				# Create Faiss index
 				index = build_faiss(dataset, split, preproc)
