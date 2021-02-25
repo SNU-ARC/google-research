@@ -547,7 +547,7 @@ else:
 
 os.makedirs("./result", exist_ok=True)
 split_dataset_path = None
-sweep_result_path = "./result/"+args.program+"_"+args.dataset+"_topk_"+str(args.topk)+"_num_split_"+str(args.num_split)+"_batch_"+str(args.batch)+"_sweep_result.txt"
+sweep_result_path = "./result/"+args.program+"_"+args.dataset+"_topk_"+str(args.topk)+"_num_split_"+str(args.num_split)+"_batch_"+str(args.batch)+"_"+args.metric+"_sweep_result.txt"
 index_key = None
 N = -1
 D = -1

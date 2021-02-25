@@ -126,6 +126,7 @@ def collect_result(path, args):
     sc = []
     build_keys = []
     collected_result = []
+    build_key = None
     with open(path, 'r') as file:
         lines = file.readlines()
         for i, line in enumerate(lines):
@@ -158,6 +159,7 @@ def collect_result(path, args):
                             time = []
                             sc = []
                             build_key = temp_build_key
+                            print(build_key)
                             # search_key = temp_search_key
             else:
                 result = line.split()
@@ -196,6 +198,10 @@ if __name__ == "__main__":
     parser.add_argument(
         '--program',
         metavar="ALGO",
+        default=None)
+    parser.add_argument(
+        '--metric',
+        metavar="METRIC",
         default=None)
     # parser.add_argument(
     #     '--count',
@@ -253,7 +259,7 @@ if __name__ == "__main__":
         print('writing output to %s' % args.output)
 
     if args.build_config:
-        assert args.program!=None and args.dataset!=None
+        assert args.program!=None and args.dataset!=None and args.metric!=None
     # dataset = get_dataset(args.dataset)
     # count = int(args.count)
     # unique_algorithms = get_unique_algorithms()
@@ -267,7 +273,7 @@ if __name__ == "__main__":
     results = list()
     for root, _, files in os.walk('./result'):
         for fn in files:
-            if args.dataset in fn and (args.program in fn if args.program!=None else True): 
+            if args.dataset in fn and (args.program in fn if args.program!=None else True) and (args.metric in fn if args.build_config else True): 
                 res = collect_result(os.path.join(root, fn), args)
                 results+=res
     linestyles = create_linestyles([key['build_key'] for key in results])
