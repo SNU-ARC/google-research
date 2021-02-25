@@ -12,7 +12,7 @@ import math
 
 parser = argparse.ArgumentParser(description='Options')
 parser.add_argument('--program', type=str, help='scann, faiss ...')
-parser.add_argument('--dataset', type=str, help='sift1b, glove ...')
+parser.add_argument('--dataset', type=str, default=None, help='sift1b, glove ...')
 parser.add_argument('--num_split', type=int, default=-1, help='# of splits')
 parser.add_argument('--metric', type=str, default=None, help='dot_product, squared_l2')
 ## Common algorithm parameters
@@ -42,6 +42,7 @@ parser.add_argument('--groundtruth', action='store_true')
 parser.add_argument('--sweep', action='store_true')
 args = parser.parse_args()
 
+assert args.dataset != None and args.topk <= 1000
 if args.split != True:
 	assert args.metric == "squared_l2" or args.metric == "dot_product" or args.metric=="angular"
 
@@ -255,26 +256,36 @@ def get_searcher_path(split):
 def run_scann():
 	gt, queries = prepare_eval()
 	if args.sweep:
-		build_config = [(2000, 0.2, 2, args.metric), (2000, 0.2, 1, args.metric), (1500, 0.55, 2, args.metric), (1500, 0.55, 1, args.metric), (1000, 0.55, 2, args.metric), (1000, 0.55, 1, args.metric), (1000, 0.2, 2, args.metric), (1000, 0.2, 1, args.metric), (1400, 0.15, 1, args.metric), (1400, 0.15, 2, args.metric), (1400, 0.15, 3, args.metric), (800, 0.15, 2, args.metric), (800, 0.15, 1, args.metric)]
-		# search_config = [[[1, 30], [2, 30], [4, 30], [8, 30], [30, 120], [35, 100], [40, 80], [45, 80], [50, 80], [55, 95], [60, 110], [65, 110], [75, 110], [90, 110], [110, 120], [130, 150], [150, 200], [170, 200], [200, 300], [220, 500], [250, 500], [310, 300], [400, 300], [500, 500], [800, 1000]],\
-		#           		[[1, 30], [2, 30], [4, 30], [8, 30], [8, 25], [10, 25], [12, 25], [13, 25], [14, 27], [15, 30], [17, 30], [18, 40], [20, 40], [22, 40], [25, 50], [30, 50], [35, 55], [50, 60], [60, 60], [80, 80], [100, 100]], \
-		#           		[[1, 30], [2, 30], [4, 30], [8, 30], [9, 25], [11, 35], [12, 35], [13, 35], [14, 40], [15, 40], [16, 40], [17, 45], [20, 45], [20, 55], [25, 55], [25, 70], [30, 70], [40, 90], [50, 100], [60, 120], [70, 140]], \
-		#           		[[1, 30], [4, 30], [9, 30], [16, 32], [25, 50], [36, 72], [49, 98], [70, 150], [90, 200], [120, 210], [180, 270], [210, 330], [260, 400], [320, 500], [400, 600], [500, 700], [800, 900]]]
-		search_config = [1, 2, 4, 8, 16, 25, 30, 35, 40, 45, 50, 55, 60, 65, 75, 90, 110, 130, 150, 170, 200, 220, 250, 310, 400, 500, 800, 1000, 1250, 1500, 1750, 1900, 2000] 
-		# search_config = [110, 130, 150, 170, 200, 220, 250, 310, 400, 500, 800, 1000, 1250, 1500, 1750, 1900, 2000] 
+		build_config = [[2000, 0.2, 2, args.metric], [2000, 0.2, 1, args.metric], [1500, 0.55, 2, args.metric], [1500, 0.55, 1, args.metric], [1000, 0.55, 2, args.metric], [1000, 0.55, 1, args.metric], \
+		 				  [1000, 0.2, 2, args.metric], [1000, 0.2, 1, args.metric], [1400, 0.15, 1, args.metric], [1400, 0.15, 2, args.metric], [1400, 0.15, 3, args.metric], \
+		 				  [800, 0.15, 2, args.metric], [800, 0.15, 1, args.metric]]
+		search_config = [[1, args.reorder], [2, args.reorder], [4, args.reorder], [8, args.reorder], [16, args.reorder], [25, args.reorder], [130, args.reorder], [35, args.reorder], [40, args.reorder], \
+						 [45, args.reorder], [50, args.reorder], [55, args.reorder], [60, args.reorder], [65, args.reorder], [75, args.reorder], [90, args.reorder], [110, args.reorder], [130, args.reorder], [150, args.reorder], \
+						 [170, args.reorder], [200, args.reorder], [220, args.reorder], [250, args.reorder], [310, args.reorder], [400, args.reorder], [500, args.reorder], [800, args.reorder], [1000, args.reorder], \
+						 [1250, args.reorder], [1500, args.reorder], [1750, args.reorder], [1900, args.reorder], [2000, args.reorder]]
+
+		# For sift 1b
+		# build_config = [[7000, 0.2, 2, args.metric],# (70000, 0.2, 3, args.metric), (5500, 0.2, 2, args.metric), (5500, 0.2, 3, args.metric), \
+		# 				[7500, 0.2, 2, args.metric],\
+		# 				[6500, 0.2, 2, args.metric]]
+		# search_config = [[1, args.reorder], [2, args.reorder], [4, args.reorder], [8, args.reorder], [16, args.reorder], [32, args.reorder], [64, args.reorder], [128, args.reorder], \
+		# 				 [256, args.reorder], [320, args.reorder], [384, args.reorder], [448, args.reorder], [512, args.reorder], [576, args.reorder], [640, args.reorder], [704, args.reorder], [768, args.reorder], \
+		# 				 [1024, args.reorder], [1280, args.reorder], [1536, args.reorder], [2048, args.reorder], [2560, args.reorder], [3072, args.reorder], [4096, args.reorder], [8192, args.reorder], [16384, args.reorder]]
 		          		
 		f = open(sweep_result_path, "w")
 		f.write("Program: " + args.program + " Topk: " + str(args.topk) + " Num_split: " + str(args.num_split)+ " Batch: "+str(args.batch)+"\n")
 		f.write("L\tThreashold\tm\t|\tw\tr\tMetric\n")
 	else:
 		build_config = [(args.L, args.threshold, int(D/args.m), args.metric)]
-		search_config = [[[args.w, args.reorder]]]
-	# for bc, sc in zip(build_config, search_config):
+		search_config = [[args.w, args.reorder]]
+
 	for bc in build_config:
 		num_leaves, threshold, dims, metric = bc
-		for arg in search_config:
-			# leaves_to_search, reorder = arg[0], arg[1]
-			leaves_to_search, reorder = arg, args.reorder
+		# build_config_key = ''.join(bc)
+		for sc in search_config:
+			assert D%dims == 0
+			leaves_to_search, reorder = sc[0], sc[1]
+			# search_config_key = ''.join(sc)			
 			if leaves_to_search > num_leaves:
 				continue
 			if args.reorder!=-1:
@@ -293,7 +304,6 @@ def run_scann():
 				searcher_dir, searcher_path = get_searcher_path(split)  	
 				print("Split ", split)
 				# Load splitted dataset
-				dataset = read_data(split_dataset_path + str(args.num_split) + "_" + str(split) if args.num_split>1 else dataset_basedir, base=False if args.num_split>1 else True, offset_=None if args.num_split>1 else 0, shape_=None)
 				batch_size = min(args.batch, queries.shape[0])
 				# Create ScaNN searcher
 				print("Entering ScaNN builder")
@@ -303,6 +313,7 @@ def run_scann():
 					print("Loading searcher from ", searcher_path)
 					searcher = scann.scann_ops_pybind.load_searcher(searcher_path)
 				else:
+					dataset = read_data(split_dataset_path + str(args.num_split) + "_" + str(split) if args.num_split>1 else dataset_basedir, base=False if args.num_split>1 else True, offset_=None if args.num_split>1 else 0, shape_=None)
 					if reorder!=-1:
 						searcher = scann.scann_ops_pybind.builder(dataset, 10, metric).tree(
 							num_leaves=num_leaves, num_leaves_to_search=leaves_to_search, training_sample_size=args.coarse_training_size).score_ah(
@@ -338,7 +349,7 @@ def run_scann():
 					nd = [nd for _, nd in local_results]
 					neighbors = np.append(neighbors, np.vstack([n for n,d in nd])+base_idx, axis=1)
 					distances = np.append(distances, np.vstack([d for n,d in nd]), axis=1)
-				base_idx = base_idx + dataset.shape[0]
+				base_idx = base_idx + int(N/args.num_split)
 
 			final_neighbors = sort_neighbors(distances, neighbors)
 			top1, top10, top100, top1000 = print_recall(final_neighbors, gt)
@@ -347,6 +358,46 @@ def run_scann():
 				f.write(str(top1)+" %\t"+str(top10)+" %\t"+str(top100)+" %\t"+str(top1000)+" %\t"+str(total_latency)+"\n")
 	if args.sweep:
 		f.close()
+
+def faiss_pad_dataset(dataset, train_dataset, queries, m):
+	D = dataset.shape[1]
+	if m==1 or m==2 or m==3 or m==4 or m==8 or m==12 or m==16 or m==20 or m==24 or m==28 or m==32 or m==40 or m==48 or m==56 or m==64 or m==96:
+		return D, m, dataset, train_dataset, queries
+	else:
+		dim_per_block = int(D/m)
+		if m<8:		# 4<m<8
+			faiss_m = 8
+		elif m<12:
+			faiss_m = 12
+		elif m<16:
+			faiss_m = 16
+		elif m<20:
+			faiss_m = 20
+		elif m<24:
+			faiss_m = 24
+		elif m<28:
+			faiss_m = 28
+		elif m<32:
+			faiss_m = 32
+		elif m<40:
+			faiss_m = 40
+		elif m<48:
+			faiss_m = 48
+		elif m<56:
+			faiss_m = 56
+		elif m<64:
+			faiss_m = 64
+		elif m<96:
+			faiss_m = 96
+		padded_D = dim_per_block * faiss_m
+		plus_dim = padded_D-D
+		dataset=np.concatenate((dataset, np.full((dataset.shape[0], plus_dim), 0)), axis=-1)
+		train_dataset=np.concatenate((train_dataset, np.full((train_dataset.shape[0], plus_dim), 0)), axis=-1)
+		queries=np.concatenate((queries, np.full((queries.shape[0], plus_dim), 0)), axis=-1)
+		print("Dataset dimension is padded from ", D, " to ", dataset.shape[1])
+
+		return padded_D, faiss_m, dataset, train_dataset, queries
+
 def run_faiss(D, index_key):
 	gt, queries = prepare_eval()
 	if args.sweep:
@@ -361,12 +412,10 @@ def run_faiss(D, index_key):
 		search_config = [args.w]
 	for bc in build_config:
 		L, m, log2kstar, metric = bc
-		assert D%m == 0 and (m==1 or m==2 or m==3 or m==4 or m==8 or m==12 or m==16 or m==20 or m==24 or m==28 or m==32 or m==40 or m==48 or m==56 or m==64 or m==96)	# Faiss only suports these
-		index_key = "IVF"+str(L)+",PQ"+str(m)
 		for sc in search_config:
 			nprobe = sc
 			if args.sweep:
-				f.write(str(L)+"\t"+str(m)+"\t"+str(2**log2kstar)+"\t|\t"+str(nprobe)+"\t"+str(metric)+"\n")
+				f.write(str(L)+"\t"+str(m)+"\t"+str(2**log2kstar)+"\t|\t"+str(nprobe)+"\t"+str(-1)+"\t"+str(metric)+"\n")		# faiss-gpu has no reorder
 			print(str(L)+"\t"+str(m)+"\t"+str(log2kstar)+"\t"+str(metric)+"\t"+str(nprobe)+"\n")
 			neighbors=np.empty((queries.shape[0],0))
 			distances=np.empty((queries.shape[0],0))
@@ -375,11 +424,12 @@ def run_faiss(D, index_key):
 			for split in range(args.num_split):
 				print("Split ", split)
 				# Load splitted dataset
-				xt = get_train(split, args.num_split)
+				train_dataset = get_train(split, args.num_split)
+				dataset = read_data(split_dataset_path + str(args.num_split) + "_" + str(split) if args.num_split>1 else dataset_basedir, base=False if args.num_split>1 else True, offset_=None if args.num_split>1 else 0, shape_=None)
+				padded_D, faiss_m, dataset, train_dataset, queries = faiss_pad_dataset(dataset, train_dataset, queries, m)
 				# Build Faiss index
 				searcher_dir, searcher_path = get_searcher_path(split)
-				preproc = train_faiss(args.dataset, split_dataset_path, D, xt, split, args.num_split, args.metric, index_key, log2kstar, searcher_dir)
-				dataset = read_data(split_dataset_path + str(args.num_split) + "_" + str(split) if args.num_split>1 else dataset_basedir, base=False if args.num_split>1 else True, offset_=None if args.num_split>1 else 0, shape_=None)
+				preproc = train_faiss(args.dataset, split_dataset_path, padded_D, train_dataset, split, args.num_split, args.metric, "IVF"+str(L)+",PQ"+str(faiss_m), log2kstar, searcher_dir)
 				batch_size = min(args.batch, queries.shape[0])
 				# Create Faiss index
 				index = build_faiss(dataset, split, preproc)
