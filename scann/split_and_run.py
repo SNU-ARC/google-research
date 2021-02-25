@@ -286,7 +286,10 @@ def run_scann():
 		num_leaves, threshold, dims, metric = bc
 		# build_config_key = ''.join(bc)
 		for sc in search_config:
-			assert D%dims == 0
+			if args.sweep and D%dims!=0:
+				continue
+			else:
+				assert D%dims == 0
 			leaves_to_search, reorder = sc[0], sc[1]
 			# search_config_key = ''.join(sc)			
 			if leaves_to_search > num_leaves:
