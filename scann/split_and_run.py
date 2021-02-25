@@ -134,12 +134,13 @@ def read_data(dataset_path, offset_=None, shape_=None, base=True):
 		file = dataset_path+"glove-100-angular.hdf5" if base else dataset_path
 		if base:
 			dataset = h5py.File(file, "r")
-			dataset = dataset['train']			
-			normalized_dataset = dataset / np.linalg.norm(dataset, axis=1)[:, np.newaxis]
+			dataset = np.array(dataset['train'])
+			if args.metric == "dot_product":		
+				dataset = dataset / np.linalg.norm(dataset, axis=1)[:, np.newaxis]
 			if offset_!=None and shape_!=None:
-				return normalized_dataset[offset_:offset_+shape_]
+				return dataset[offset_:offset_+shape_]
 			else:
-				return normalized_dataset
+				return dataset
 		else:
 			dataset = h5py.File(dataset_path, "r")
 			return dataset['dataset']
