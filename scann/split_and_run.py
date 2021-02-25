@@ -256,18 +256,21 @@ def get_searcher_path(split):
 def run_scann():
 	gt, queries = prepare_eval()
 	if args.sweep:
-		# build_config = [[2000, 0.2, 2, args.metric], [2000, 0.2, 1, args.metric], [1500, 0.55, 2, args.metric], [1500, 0.55, 1, args.metric], [1000, 0.55, 2, args.metric], [1000, 0.55, 1, args.metric], \
-		 				  # [1000, 0.2, 2, args.metric], [1000, 0.2, 1, args.metric], [1400, 0.15, 1, args.metric], [1400, 0.15, 2, args.metric], [1400, 0.15, 3, args.metric], \
-		 				  # [800, 0.15, 2, args.metric], [800, 0.15, 1, args.metric]
-		# search_config = [1, 2, 4, 8, 16, 25, 30, 35, 40, 45, 50, 55, 60, 65, 75, 90, 110, 130, 150, 170, 200, 220, 250, 310, 400, 500, 800, 1000, 1250, 1500, 1750, 1900, 2000] 
+		build_config = [[2000, 0.2, 2, args.metric], [2000, 0.2, 1, args.metric], [1500, 0.55, 2, args.metric], [1500, 0.55, 1, args.metric], [1000, 0.55, 2, args.metric], [1000, 0.55, 1, args.metric], \
+		 				  [1000, 0.2, 2, args.metric], [1000, 0.2, 1, args.metric], [1400, 0.15, 1, args.metric], [1400, 0.15, 2, args.metric], [1400, 0.15, 3, args.metric], \
+		 				  [800, 0.15, 2, args.metric], [800, 0.15, 1, args.metric]]
+		search_config = [[1, args.reorder], [2, args.reorder], [4, args.reorder], [8, args.reorder], [16, args.reorder], [25, args.reorder], [130, args.reorder], [35, args.reorder], [40, args.reorder], \
+						 [45, args.reorder], [50, args.reorder], [55, args.reorder], [60, args.reorder], [65, args.reorder], [75, args.reorder], [90, args.reorder], [110, args.reorder], [130, args.reorder], [150, args.reorder], \
+						 [170, args.reorder], [200, args.reorder], [220, args.reorder], [250, args.reorder], [310, args.reorder], [400, args.reorder], [500, args.reorder], [800, args.reorder], [1000, args.reorder], \
+						 [1250, args.reorder], [1500, args.reorder], [1750, args.reorder], [1900, args.reorder], [2000, args.reorder]]
 
 		# For sift 1b
-		build_config = [[7000, 0.2, 2, args.metric],# (70000, 0.2, 3, args.metric), (5500, 0.2, 2, args.metric), (5500, 0.2, 3, args.metric), \
-						[7500, 0.2, 2, args.metric],\
-						[6500, 0.2, 2, args.metric]]
-		search_config = [[1, args.reorder], [2, args.reorder], [4, args.reorder], [8, args.reorder], [16, args.reorder], [32, args.reorder], [64, args.reorder], [128, args.reorder], \
-						 [256, args.reorder], [320, args.reorder], [384, args.reorder], [448, args.reorder], [512, args.reorder], [576, args.reorder], [640, args.reorder], [704, args.reorder], [768, args.reorder] \
-						 [1024, args.reorder], [1280, args.reorder], [1536, args.reorder], [2048, args.reorder], [2560, args.reorder], [3072, args.reorder], [4096, args.reorder], [8192, args.reorder], [16384, args.reorder]]
+		# build_config = [[7000, 0.2, 2, args.metric],# (70000, 0.2, 3, args.metric), (5500, 0.2, 2, args.metric), (5500, 0.2, 3, args.metric), \
+		# 				[7500, 0.2, 2, args.metric],\
+		# 				[6500, 0.2, 2, args.metric]]
+		# search_config = [[1, args.reorder], [2, args.reorder], [4, args.reorder], [8, args.reorder], [16, args.reorder], [32, args.reorder], [64, args.reorder], [128, args.reorder], \
+		# 				 [256, args.reorder], [320, args.reorder], [384, args.reorder], [448, args.reorder], [512, args.reorder], [576, args.reorder], [640, args.reorder], [704, args.reorder], [768, args.reorder], \
+		# 				 [1024, args.reorder], [1280, args.reorder], [1536, args.reorder], [2048, args.reorder], [2560, args.reorder], [3072, args.reorder], [4096, args.reorder], [8192, args.reorder], [16384, args.reorder]]
 		          		
 		f = open(sweep_result_path, "w")
 		f.write("Program: " + args.program + " Topk: " + str(args.topk) + " Num_split: " + str(args.num_split)+ " Batch: "+str(args.batch)+"\n")
@@ -278,10 +281,10 @@ def run_scann():
 
 	for bc in build_config:
 		num_leaves, threshold, dims, metric = bc
-		build_config_key = ''.join(bc)
+		# build_config_key = ''.join(bc)
 		for sc in search_config:
 			leaves_to_search, reorder = sc[0], sc[1]
-			search_config_key = ''.join(sc)			
+			# search_config_key = ''.join(sc)			
 			if leaves_to_search > num_leaves:
 				continue
 			if args.reorder!=-1:
@@ -555,7 +558,8 @@ else:
 
 os.makedirs("./result", exist_ok=True)
 split_dataset_path = None
-sweep_result_path = "./result/"+args.program+"_"+args.dataset+"_topk_"+str(args.topk)+"_num_split_"+str(args.num_split)+"_batch_"+str(args.batch)+"_sweep_result.txt"
+if args.sweep:
+	sweep_result_path = "./result/"+args.program+"_"+args.dataset+"_topk_"+str(args.topk)+"_num_split_"+str(args.num_split)+"_batch_"+str(args.batch)+"_sweep_result.txt"
 index_key = None
 N = -1
 D = -1
