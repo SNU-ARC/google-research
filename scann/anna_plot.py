@@ -28,14 +28,12 @@ def create_plot(dataset, results, linestyles, build_config):
         if build_config:
             print(algo['build_key'])
             color, faded, linestyle, marker = linestyles[algo['build_key']]
-            # handle, = plt.plot(xs, ys, '-', label=algo['build_key'], color=color,
-            #                    ms=4, mew=3, lw=3, linestyle=linestyle,
-            #                    marker=marker)
             handle, = plt.plot(xs, ys, '-', label=algo['build_key'], color=color,
                                ms=4, mew=3, lw=3, linestyle=linestyle,
                                marker='${}$'.format('1'))
             for i, sc in enumerate(algo['search_key']):
-                test = [plt.annotate('${}$'.format(sc), xy=(xs[i], ys[i]), xytext=(xs[i]-0.7*(len(results)-i), ys[i]+max_time/100*i*10), color=color, arrowprops=dict(facecolor=color, width=0.1, headwidth=5, headlength=5, lw=0))]
+                # test = [plt.annotate('${}$'.format(sc), xy=(xs[i], ys[i]), xytext=(xs[i]-0.05*(len(results)-i), ys[i]+max_time/100*i), color=color, arrowprops=dict(facecolor=color, width=0.1, headwidth=5, headlength=5, lw=0))]
+                test = [plt.annotate('${}$'.format(sc), xy=(xs[i], ys[i]), xytext=(xs[i]-0.2, ys[i]+max_time/100*i), color=color, arrowprops=dict(facecolor=color, width=0.1, headwidth=5, headlength=5, lw=0))]
                 # from adjustText import adjust_text
                 # adjust_text(test)
 
@@ -99,8 +97,9 @@ def create_plot(dataset, results, linestyles, build_config):
 
     # # Workaround for bug https://github.com/matplotlib/matplotlib/issues/6789
     ax.spines['bottom']._adjust_location()
+    os.makedirs("./result/plots/", exist_ok=True)
 
-    plt.savefig("./"+title+".png", bbox_inches='tight')
+    plt.savefig("./result/plots/"+title+".png", bbox_inches='tight')
     plt.close()
 
 def collect_result(path, args):
@@ -117,6 +116,7 @@ def collect_result(path, args):
     sc = []
     build_keys = []
     collected_result = []
+    reorder = -2
     with open(path, 'r') as file:
         lines = file.readlines()
         for i, line in enumerate(lines):
@@ -132,7 +132,10 @@ def collect_result(path, args):
                 result = line.split()
                 temp_build_key = '/'.join(result[:result.index("|")])
                 search_key = "/".join(result[result.index("|")+1:-2])  # make sure the last two is reorder and metric
-                reorder = result[-2]
+                if reorder == -2:
+                    reorder = result[-2]
+                elif reorder!=result[-2]:
+                    reorder="various"
                 metric = result[-1]
                 if args.build_config:
                     if temp_build_key not in build_keys:
@@ -152,6 +155,7 @@ def collect_result(path, args):
                             # search_key = temp_search_key
             else:
                 result = line.split()
+                print(result)
                 if topk == 1:
                     acc.append(float(result[0]))
                 elif topk == 10:
@@ -241,10 +245,6 @@ if __name__ == "__main__":
         default=False)
     args = parser.parse_args()
 
-    if not args.output:
-        args.output = 'results/%s.png' % (args.dataset)
-        print('writing output to %s' % args.output)
-
     if args.build_config:
         assert args.program!=None and args.dataset!=None
     # dataset = get_dataset(args.dataset)
@@ -259,6 +259,8 @@ if __name__ == "__main__":
 
     results = list()
     for root, _, files in os.walk('./result'):
+        if "plot" in root:
+            continue
         for fn in files:
             if args.dataset in fn and (args.program in fn if args.program!=None else True): 
                 res = collect_result(os.path.join(root, fn), args)
