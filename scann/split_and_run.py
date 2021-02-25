@@ -359,12 +359,11 @@ def run_scann():
 	if args.sweep:
 		f.close()
 
-def faiss_pad_dataset(dataset, m):
-	D = dataset.shape[0]
+def faiss_pad_dataset(dataset, train_dataset, queries, m):
+	D = dataset.shape[1]
 	if m==1 or m==2 or m==3 or m==4 or m==8 or m==12 or m==16 or m==20 or m==24 or m==28 or m==32 or m==40 or m==48 or m==56 or m==64 or m==96:
-		return dataset
+		return D, m, dataset, train_dataset, queries
 	else:
-		assert D%m == 0
 		dim_per_block = int(D/m)
 		if m<8:		# 4<m<8
 			faiss_m = 8
@@ -392,9 +391,12 @@ def faiss_pad_dataset(dataset, m):
 			faiss_m = 96
 		padded_D = dim_per_block * faiss_m
 		plus_dim = padded_D-D
-		dataset=np.concatenate((dataset, np.full((plus_dim), 0)), axis=-1)
+		dataset=np.concatenate((dataset, np.full((dataset.shape[0], plus_dim), 0)), axis=-1)
+		train_dataset=np.concatenate((train_dataset, np.full((train_dataset.shape[0], plus_dim), 0)), axis=-1)
+		queries=np.concatenate((queries, np.full((queries.shape[0], plus_dim), 0)), axis=-1)
 		print("Dataset dimension is padded from ", D, " to ", dataset.shape[1])
-		return dataset
+
+		return padded_D, faiss_m, dataset, train_dataset, queries
 
 def run_faiss(D, index_key):
 	gt, queries = prepare_eval()
@@ -410,9 +412,6 @@ def run_faiss(D, index_key):
 		search_config = [args.w]
 	for bc in build_config:
 		L, m, log2kstar, metric = bc
-		# assert D%m == 0 and (m==1 or m==2 or m==3 or m==4 or m==8 or m==12 or m==16 or m==20 or m==24 or m==28 or m==32 or m==40 or m==48 or m==56 or m==64 or m==96)	# Faiss only suports these
-		assert D%m == 0
-		index_key = "IVF"+str(L)+",PQ"+str(m)
 		for sc in search_config:
 			nprobe = sc
 			if args.sweep:
@@ -425,12 +424,12 @@ def run_faiss(D, index_key):
 			for split in range(args.num_split):
 				print("Split ", split)
 				# Load splitted dataset
-				xt = get_train(split, args.num_split)
+				train_dataset = get_train(split, args.num_split)
+				dataset = read_data(split_dataset_path + str(args.num_split) + "_" + str(split) if args.num_split>1 else dataset_basedir, base=False if args.num_split>1 else True, offset_=None if args.num_split>1 else 0, shape_=None)
+				padded_D, faiss_m, dataset, train_dataset, queries = faiss_pad_dataset(dataset, train_dataset, queries, m)
 				# Build Faiss index
 				searcher_dir, searcher_path = get_searcher_path(split)
-				preproc = train_faiss(args.dataset, split_dataset_path, D, xt, split, args.num_split, args.metric, index_key, log2kstar, searcher_dir)
-				dataset = read_data(split_dataset_path + str(args.num_split) + "_" + str(split) if args.num_split>1 else dataset_basedir, base=False if args.num_split>1 else True, offset_=None if args.num_split>1 else 0, shape_=None)
-				dataset = faiss_pad_dataset(datset, m)
+				preproc = train_faiss(args.dataset, split_dataset_path, padded_D, train_dataset, split, args.num_split, args.metric, "IVF"+str(L)+",PQ"+str(faiss_m), log2kstar, searcher_dir)
 				batch_size = min(args.batch, queries.shape[0])
 				# Create Faiss index
 				index = build_faiss(dataset, split, preproc)
