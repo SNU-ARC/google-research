@@ -28,6 +28,7 @@ parser.add_argument('--threshold', type=float, default=0.2, help='anisotropic_qu
 parser.add_argument('--reorder', type=int, default=-1, help='reorder size')
 ## Faiss parameters
 parser.add_argument('--k_star', type=int, default=-1, help='# of a single finegrained codewords')
+parser.add_argument('--is_gpu', action='store_true')
 
 ## Annoy parameters
 parser.add_argument('--n_trees', type=int, default=-1, help='# of trees')
@@ -60,6 +61,7 @@ if args.program=='scann':
 	assert args.topk!=-1
 elif args.program == "faiss":
 	from runfaiss import train_faiss, build_faiss, search_faiss
+	from runfaiss2 import run_local_faiss
 	import math
 	if args.sweep == False:
 		assert args.L!=-1 and args.k_star!=-1 and args.w!=-1 and args.m!=-1
@@ -111,7 +113,7 @@ def bvecs_read(fname):
 def mmap_fvecs(fname):
 	x = np.memmap(fname, dtype='int32', mode='r')
 	d = x[0]
-	return x.reshape(-1, d + 1)[:, 1:].view('float32')
+	return x.reshape(-1, d + 1)[:, 1:].copy().view('float32')
 
 def fvecs_write(fname, m):
 	m = m.astype('float32')
@@ -455,6 +457,54 @@ def run_faiss(D, index_key):
 	# print()
 	# print("Total latency (ms): ", total_latency)
 
+def run_faiss2(D):
+	gt, queries = prepare_eval()
+	if args.sweep:
+		M = 20 if "glove" in args.dataset else 64
+		build_config = [(4096, M, 4, args.metric), (4096, M, 8, args.metric), (4096, M, 16, args.metric), (8192, M, 4, args.metric), (8192, M, 8, args.metric), (8192, M, 16, args.metric)]	# L, m, log2(k*), metric
+		search_config = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]	# nprobe
+		f = open(sweep_result_path, "w")
+		f.write("Program: " + args.program + " Topk: " + str(args.topk) + " Num_split: " + str(args.num_split)+"\n")
+		f.write("L\tm\tk_star\t|\tw\tMetric\n")
+	else:
+		build_config = [(args.L, args.m, math.log(args.k_star,2), args.metric)]
+		search_config = [args.w]
+	for bc in build_config:
+		L, m, log2kstar, metric = bc
+		assert D%m == 0 and (m==1 or m==2 or m==3 or m==4 or m==8 or m==12 or m==16 or m==20 or m==24 or m==28 or m==32 or m==40 or m==48 or m==56 or m==64 or m==96)	# Faiss only suports these
+		assert (not args.is_gpu) or (log2kstar == 8)
+		index_key = "IVF"+str(L)+",PQ"+str(m)+"x"+str(log2kstar)
+		for sc in search_config:
+			nprobe = sc
+			if args.sweep:
+				f.write(str(L)+"\t"+str(m)+"\t"+str(2**log2kstar)+"\t|\t"+str(nprobe)+"\t"+str(metric)+"\n")
+			print(str(L)+"\t"+str(m)+"\t"+str(log2kstar)+"\t"+str(metric)+"\t"+str(nprobe)+"\n")
+			neighbors=np.empty((queries.shape[0],0))
+			distances=np.empty((queries.shape[0],0))
+			base_idx = 0
+			total_latency = 0
+			for split in range(args.num_split):
+				print("Split ", split)
+				# Load splitted dataset
+				xt = get_train(split, args.num_split)
+				# Build Faiss index
+				searcher_dir, searcher_path = get_searcher_path(split)
+				dataset = read_data(split_dataset_path + str(args.num_split) + "_" + str(split) if args.num_split>1 else dataset_basedir, base=False if args.num_split>1 else True, offset_=None if args.num_split>1 else 0, shape_=None)
+				args.batch = min(args.batch, queries.shape[0])
+				args.w = nprobe
+				# Faiss search
+				local_neighbors, local_distances, total_latency = run_local_faiss(args, searcher_dir, split, D, index_key, xt, dataset, queries)
+				neighbors = np.append(neighbors, local_neighbors+base_idx, axis=1)
+				distances = np.append(distances, local_distances, axis=1)
+				base_idx = base_idx + dataset.shape[0]
+			final_neighbors = sort_neighbors(distances, neighbors)
+			top1, top10, top100, top1000 = print_recall(final_neighbors, gt)
+			print("Top ", args.topk, " Total latency (ms): ", total_latency)
+			if args.sweep:
+				f.write(str(top1)+" %\t"+str(top10)+" %\t"+str(top100)+" %\t"+str(top1000)+" %\t"+str(total_latency)+"\n")
+	if args.sweep:
+		f.close()
+
 def run_annoy(D):
 	gt, queries = prepare_eval()
 	assert args.metric!='angular', "[TODO] don't understand how angular works yet..."
@@ -639,7 +689,8 @@ if args.eval_split or args.sweep:
 	if args.program == "scann":
 		run_scann()
 	elif args.program == "faiss":
-		run_faiss( D, index_key)
+		#run_faiss(D, index_key)
+		run_faiss2(D)
 	elif args.program == "annoy":
 		run_annoy(D)
 	else:
