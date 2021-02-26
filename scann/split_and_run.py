@@ -304,6 +304,7 @@ def run_scann():
 			total_latency = 0
 			base_idx = 0
 			for split in range(args.num_split):
+				num_per_split = int(N/args.num_split) if split < args.num_split-1 else N-base_idx
 				searcher_dir, searcher_path = get_searcher_path(split)  	
 				print("Split ", split)
 				# Load splitted dataset
@@ -314,7 +315,7 @@ def run_scann():
 				searcher_path = searcher_path + '_' + str(num_leaves) + '_' + str(threshold) + '_' + str(dims) + '_' + metric + ("_reorder" if args.reorder!=-1 else '')
 				if os.path.isdir(searcher_path):
 					print("Loading searcher from ", searcher_path)
-					searcher = scann.scann_ops_pybind.load_searcher(searcher_path)
+					searcher = scann.scann_ops_pybind.load_searcher(searcher_path, num_per_split, D)
 				else:
 					dataset = read_data(split_dataset_path + str(args.num_split) + "_" + str(split) if args.num_split>1 else dataset_basedir, base=False if args.num_split>1 else True, offset_=None if args.num_split>1 else 0, shape_=None)
 					if reorder!=-1:
@@ -352,7 +353,7 @@ def run_scann():
 					nd = [nd for _, nd in local_results]
 					neighbors = np.append(neighbors, np.vstack([n for n,d in nd])+base_idx, axis=1)
 					distances = np.append(distances, np.vstack([d for n,d in nd]), axis=1)
-				base_idx = base_idx + int(N/args.num_split)
+				base_idx = base_idx + num_per_split
 
 			final_neighbors = sort_neighbors(distances, neighbors)
 			top1, top10, top100, top1000 = print_recall(final_neighbors, gt)
@@ -621,7 +622,7 @@ qN = -1
 if "sift1m" in args.dataset:
 	dataset_basedir = basedir + "SIFT1M/"
 	split_dataset_path =dataset_basedir+"split_data/sift1m_"
-	groundtruth_path = dataset_basedir + "sift1m_"+args.metric+"_gt"
+	groundtruth_path = dataset_basedir + 'sift_groundtruth.ivecs' if args.metric=="squared_l2" else dataset_basedir + "sift1m_"+args.metric+"_gt"
 	N=1000000
 	D=128
 	num_iter = 1
@@ -630,7 +631,7 @@ if "sift1m" in args.dataset:
 elif "sift1b" in args.dataset:
 	dataset_basedir = basedir + "SIFT1B/"
 	split_dataset_path = dataset_basedir+"split_data/sift1b_"
-	groundtruth_path = dataset_basedir + "sift1b_"+args.metric+"_gt"
+	groundtruth_path = dataset_basedir +  'gnd/idx_1000M.ivecs' if args.metric=="squared_l2" else dataset_basedir + "sift1b_"+args.metric+"_gt"
 	N=1000000000
 	D=128
 	num_iter = 4
