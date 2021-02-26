@@ -311,11 +311,11 @@ def run_scann():
 				dataset = read_data(split_dataset_path + str(args.num_split) + "_" + str(split) if args.num_split>1 else dataset_basedir, base=False if args.num_split>1 else True, offset_=None if args.num_split>1 else 0, shape_=None)
 				if args.reorder!=-1:
 					searcher = scann.scann_ops_pybind.builder(dataset, 10, metric).tree(
-						num_leaves=num_leaves, num_leaves_to_search=args.w, training_sample_size=args.coarse_training_size).score_ah(
+						num_leaves=num_leaves, num_leaves_to_search=num_leaves, training_sample_size=args.coarse_training_size).score_ah(
 						dims, anisotropic_quantization_threshold=threshold, training_sample_size=args.fine_training_size).reorder(args.reorder).build()			
 				else:
 					searcher = scann.scann_ops_pybind.builder(dataset, 10, metric).tree(
-							num_leaves=num_leaves, num_leaves_to_search=args.w, training_sample_size=args.coarse_training_size).score_ah(
+							num_leaves=num_leaves, num_leaves_to_search=num_leaves, training_sample_size=args.coarse_training_size).score_ah(
 							dims, anisotropic_quantization_threshold=threshold, training_sample_size=args.fine_training_size).build()			
 				print("Saving searcher to ", searcher_path)
 				os.makedirs(searcher_path, exist_ok=True)
