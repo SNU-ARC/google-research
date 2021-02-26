@@ -95,7 +95,7 @@ def create_plot(dataset, results, linestyles, build_config):
     plt.xlim(max(x0,0), min(x1,1))
 
 
-    # # Workaround for bug https://github.com/matplotlib/matplotlib/issues/6789
+    # Workaround for bug https://github.com/matplotlib/matplotlib/issues/6789
     ax.spines['bottom']._adjust_location()
     os.makedirs("./result/plots/", exist_ok=True)
 
@@ -249,18 +249,13 @@ if __name__ == "__main__":
         help='Whether to plot according to the build_config',
         action='store_true',
         default=False)
-    parser.add_argument(
-        '--is_gpu',
-        help='gpu or not',
-        action='store_true',
-        default=False)
     args = parser.parse_args()
 
     if args.build_config:
         assert args.program!=None and args.dataset!=None and args.metric!=None
 
     def check_build_config(fn):
-        return (args.metric in fn) and ("gpu" in fn if args.is_gpu==True else True)
+        return (args.metric in fn) and ("GPU" in fn if ("GPU" in args.program) else True)
     # dataset = get_dataset(args.dataset)
     # count = int(args.count)
     # unique_algorithms = get_unique_algorithms()
@@ -276,7 +271,7 @@ if __name__ == "__main__":
         if "plot" in root:
             continue
         for fn in files:
-            if args.dataset in fn and (args.program in fn if args.program!=None else True) and (args.metric in fn if args.build_config else True): 
+            if args.dataset in fn and (args.program in fn if args.program!=None else True) and (args.metric in fn) and (check_build_config(fn) if args.build_config==True else True): 
                 res = collect_result(os.path.join(root, fn), args)
                 results+=res
     assert len(results) > 0
