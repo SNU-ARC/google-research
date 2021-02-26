@@ -422,14 +422,16 @@ def run_faiss(D):
 							[2000, int(D/32), log2kstar_, args.metric], [2000, int(D/16), log2kstar_, args.metric], [2000, int(D/8), log2kstar_, args.metric], [2000, int(D/4), log2kstar_, args.metric], [2000, int(D/3), log2kstar_, args.metric], [2000, int(D/2), log2kstar_, args.metric], [2000, D, log2kstar_, args.metric], \
 							[800, int(D/32), log2kstar_, args.metric], [800, int(D/16), log2kstar_, args.metric], [800, int(D/8), log2kstar_, args.metric], [800, int(D/4), log2kstar_, args.metric], [800, int(D/3), log2kstar_, args.metric], [800, int(D/2), log2kstar_, args.metric], [800, D, log2kstar_, args.metric]]	# L, m, log2(k*), metric
 		else:
-			log2kstar_ = 8
-			build_config = [[1000, int(D/32), log2kstar_, args.metric], [1000, int(D/16), log2kstar_, args.metric], [1000, int(D/8), log2kstar_, args.metric], [1000, int(D/4), log2kstar_, args.metric], [1000, int(D/3), log2kstar_, args.metric], [1000, int(D/2), log2kstar_, args.metric], [1000, D, log2kstar_, args.metric], \
-							[1000, int(D/32), log2kstar_/2, args.metric], [1000, int(D/16), log2kstar_/2, args.metric], [1000, int(D/8), log2kstar_/2, args.metric], [1000, int(D/4), log2kstar_/2, args.metric], [1000, int(D/3), log2kstar_/2, args.metric], [1000, int(D/2), log2kstar_/2, args.metric], [1000, D, log2kstar_/2, args.metric], \
-							[1000, int(D/32), log2kstar_*2, args.metric], [1000, int(D/16), log2kstar_*2, args.metric], [1000, int(D/8), log2kstar_*2, args.metric], [1000, int(D/4), log2kstar_*2, args.metric], [1000, int(D/3), log2kstar_*2, args.metric], [1000, int(D/2), log2kstar_*2, args.metric], [1000, D, log2kstar_*2, args.metric], \
-							[2000, int(D/32), log2kstar_, args.metric], [2000, int(D/16), log2kstar_, args.metric], [2000, int(D/8), log2kstar_, args.metric], [2000, int(D/4), log2kstar_, args.metric], [2000, int(D/3), log2kstar_, args.metric], [2000, int(D/2), log2kstar_, args.metric], [2000, D, log2kstar_, args.metric], \
-							[2000, int(D/32), log2kstar_/2, args.metric], [2000, int(D/16), log2kstar_/2, args.metric], [2000, int(D/8), log2kstar_/2, args.metric], [2000, int(D/4), log2kstar_/2, args.metric], [2000, int(D/3), log2kstar_/2, args.metric], [2000, int(D/2), log2kstar_/2, args.metric], [2000, D, log2kstar_/2, args.metric], \
-							[2000, int(D/32), log2kstar_*2, args.metric], [2000, int(D/16), log2kstar_*2, args.metric], [2000, int(D/8), log2kstar_*2, args.metric], [2000, int(D/4), log2kstar_*2, args.metric], [2000, int(D/3), log2kstar_*2, args.metric], [2000, int(D/2), log2kstar_*2, args.metric], [2000, D, log2kstar_*2, args.metric], \
-							[800, int(D/32), log2kstar_, args.metric], [800, int(D/16), log2kstar_, args.metric], [800, int(D/8), log2kstar_, args.metric], [800, int(D/4), log2kstar_, args.metric], [800, int(D/3), log2kstar_, args.metric], [800, int(D/2), log2kstar_, args.metric], [800, D, log2kstar_, args.metric]]	# L, m, log2(k*), metric
+			build_config = [[1000, int(D/32), 4, args.metric], [1000, int(D/16), 4, args.metric], [1000, int(D/8), 4, args.metric], [1000, int(D/4), 4, args.metric], [1000, int(D/3), 4, args.metric], [1000, int(D/2), 4, args.metric], [1000, D, 4, args.metric], \
+							[1000, int(D/32), 6, args.metric], [1000, int(D/16), 6, args.metric], [1000, int(D/8), 6, args.metric], [1000, int(D/4), 6, args.metric], [1000, int(D/3), 6, args.metric], [1000, int(D/2), 6, args.metric], [1000, D, 6, args.metric], \
+							[1000, int(D/32), 8, args.metric], [1000, int(D/16), 8, args.metric], [1000, int(D/8), 8, args.metric], [1000, int(D/4), 8, args.metric], [1000, int(D/3), 8, args.metric], [1000, int(D/2), 8, args.metric], [1000, D, 8, args.metric], \
+							[2000, int(D/32), 4, args.metric], [2000, int(D/16), 4, args.metric], [2000, int(D/8), 4, args.metric], [2000, int(D/4), 4, args.metric], [2000, int(D/3), 4, args.metric], [2000, int(D/2), 4, args.metric], [2000, D, 4, args.metric], \
+							[2000, int(D/32), 6, args.metric], [2000, int(D/16), 6, args.metric], [2000, int(D/8), 6, args.metric], [2000, int(D/4), 6, args.metric], [2000, int(D/3), 6, args.metric], [2000, int(D/2), 6, args.metric], [2000, D, 6, args.metric], \
+							[2000, int(D/32), 8, args.metric], [2000, int(D/16), 8, args.metric], [2000, int(D/8), 8, args.metric], [2000, int(D/4), 8, args.metric], [2000, int(D/3), 8, args.metric], [2000, int(D/2), 8, args.metric], [2000, D, 8, args.metric], \
+							[800, int(D/32), 4, args.metric], [800, int(D/16), 4, args.metric], [800, int(D/8), 4, args.metric], [800, int(D/4), 4, args.metric], [800, int(D/3), 4, args.metric], [800, int(D/2), 4, args.metric], [800, D, 4, args.metric], \
+							[800, int(D/32), 6, args.metric], [800, int(D/16), 6, args.metric], [800, int(D/8), 6, args.metric], [800, int(D/4), 6, args.metric], [800, int(D/3), 6, args.metric], [800, int(D/2), 6, args.metric], [800, D, 6, args.metric], \
+							[800, int(D/32), 8, args.metric], [800, int(D/16), 8, args.metric], [800, int(D/8), 8, args.metric], [800, int(D/4), 8, args.metric], [800, int(D/3), 8, args.metric], [800, int(D/2), 8, args.metric], [800, D, 8, args.metric], \
+							]	# L, m, log2(k*), metric
 
 			# assert False, "still thinking how to configure this"
 		search_config = [[1, args.reorder], [2, args.reorder], [4, args.reorder], [8, args.reorder], [16, args.reorder], [25, args.reorder], [130, args.reorder], [35, args.reorder], [40, args.reorder], \
@@ -445,7 +447,7 @@ def run_faiss(D):
 		search_config = [[args.w, args.reorder]]
 	for bc in build_config:
 		L, m, log2kstar, metric = bc
-		assert (not args.is_gpu) or (log2kstar == 8)
+		assert (not args.is_gpu and log2kstar<=8) or (log2kstar == 8)
 		for sc in search_config:
 			nprobe, args.reorder = sc[0], sc[1]
 			if nprobe > L or (D%m!=0 and args.sweep==True) or check_m_available(m)==False:
