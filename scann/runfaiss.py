@@ -290,8 +290,8 @@ def run_local_faiss(args, cacheroot, split, D, index_key, train, base, query):
         preproc_str = ''
         preproc_cachefile = None
 
-    cent_cachefile = '%s%s_cent_%s_%s_%s_%s%s.npy' % (
-        cacheroot, args.metric, dbname, split, args.num_split, preproc_str, ivf_str)
+    cent_cachefile = '%s%s_cent_%s_%s_%s_%s%s_%s.npy' % (
+        cacheroot, args.metric, dbname, split, args.num_split, preproc_str, ivf_str, D)
     print(cent_cachefile)
 
     index_cachefile = '%s%s_%s_%s_%s_%s%s,%s.index' % (
