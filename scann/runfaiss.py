@@ -84,7 +84,6 @@ def train_coarse_quantizer(x, k, preproc, is_gpu):
             vres, vdev, faiss.IndexFlat(d, fmetric))
     else:
         index = faiss.IndexFlat(d, fmetric)
-
     clus.train(x, index)
     centroids = faiss.vector_float_to_array(clus.centroids)
 

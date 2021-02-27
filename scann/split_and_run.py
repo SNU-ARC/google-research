@@ -484,6 +484,7 @@ def run_faiss(D):
 				train_dataset = get_train(split, args.num_split)
 				dataset = read_data(split_dataset_path + str(args.num_split) + "_" + str(split) if args.num_split>1 else dataset_basedir, base=False if args.num_split>1 else True, offset_=None if args.num_split>1 else 0, shape_=None)
 				padded_D, faiss_m, padded_dataset, padded_train_dataset, padded_queries = faiss_pad_dataset(dataset, train_dataset, queries, m)
+				print("shape:", train_dataset.shape)
 				# Build Faiss index
 				searcher_dir, searcher_path = get_searcher_path(split)
 				args.batch = min(args.batch, queries.shape[0])
@@ -595,7 +596,7 @@ def get_train(split=-1, total=-1):
 	elif "sift1b" in args.dataset:
 		return bvecs_read(dataset_basedir+'bigann_learn.bvecs')
 	elif "glove" in args.dataset:
-		return h5py.File(dataset_basedir+"glove-100-angular.hdf5", "r")['test']
+		return np.array(h5py.File(dataset_basedir+"glove-100-angular.hdf5", "r")['test'])
 	else:
 		assert False
 
