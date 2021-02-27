@@ -145,7 +145,7 @@ def read_data(dataset_path, offset_=None, shape_=None, base=True):
 				return dataset
 		else:
 			dataset = h5py.File(dataset_path, "r")
-			return dataset['dataset']
+			return np.array(dataset['dataset'])
 	else:
 		assert(false)
 
@@ -633,7 +633,7 @@ def get_queries():
 	elif "sift1b" in args.dataset:
 		return bvecs_read(dataset_basedir+'bigann_query.bvecs')
 	elif "glove" in args.dataset:
-		return h5py.File(dataset_basedir+"glove-100-angular.hdf5", "r")['test']
+		return np.array(h5py.File(dataset_basedir+"glove-100-angular.hdf5", "r")['test'])
 	else:
 		assert False
 
