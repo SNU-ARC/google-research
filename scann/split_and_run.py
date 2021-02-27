@@ -258,6 +258,16 @@ def get_searcher_path(split):
 	searcher_path = searcher_dir + args.dataset + '_searcher_' + str(args.num_split)+'_'+str(split)
 	return searcher_dir, searcher_path
 
+def check_available_search_config(search_config, num_leaves, dims):
+	sc_list = list()
+	for idx, sc in enumerate(search_config):
+		leaves_to_search = sc[0]
+		if leaves_to_search > num_leaves or (D%dims!=0 and args.sweep==True):
+			continue
+		else:
+			sc_list.append(idx)
+	return sc_list
+
 def run_scann():
 	gt, queries = prepare_eval()
 	if args.sweep:
@@ -269,7 +279,7 @@ def run_scann():
 			search_config = [[1, args.reorder], [2, args.reorder], [4, args.reorder], [8, args.reorder], [16, args.reorder], [32, args.reorder], [64, args.reorder], [128, args.reorder], \
 							 [256, args.reorder], [320, args.reorder], [384, args.reorder], [448, args.reorder], [512, args.reorder], [576, args.reorder], [640, args.reorder], [704, args.reorder], [768, args.reorder], \
 							 [1024, args.reorder], [1280, args.reorder], [1536, args.reorder], [2048, args.reorder], [2560, args.reorder], [3072, args.reorder], [4096, args.reorder], [4608, args.reorder], \
-							 [5120, args.reorder], [5632, args.reorder], [6144, args.reorder], [6656, args.reorder], [7168, args.reorder], [7,680, args.reorder], \
+							 [5120, args.reorder], [5632, args.reorder], [6144, args.reorder], [6656, args.reorder], [7168, args.reorder], [7680, args.reorder], \
 							 [8192, args.reorder], [16384, args.reorder]]
 		else:
 			build_config = [[2000, 0.2, 2, args.metric], [2000, 0.2, 1, args.metric], [1500, 0.55, 2, args.metric], [1500, 0.55, 1, args.metric], [1000, 0.55, 2, args.metric], [1000, 0.55, 1, args.metric], \
@@ -278,7 +288,7 @@ def run_scann():
 			search_config = [[1, args.reorder], [2, args.reorder], [4, args.reorder], [8, args.reorder], [16, args.reorder], [25, args.reorder], [30, args.reorder], [35, args.reorder], [40, args.reorder], \
 							 [45, args.reorder], [50, args.reorder], [55, args.reorder], [60, args.reorder], [65, args.reorder], [75, args.reorder], [90, args.reorder], [110, args.reorder], [130, args.reorder], [150, args.reorder], \
 							 [170, args.reorder], [200, args.reorder], [220, args.reorder], [250, args.reorder], [310, args.reorder], [400, args.reorder], [500, args.reorder], [800, args.reorder], [1000, args.reorder], \
-							 [1250, args.reorder], [1500, args.reorder], [1750, args.reorder], [1900, args.reorder], [2000, args.reorder]]
+							 [1250, args.reorder], [1500, args.reorder], [1750, args.reorder], [1900, args.reorder], [2000, args.reorder], [2048, args.reorder]]
 		          		
 		f = open(sweep_result_path, "w")
 		f.write("Program: " + args.program + " Topk: " + str(args.topk) + " Num_split: " + str(args.num_split)+ " Batch: "+str(args.batch)+"\n")
@@ -289,12 +299,12 @@ def run_scann():
 
 	for bc in build_config:
 		num_leaves, threshold, dims, metric = bc
-		neighbors=np.empty((len(search_config), queries.shape[0],0))
-		distances=np.empty((len(search_config), queries.shape[0],0))
-		total_latency = np.zeros(len(search_config))
-
+		sc_list = check_available_search_config(search_config, num_leaves, dims)
+		neighbors=np.empty((len(sc_list), queries.shape[0],0))
+		distances=np.empty((len(sc_list), queries.shape[0],0))
+		total_latency = np.zeros(len(sc_list))
+		base_idx = 0
 		for split in range(args.num_split):
-			base_idx = 0
 
 			num_per_split = int(N/args.num_split) if split < args.num_split-1 else N-base_idx
 			searcher_dir, searcher_path = get_searcher_path(split)  	
@@ -325,19 +335,15 @@ def run_scann():
 
 			n = list()
 			d = list()
-			for idx, sc in enumerate(search_config):
-				leaves_to_search, reorder = sc[0], sc[1]
-				if leaves_to_search > num_leaves or (D%dims!=0 and args.sweep==True):
-					continue
-				else:
-					assert D%dims == 0
+			for idx in sc_list:
+				leaves_to_search, reorder = search_config[idx]
+				assert D%dims == 0
+
 				if args.reorder!=-1:
 					assert args.topk <= reorder
 				else:
 					if args.sweep:
 						assert False, "Do you want reordering or not?"
-				if args.sweep and split==args.num_split-1:
-					f.write(str(num_leaves)+"\t"+str(threshold)+"\t"+str(int(D/dims))+"\t|\t"+str(leaves_to_search)+"\t"+str(reorder)+"\t"+str(metric)+"\n")
 				
 				print(str(num_leaves)+"\t"+str(threshold)+"\t"+str(int(D/dims))+"\t|\t"+str(leaves_to_search)+"\t"+str(reorder)+"\t"+str(metric)+"\n")
 				if args.batch > 1:
@@ -364,11 +370,14 @@ def run_scann():
 					n.append(np.vstack([n for n,d in nd])+base_idx)
 					d.append(np.vstack([d for n,d in nd]))
 			base_idx = base_idx + num_per_split
-
-		neighbors = np.append(neighbors, np.array(n), axis=-1)
-		distances = np.append(distances, np.array(d), axis=-1)
+			neighbors = np.append(neighbors, np.array(n), axis=-1)
+			distances = np.append(distances, np.array(d), axis=-1)
 		final_neighbors = sort_neighbors(distances, neighbors)
-		for idx in range(len(search_config)):
+		for idx in range(len(sc_list)):
+			if args.sweep:
+				leaves_to_search, reorder = search_config[sc_list[idx]]
+				f.write(str(num_leaves)+"\t"+str(threshold)+"\t"+str(int(D/dims))+"\t|\t"+str(leaves_to_search)+"\t"+str(reorder)+"\t"+str(metric)+"\n")
+			print(str(num_leaves)+"\t"+str(threshold)+"\t"+str(int(D/dims))+"\t|\t"+str(leaves_to_search)+"\t"+str(reorder)+"\t"+str(metric)+"\n")
 			top1, top10, top100, top1000 = print_recall(final_neighbors[idx], gt)
 			print("Top ", args.topk, " Total latency (ms): ", total_latency[idx])
 			if args.sweep:
