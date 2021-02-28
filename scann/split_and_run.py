@@ -71,7 +71,7 @@ elif args.program == "annoy":
 	import annoy
 	if args.batch > 1:
 		from multiprocessing.pool import ThreadPool
-	assert args.topk!=-1 and args.is_gpu==False
+	assert args.topk!=-1 and args.is_gpu==False and (args.num_search!=-1 and args.n_trees!=-1 if args.sweep!=True else True)
 
 def compute_recall(neighbors, true_neighbors):
 	total = 0
@@ -533,7 +533,7 @@ def run_annoy(D):
 	gt, queries = prepare_eval()
 	assert args.metric!='angular', "[TODO] don't understand how angular works yet..."
 	if args.sweep:
-		build_config = [(args.metric, 100), (args.metric, 200), (args.metric, 400)]
+		build_config = [(args.metric, 50), (args.metric, 100), (args.metric, 150), (args.metric, 200), (args.metric, 250), (args.metric, 300), (args.metric, 400)]
 		search_config = [100, 200, 400, 1000, 2000, 4000, 10000, 20000, 40000, 100000, 200000, 400000]
 		f = open(sweep_result_path, "w")
 		f.write("Program: " + args.program + " Topk: " + str(args.topk) + " Num_split: " + str(args.num_split)+"\n")
@@ -552,9 +552,10 @@ def run_annoy(D):
 
 		neighbors = np.empty((len(search_config), queries.shape[0],0), dtype=np.int32)
 		distances = np.empty((len(search_config), queries.shape[0],0), dtype=np.float32)
-		total_latency = np.zeros(len(sc_list))
+		total_latency = np.zeros(len(search_config))
 		base_idx = 0
 		for split in range(args.num_split):
+			num_per_split = int(N/args.num_split) if split < args.num_split-1 else N-base_idx
 			searcher_dir, searcher_path = get_searcher_path(split)
 			searcher_path = searcher_path + '_' + str(n_trees) + '_' + metric
 			print("Split ", split)
@@ -593,14 +594,14 @@ def run_annoy(D):
 					end = time.time()
 					ne = np.empty((0, args.topk))
 					di = np.empty((0, args.topk))
-					for n, d in result:
-						if len(n) < args.topk:
-							plus_dim = args.topk-len(n)
-							ne = np.append(ne, np.array(n+[N]*plus_dim).reshape(1, args.topk), axis=0)
-							di = np.append(di, np.array(d+[math.inf if metric=="squared_l2" else -math.inf]*plus_dim).reshape(1, args.topk), axis=0)
+					for nn, dd in result:
+						if len(nn) < args.topk:
+							plus_dim = args.topk-len(nn)
+							ne = np.append(ne, np.array(nn+[N]*plus_dim).reshape(1, args.topk), axis=0)
+							di = np.append(di, np.array(dd+[math.inf if metric=="squared_l2" else -math.inf]*plus_dim).reshape(1, args.topk), axis=0)
 						else:
-							ne = np.append(ne, np.array(n).reshape(1, args.topk), axis=0)
-							di = np.append(di, np.array(d).reshape(1, args.topk), axis=0)
+							ne = np.append(ne, np.array(nn).reshape(1, args.topk), axis=0)
+							di = np.append(di, np.array(dd).reshape(1, args.topk), axis=0)
 					total_latency[idx] = total_latency[idx] + 1000*(end - start)
 					n.append(ne+base_idx)
 					d.append(di)
@@ -619,14 +620,16 @@ def run_annoy(D):
 					nd = [nd for _, nd in local_results]
 					n.append(np.vstack([n for n,d in nd])+base_idx)
 					d.append(np.vstack([d for n,d in nd]))
-			base_idx = base_idx + dataset.shape[0]
+			base_idx = base_idx + num_per_split
+			neighbors = np.append(neighbors, np.array(n), axis=-1)
+			distances = np.append(distances, np.array(d), axis=-1)
 		final_neighbors = sort_neighbors(distances, neighbors)
 		for idx in range(len(search_config)):
 			if args.sweep:
 				f.write(str(n_trees)+"\t"+str(sc[idx])+"\t"+str(annoy_metric)+"\n")
-				f.write(str(top1)+" %\t"+str(top10)+" %\t"+str(top100)+" %\t"+str(top1000)+" %\t"+str(total_latency)+"\n")
+				f.write(str(top1)+" %\t"+str(top10)+" %\t"+str(top100)+" %\t"+str(top1000)+" %\t"+str(total_latency[idx])+"\n")
 			top1, top10, top100, top1000 = print_recall(final_neighbors[idx], gt)
-			print("Top ", args.topk, " Total latency (ms): ", total_latency)[idx]
+			print("Top ", args.topk, " Total latency (ms): ", total_latency[idx])
 	if args.sweep:
 		f.close()
 
