@@ -276,7 +276,7 @@ def run_scann():
 			build_config = [[7000, 0.55, 2, args.metric], [7000, 0.2, 3, args.metric], [7000, 0.2, 2, args.metric], [7000, 0.2, 1, args.metric], \
 							[8000, 0.55, 2, args.metric], [8000, 0.2, 3, args.metric], [8000, 0.2, 2, args.metric], [8000, 0.2, 1, args.metric], \
 							[6000, 0.55, 2, args.metric], [6000, 0.2, 3 , args.metric], [6000, 0.2, 2, args.metric], [6000, 0.2, 1, args.metric]]
-			search_config = [[1, args.reorder], [2, args.reorder], [4, args.reorder], [8, args.reorder], [16, args.reorder], [32, args.reorder], [64, args.reorder], [128, args.reorder], \
+			search_config = [[1, args.reorder], [16, args.reorder], [32, args.reorder], [64, args.reorder], [128, args.reorder], \
 							 [256, args.reorder], [320, args.reorder], [384, args.reorder], [448, args.reorder], [512, args.reorder], [576, args.reorder], [640, args.reorder], [704, args.reorder], [768, args.reorder], \
 							 [1024, args.reorder], [1280, args.reorder], [1536, args.reorder], [2048, args.reorder], [2560, args.reorder], [3072, args.reorder], [4096, args.reorder], [4608, args.reorder], \
 							 [5120, args.reorder], [5632, args.reorder], [6144, args.reorder], [6656, args.reorder], [7168, args.reorder], [7680, args.reorder], \
@@ -300,8 +300,8 @@ def run_scann():
 	for bc in build_config:
 		num_leaves, threshold, dims, metric = bc
 		sc_list = check_available_search_config(search_config, num_leaves, dims)
-		neighbors=np.empty((len(sc_list), queries.shape[0],0))
-		distances=np.empty((len(sc_list), queries.shape[0],0))
+		neighbors=np.empty((len(sc_list), queries.shape[0],0), dtype=np.int32)
+		distances=np.empty((len(sc_list), queries.shape[0],0), dtype=np.float32)
 		total_latency = np.zeros(len(sc_list))
 		base_idx = 0
 		for split in range(args.num_split):
