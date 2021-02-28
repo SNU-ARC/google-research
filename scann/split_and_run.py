@@ -70,15 +70,15 @@ elif args.program == "annoy":
 	assert args.topk!=-1
 
 def compute_recall(neighbors, true_neighbors):
-    total = 0
-    for gt_row, row in zip(true_neighbors, neighbors):
-        total += np.intersect1d(gt_row, row).shape[0]
-    return total / true_neighbors.size	
+	total = 0
+	for gt_row, row in zip(true_neighbors, neighbors):
+		total += np.intersect1d(gt_row, row).shape[0]
+	return total / true_neighbors.size
 
 def ivecs_read(fname):
-    a = np.fromfile(fname, dtype='int32')
-    d = a[0]
-    return a.reshape(-1, d + 1)[:, 1:].copy()
+	a = np.fromfile(fname, dtype='int32')
+	d = a[0]
+	return a.reshape(-1, d + 1)[:, 1:].copy()
 
 def ivecs_write(fname, m):
 	n, d = m.shape
@@ -132,7 +132,7 @@ def read_data(dataset_path, offset_=None, shape_=None, base=True):
 		file = dataset_path+"glove-100-angular.hdf5" if base else dataset_path
 		if base:
 			dataset = h5py.File(file, "r")
-			dataset = dataset['train']			
+			dataset = dataset['train']
 			normalized_dataset = dataset / np.linalg.norm(dataset, axis=1)[:, np.newaxis]
 			if offset_!=None and shape_!=None:
 				return normalized_dataset[offset_:offset_+shape_]
@@ -162,6 +162,14 @@ def write_gt_data(gt_data):
 		hf.create_dataset('dataset', data=gt_data)
 	print("Wrote to ", groundtruth_path, ", shape ", gt_data.shape)
 
+def write_split_gt_data(split_gt_path, gt_data):
+	if "sift1b" in args.dataset or "sift1m" in args.dataset:
+		ivecs_write(split_gt_path, gt_data)
+	elif "glove" in args.dataset:
+		hf = h5py.File(split_gt_path, 'w')
+		hf.create_dataset('dataset', data=gt_data)
+	print("Wrote to ", split_gt_path, ", shape ", gt_data.shape)
+
 def split(filename, num_iter, N, D):
 	num_per_split = int(N/args.num_split)
 	dataset = np.empty((0, D), dtype=np.uint8 if 'sift1b' in args.dataset else np.float32)
@@ -187,7 +195,7 @@ def split(filename, num_iter, N, D):
 					split_size = dataset[count*num_per_split:].shape[0]
 					write_split_data(split_dataset_path + str(args.num_split) + "_" + str(split), dataset[count*num_per_split:])
 					trainset = np.random.choice(split_size, int(0.1*split_size), replace=False)
-					write_split_data(split_dataset_path + "learn" + str(args.num_split) + "_" + str(split), dataset[count*num_per_split:][trainset])					
+					write_split_data(split_dataset_path + "learn" + str(args.num_split) + "_" + str(split), dataset[count*num_per_split:][trainset])
 					num_split_list.append(dataset[count*num_per_split:].shape[0])
 					split = split+1
 				break
@@ -207,20 +215,38 @@ def run_groundtruth():
 	groundtruth_dir = dataset_basedir + "groundtruth/"
 	if os.path.isdir(groundtruth_dir)!=True:
 		os.mkdir(groundtruth_dir)
-	dataset = read_data(dataset_basedir, base=True, offset_=0, shape_=None).astype('float32')
 	queries = np.array(get_queries(), dtype='float32')
 	groundtruth = np.empty([qN, 1000], dtype=np.int32)
-	xpp_handles = [np.ctypeslib.as_ctypes(row) for row in dataset]
+	groundtruth_simil = np.empty([qN, 1000], dtype=np.float32)
 	ypp_handles = [np.ctypeslib.as_ctypes(row) for row in queries]
 	gpp_handles = [np.ctypeslib.as_ctypes(row) for row in groundtruth]
-	xpp = (ctypes.POINTER(ctypes.c_float) * N)(*xpp_handles)
+	gspp_handles = [np.ctypeslib.as_ctypes(row) for row in groundtruth_simil]
 	ypp = (ctypes.POINTER(ctypes.c_float) * qN)(*ypp_handles)
 	gpp = (ctypes.POINTER(ctypes.c_int) * qN)(*gpp_handles)
+	gspp = (ctypes.POINTER(ctypes.c_float) * qN)(*gspp_handles)
+	if(args.num_split == -1):
+		dataset = read_data(dataset_basedir, base=True, offset_=0, shape_=None).astype('float32')
+		xpp_handles = [np.ctypeslib.as_ctypes(row) for row in dataset]
+		xpp = (ctypes.POINTER(ctypes.c_float) * N)(*xpp_handles)
 
-	libc = ctypes.CDLL('./groundtruth.so')
-	libc.compute_groundtruth.restype=None
-	libc.compute_groundtruth(N, D, qN, xpp, ypp, gpp, True if args.metric=="dot_product" else False)
-	write_gt_data(groundtruth)
+		libc = ctypes.CDLL('./groundtruth.so')
+		libc.compute_groundtruth.restype=None
+		libc.compute_groundtruth(0, N, D, qN, xpp, ypp, gpp, gspp, True if args.metric=="dot_product" else False)
+		write_gt_data(groundtruth)
+	else:
+		for num in range(args.num_split):
+			print("Working on", str(num+1), "th out of", str(args.num_split), "splits...")
+			num_per_split = int(N/args.num_split)
+			partial_split_dataset_path = split_dataset_path+str(args.num_split)+"_"+str(num)
+			dataset = read_data(partial_split_dataset_path, base=False, offset_=0, shape_=None).astype('float32')
+			xpp_handles = [np.ctypeslib.as_ctypes(row) for row in dataset]
+			xpp = (ctypes.POINTER(ctypes.c_float) * N)(*xpp_handles)
+
+			libc = ctypes.CDLL('./groundtruth.so')
+			libc.compute_groundtruth.restype=None
+			libc.compute_groundtruth(num, num_per_split, D, qN, xpp, ypp, gpp, gspp, True if args.metric=="dot_product" else False)
+		split_gt_path = groundtruth_path+"_split"
+		write_split_gt_data(split_gt_path, groundtruth)
 
 def sort_neighbors(distances, neighbors):
 	if "dot_product" == args.metric or "angular" == args.metric:
@@ -259,7 +285,7 @@ def run_scann():
 		# build_config = [[2000, 0.2, 2, args.metric], [2000, 0.2, 1, args.metric], [1500, 0.55, 2, args.metric], [1500, 0.55, 1, args.metric], [1000, 0.55, 2, args.metric], [1000, 0.55, 1, args.metric], \
 		 				  # [1000, 0.2, 2, args.metric], [1000, 0.2, 1, args.metric], [1400, 0.15, 1, args.metric], [1400, 0.15, 2, args.metric], [1400, 0.15, 3, args.metric], \
 		 				  # [800, 0.15, 2, args.metric], [800, 0.15, 1, args.metric]
-		# search_config = [1, 2, 4, 8, 16, 25, 30, 35, 40, 45, 50, 55, 60, 65, 75, 90, 110, 130, 150, 170, 200, 220, 250, 310, 400, 500, 800, 1000, 1250, 1500, 1750, 1900, 2000] 
+		# search_config = [1, 2, 4, 8, 16, 25, 30, 35, 40, 45, 50, 55, 60, 65, 75, 90, 110, 130, 150, 170, 200, 220, 250, 310, 400, 500, 800, 1000, 1250, 1500, 1750, 1900, 2000]
 
 		# For sift 1b
 		build_config = [[7000, 0.2, 2, args.metric],# (70000, 0.2, 3, args.metric), (5500, 0.2, 2, args.metric), (5500, 0.2, 3, args.metric), \
@@ -268,7 +294,7 @@ def run_scann():
 		search_config = [[1, args.reorder], [2, args.reorder], [4, args.reorder], [8, args.reorder], [16, args.reorder], [32, args.reorder], [64, args.reorder], [128, args.reorder], \
 						 [256, args.reorder], [320, args.reorder], [384, args.reorder], [448, args.reorder], [512, args.reorder], [576, args.reorder], [640, args.reorder], [704, args.reorder], [768, args.reorder] \
 						 [1024, args.reorder], [1280, args.reorder], [1536, args.reorder], [2048, args.reorder], [2560, args.reorder], [3072, args.reorder], [4096, args.reorder], [8192, args.reorder], [16384, args.reorder]]
-		          		
+
 		f = open(sweep_result_path, "w")
 		f.write("Program: " + args.program + " Topk: " + str(args.topk) + " Num_split: " + str(args.num_split)+ " Batch: "+str(args.batch)+"\n")
 		f.write("L\tThreashold\tm\t|\tw\tr\tMetric\n")
@@ -281,7 +307,7 @@ def run_scann():
 		build_config_key = ''.join(bc)
 		for sc in search_config:
 			leaves_to_search, reorder = sc[0], sc[1]
-			search_config_key = ''.join(sc)			
+			search_config_key = ''.join(sc)
 			if leaves_to_search > num_leaves:
 				continue
 			if args.reorder!=-1:
@@ -297,7 +323,7 @@ def run_scann():
 			total_latency = 0
 			base_idx = 0
 			for split in range(args.num_split):
-				searcher_dir, searcher_path = get_searcher_path(split)  	
+				searcher_dir, searcher_path = get_searcher_path(split)
 				print("Split ", split)
 				# Load splitted dataset
 				batch_size = min(args.batch, queries.shape[0])
@@ -313,11 +339,11 @@ def run_scann():
 					if reorder!=-1:
 						searcher = scann.scann_ops_pybind.builder(dataset, 10, metric).tree(
 							num_leaves=num_leaves, num_leaves_to_search=leaves_to_search, training_sample_size=args.coarse_training_size).score_ah(
-							dims, anisotropic_quantization_threshold=threshold, training_sample_size=args.fine_training_size).reorder(reorder).build()			
+							dims, anisotropic_quantization_threshold=threshold, training_sample_size=args.fine_training_size).reorder(reorder).build()
 					else:
 						searcher = scann.scann_ops_pybind.builder(dataset, 10, metric).tree(
 								num_leaves=num_leaves, num_leaves_to_search=leaves_to_search, training_sample_size=args.coarse_training_size).score_ah(
-								dims, anisotropic_quantization_threshold=threshold, training_sample_size=args.fine_training_size).build()			
+								dims, anisotropic_quantization_threshold=threshold, training_sample_size=args.fine_training_size).build()
 					print("Saving searcher to ", searcher_path)
 					os.makedirs(searcher_path, exist_ok=True)
 					searcher.serialize(searcher_path)
@@ -326,7 +352,7 @@ def run_scann():
 					start = time.time()
 					local_neighbors, local_distances = searcher.search_batched_parallel(queries, leaves_to_search=leaves_to_search, pre_reorder_num_neighbors=reorder, final_num_neighbors=args.topk, batch_size=batch_size)
 					# local_neighbors, local_distances = searcher.search_batched(queries, leaves_to_search=leaves_to_search, pre_reorder_num_neighbors=reorder, final_num_neighbors=args.topk)
-					end = time.time() 
+					end = time.time()
 					local_distances[local_neighbors==2147483647] =  math.inf if metric=="squared_l2" else -math.inf 		# 2147483647: maximum integer value
 					total_latency = total_latency + 1000*(end - start)
 					neighbors = np.append(neighbors, local_neighbors+base_idx, axis=1)
@@ -555,7 +581,7 @@ else:
 
 os.makedirs("./result", exist_ok=True)
 split_dataset_path = None
-sweep_result_path = "./result/"+args.program+"_"+args.dataset+"_topk_"+str(args.topk)+"_num_split_"+str(args.num_split)+"_batch_"+str(args.batch)+"_sweep_result.txt"
+#sweep_result_path = "./result/"+args.program+"_"+args.dataset+"_topk_"+str(args.topk)+"_num_split_"+str(args.num_split)+"_batch_"+str(args.batch)+"_sweep_result.txt"
 index_key = None
 N = -1
 D = -1
