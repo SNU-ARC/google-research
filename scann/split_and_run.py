@@ -74,15 +74,15 @@ elif args.program == "annoy":
 	assert args.topk!=-1 and args.is_gpu==False
 
 def compute_recall(neighbors, true_neighbors):
-	total = 0
-	for gt_row, row in zip(true_neighbors, neighbors):
-		total += np.intersect1d(gt_row, row).shape[0]
-	return total / true_neighbors.size
+    total = 0
+    for gt_row, row in zip(true_neighbors, neighbors):
+        total += np.intersect1d(gt_row, row).shape[0]
+    return total / true_neighbors.size	
 
 def ivecs_read(fname):
-	a = np.fromfile(fname, dtype='int32')
-	d = a[0]
-	return a.reshape(-1, d + 1)[:, 1:].copy()
+    a = np.fromfile(fname, dtype='int32')
+    d = a[0]
+    return a.reshape(-1, d + 1)[:, 1:].copy()
 
 def ivecs_write(fname, m):
 	n, d = m.shape
@@ -137,7 +137,7 @@ def read_data(dataset_path, offset_=None, shape_=None, base=True):
 		if base:
 			dataset = h5py.File(file, "r")
 			dataset = np.array(dataset['train'], dtype='float32')
-			if args.metric == "dot_product":
+			if args.metric == "dot_product":		
 				dataset = dataset / np.linalg.norm(dataset, axis=1)[:, np.newaxis]
 			if offset_!=None and shape_!=None:
 				return dataset[offset_:offset_+shape_]
@@ -167,14 +167,6 @@ def write_gt_data(gt_data):
 		hf.create_dataset('dataset', data=gt_data)
 	print("Wrote to ", groundtruth_path, ", shape ", gt_data.shape)
 
-def write_split_gt_data(split_gt_path, gt_data):
-	if "sift1b" in args.dataset or "sift1m" in args.dataset:
-		ivecs_write(split_gt_path, gt_data)
-	elif "glove" in args.dataset:
-		hf = h5py.File(split_gt_path, 'w')
-		hf.create_dataset('dataset', data=gt_data)
-	print("Wrote to ", split_gt_path, ", shape ", gt_data.shape)
-
 def split(filename, num_iter, N, D):
 	num_per_split = int(N/args.num_split)
 	dataset = np.empty((0, D), dtype=np.uint8 if 'sift1b' in args.dataset else np.float32)
@@ -200,7 +192,7 @@ def split(filename, num_iter, N, D):
 					split_size = dataset[count*num_per_split:].shape[0]
 					write_split_data(split_dataset_path + str(args.num_split) + "_" + str(split), dataset[count*num_per_split:])
 					trainset = np.random.choice(split_size, int(0.1*split_size), replace=False)
-					write_split_data(split_dataset_path + "learn" + str(args.num_split) + "_" + str(split), dataset[count*num_per_split:][trainset])
+					write_split_data(split_dataset_path + "learn" + str(args.num_split) + "_" + str(split), dataset[count*num_per_split:][trainset])					
 					num_split_list.append(dataset[count*num_per_split:].shape[0])
 					split = split+1
 				break
@@ -220,38 +212,20 @@ def run_groundtruth():
 	groundtruth_dir = dataset_basedir + "groundtruth/"
 	if os.path.isdir(groundtruth_dir)!=True:
 		os.mkdir(groundtruth_dir)
+	dataset = read_data(dataset_basedir, base=True, offset_=0, shape_=None).astype('float32')
 	queries = np.array(get_queries(), dtype='float32')
 	groundtruth = np.empty([qN, 1000], dtype=np.int32)
-	groundtruth_simil = np.empty([qN, 1000], dtype=np.float32)
+	xpp_handles = [np.ctypeslib.as_ctypes(row) for row in dataset]
 	ypp_handles = [np.ctypeslib.as_ctypes(row) for row in queries]
 	gpp_handles = [np.ctypeslib.as_ctypes(row) for row in groundtruth]
-	gspp_handles = [np.ctypeslib.as_ctypes(row) for row in groundtruth_simil]
+	xpp = (ctypes.POINTER(ctypes.c_float) * N)(*xpp_handles)
 	ypp = (ctypes.POINTER(ctypes.c_float) * qN)(*ypp_handles)
 	gpp = (ctypes.POINTER(ctypes.c_int) * qN)(*gpp_handles)
-	gspp = (ctypes.POINTER(ctypes.c_float) * qN)(*gspp_handles)
-	if(args.num_split == -1):
-		dataset = read_data(dataset_basedir, base=True, offset_=0, shape_=None).astype('float32')
-		xpp_handles = [np.ctypeslib.as_ctypes(row) for row in dataset]
-		xpp = (ctypes.POINTER(ctypes.c_float) * N)(*xpp_handles)
 
-		libc = ctypes.CDLL('./groundtruth.so')
-		libc.compute_groundtruth.restype=None
-		libc.compute_groundtruth(0, N, D, qN, xpp, ypp, gpp, gspp, True if args.metric=="dot_product" else False)
-		write_gt_data(groundtruth)
-	else:
-		for num in range(args.num_split):
-			print("Working on", str(num+1), "th out of", str(args.num_split), "splits...")
-			num_per_split = int(N/args.num_split)
-			partial_split_dataset_path = split_dataset_path+str(args.num_split)+"_"+str(num)
-			dataset = read_data(partial_split_dataset_path, base=False, offset_=0, shape_=None).astype('float32')
-			xpp_handles = [np.ctypeslib.as_ctypes(row) for row in dataset]
-			xpp = (ctypes.POINTER(ctypes.c_float) * N)(*xpp_handles)
-
-			libc = ctypes.CDLL('./groundtruth.so')
-			libc.compute_groundtruth.restype=None
-			libc.compute_groundtruth(num, num_per_split, D, qN, xpp, ypp, gpp, gspp, True if args.metric=="dot_product" else False)
-		split_gt_path = groundtruth_path+"_split"
-		write_split_gt_data(split_gt_path, groundtruth)
+	libc = ctypes.CDLL('./groundtruth.so')
+	libc.compute_groundtruth.restype=None
+	libc.compute_groundtruth(N, D, qN, xpp, ypp, gpp, True if args.metric=="dot_product" else False)
+	write_gt_data(groundtruth)
 
 def sort_neighbors(distances, neighbors):
 	if "dot_product" == args.metric or "angular" == args.metric:
@@ -284,7 +258,7 @@ def get_searcher_path(split):
 	searcher_path = searcher_dir + args.dataset + '_searcher_' + str(args.num_split)+'_'+str(split)
 	return searcher_dir, searcher_path
 
-def check_available_search_config(search_config, num_leaves, dims):
+def scann_check_available_search_config(search_config, num_leaves, dims):
 	sc_list = list()
 	for idx, sc in enumerate(search_config):
 		leaves_to_search = sc[0]
@@ -315,7 +289,7 @@ def run_scann():
 							 [45, args.reorder], [50, args.reorder], [55, args.reorder], [60, args.reorder], [65, args.reorder], [75, args.reorder], [90, args.reorder], [110, args.reorder], [130, args.reorder], [150, args.reorder], \
 							 [170, args.reorder], [200, args.reorder], [220, args.reorder], [250, args.reorder], [310, args.reorder], [400, args.reorder], [500, args.reorder], [800, args.reorder], [1000, args.reorder], \
 							 [1250, args.reorder], [1500, args.reorder], [1750, args.reorder], [1900, args.reorder], [2000, args.reorder], [2048, args.reorder]]
-
+		          		
 		f = open(sweep_result_path, "w")
 		f.write("Program: " + args.program + " Topk: " + str(args.topk) + " Num_split: " + str(args.num_split)+ " Batch: "+str(args.batch)+"\n")
 		f.write("L\tThreashold\tm\t|\tw\tr\tMetric\n")
@@ -325,7 +299,7 @@ def run_scann():
 
 	for bc in build_config:
 		num_leaves, threshold, dims, metric = bc
-		sc_list = check_available_search_config(search_config, num_leaves, dims)
+		sc_list = scann_check_available_search_config(search_config, num_leaves, dims)
 		neighbors=np.empty((len(sc_list), queries.shape[0],0), dtype=np.int32)
 		distances=np.empty((len(sc_list), queries.shape[0],0), dtype=np.float32)
 		total_latency = np.zeros(len(sc_list))
@@ -333,7 +307,7 @@ def run_scann():
 		for split in range(args.num_split):
 
 			num_per_split = int(N/args.num_split) if split < args.num_split-1 else N-base_idx
-			searcher_dir, searcher_path = get_searcher_path(split)
+			searcher_dir, searcher_path = get_searcher_path(split)  	
 			print("Split ", split)
 			# Load splitted dataset
 			batch_size = min(args.batch, queries.shape[0])
@@ -350,11 +324,11 @@ def run_scann():
 				if args.reorder!=-1:
 					searcher = scann.scann_ops_pybind.builder(dataset, 10, metric).tree(
 						num_leaves=num_leaves, num_leaves_to_search=num_leaves, training_sample_size=args.coarse_training_size).score_ah(
-						dims, anisotropic_quantization_threshold=threshold, training_sample_size=args.fine_training_size).reorder(args.reorder).build()
+						dims, anisotropic_quantization_threshold=threshold, training_sample_size=args.fine_training_size).reorder(args.reorder).build()			
 				else:
 					searcher = scann.scann_ops_pybind.builder(dataset, 10, metric).tree(
 							num_leaves=num_leaves, num_leaves_to_search=num_leaves, training_sample_size=args.coarse_training_size).score_ah(
-							dims, anisotropic_quantization_threshold=threshold, training_sample_size=args.fine_training_size).build()
+							dims, anisotropic_quantization_threshold=threshold, training_sample_size=args.fine_training_size).build()			
 				print("Saving searcher to ", searcher_path)
 				os.makedirs(searcher_path, exist_ok=True)
 				searcher.serialize(searcher_path)
@@ -370,13 +344,13 @@ def run_scann():
 				else:
 					if args.sweep:
 						assert False, "Do you want reordering or not?"
-
+				
 				print(str(num_leaves)+"\t"+str(threshold)+"\t"+str(int(D/dims))+"\t|\t"+str(leaves_to_search)+"\t"+str(reorder)+"\t"+str(metric)+"\n")
 				if args.batch > 1:
 					start = time.time()
 					local_neighbors, local_distances = searcher.search_batched_parallel(queries, leaves_to_search=leaves_to_search, pre_reorder_num_neighbors=reorder, final_num_neighbors=args.topk, batch_size=batch_size)
 					# local_neighbors, local_distances = searcher.search_batched(queries, leaves_to_search=leaves_to_search, pre_reorder_num_neighbors=reorder, final_num_neighbors=args.topk)
-					end = time.time()
+					end = time.time() 
 					local_distances[local_neighbors==2147483647] =  math.inf if metric=="squared_l2" else -math.inf 		# 2147483647: maximum integer value
 					total_latency[idx] = total_latency[idx] + 1000*(end - start)
 					n.append(local_neighbors+base_idx)
@@ -483,7 +457,7 @@ def run_faiss(D):
 						 [45, args.reorder], [50, args.reorder], [55, args.reorder], [60, args.reorder], [65, args.reorder], [75, args.reorder], [90, args.reorder], [110, args.reorder], [130, args.reorder], [150, args.reorder], \
 						 [170, args.reorder], [200, args.reorder], [220, args.reorder], [250, args.reorder], [310, args.reorder], [400, args.reorder], [500, args.reorder], [800, args.reorder], [1000, args.reorder], \
 						 [1250, args.reorder], [1500, args.reorder], [1750, args.reorder], [1900, args.reorder], [2000, args.reorder]]
-
+		
 		f = open(sweep_result_path, "w")
 		f.write("Program: " + args.program + ("GPU" if args.is_gpu else "") + " Topk: " + str(args.topk) + " Num_split: " + str(args.num_split)+ " Batch: "+str(args.batch)+"\n")
 		f.write("L\tm\tk_star\t|\tw\tMetric\n")
@@ -549,36 +523,40 @@ def run_annoy(D):
 			annoy_metric = "euclidean"
 		elif metric == "angular":
 			annoy_metric = "angular"
-		for sc in search_config:
-			num_search = sc
-			if args.sweep:
-				f.write(str(n_trees)+"\t"+str(num_search)+"\t"+str(annoy_metric)+"\n")
-			print(str(n_trees)+"\t"+str(num_search)+"\t"+str(annoy_metric))
-			neighbors=np.empty((queries.shape[0],0))
-			distances=np.empty((queries.shape[0],0))
-			base_idx = 0
-			total_latency = 0
-			for split in range(args.num_split):
-				searcher_dir, searcher_path = get_searcher_path(split)
-				searcher_path = searcher_path + '_' + str(n_trees) + '_' + metric
-				print("Split ", split)
 
+		neighbors = np.empty((len(search_config), queries.shape[0],0), dtype=np.int32)
+		distances = np.empty((len(search_config), queries.shape[0],0), dtype=np.float32)
+		total_latency = np.zeros(len(sc_list))
+		base_idx = 0
+		for split in range(args.num_split):
+			searcher_dir, searcher_path = get_searcher_path(split)
+			searcher_path = searcher_path + '_' + str(n_trees) + '_' + metric
+			print("Split ", split)
+
+			# Create Annoy index
+			searcher = annoy.AnnoyIndex(D, metric=annoy_metric)
+			if os.path.isfile(searcher_path):
+				print("Loading searcher from ", searcher_path)
+				searcher.load(searcher_path)
+			else:
 				# Load splitted dataset
 				dataset = read_data(split_dataset_path + str(args.num_split) + "_" + str(split) if args.num_split>1 else dataset_basedir, base=False if args.num_split>1 else True, offset_=None if args.num_split>1 else 0, shape_=None)
-				# Create Annoy index
-				searcher = annoy.AnnoyIndex(D, metric=annoy_metric)
-				if os.path.isfile(searcher_path):
-					print("Loading searcher from ", searcher_path)
-					searcher.load(searcher_path)
-				else:
-					print("Annoy, adding items")
-					for i, x in enumerate(dataset):
-					    searcher.add_item(i, x.tolist())
-					print("Annoy, building trees")
-					searcher.build(n_trees)
-					print("Saving searcher to ", searcher_path)
-					os.makedirs(searcher_dir, exist_ok=True)
-					searcher.save(searcher_path)
+				print("Annoy, adding items")
+				for i, x in enumerate(dataset):
+				    searcher.add_item(i, x.tolist())
+				print("Annoy, building trees")
+				searcher.build(n_trees)
+				print("Saving searcher to ", searcher_path)
+				os.makedirs(searcher_dir, exist_ok=True)
+				searcher.save(searcher_path)
+			n = list()
+			d = list()			
+			for idx, sc in enumerate(search_config):
+				num_search = sc
+				# if args.sweep:
+				# 	f.write(str(n_trees)+"\t"+str(num_search)+"\t"+str(annoy_metric)+"\n")
+				print(str(n_trees)+"\t"+str(num_search)+"\t"+str(annoy_metric))
+
 
 				print("Entering Annoy searcher")
 				# Annoy batch version
@@ -587,17 +565,19 @@ def run_annoy(D):
 					start = time.time()
 					result = pool.map(lambda q: searcher.get_nns_by_vector(q.tolist(), args.topk, num_search, include_distances=True), queries)
 					end = time.time()
-					neighbors = np.empty((0, args.topk))
-					distances = np.empty((0, args.topk))
+					ne = np.empty((0, args.topk))
+					di = np.empty((0, args.topk))
 					for n, d in result:
 						if len(n) < args.topk:
 							plus_dim = args.topk-len(n)
-							neighbors = np.append(neighbors, np.array(n+[N]*plus_dim).reshape(1, args.topk), axis=0)
-							distances = np.append(distances, np.array(d+[math.inf if metric=="squared_l2" else -math.inf]*plus_dim).reshape(1, args.topk), axis=0)
+							ne = np.append(ne, np.array(n+[N]*plus_dim).reshape(1, args.topk), axis=0)
+							di = np.append(di, np.array(d+[math.inf if metric=="squared_l2" else -math.inf]*plus_dim).reshape(1, args.topk), axis=0)
 						else:
-							neighbors = np.append(neighbors, np.array(n).reshape(1, args.topk), axis=0)
-							distances = np.append(distances, np.array(d).reshape(1, args.topk), axis=0)
-					total_latency = total_latency + (end - start)*1000
+							ne = np.append(ne, np.array(n).reshape(1, args.topk), axis=0)
+							di = np.append(di, np.array(d).reshape(1, args.topk), axis=0)
+					total_latency[idx] = total_latency[idx] + 1000*(end - start)
+					n.append(ne+base_idx)
+					d.append(di)
 				else:
 					def single_query(query, base_idx):
 						start = time.time()
@@ -609,17 +589,18 @@ def run_annoy(D):
 						return (time.time() - start, (local_neighbors, local_distances))
 
 					local_results = [single_query(q, base_idx) for q in queries]
-					total_latency += (np.sum(np.array([time for time, _ in local_results]).reshape(queries.shape[0], 1)))*1000
+					total_latency[idx]  += (np.sum(np.array([time for time, _ in local_results]).reshape(queries.shape[0], 1)))*1000
 					nd = [nd for _, nd in local_results]
-					neighbors = np.append(neighbors, np.vstack([n for n,d in nd])+base_idx,  axis=1)
-					distances = np.append(distances, np.vstack([d for n,d in nd]), axis=1)
-				base_idx = base_idx + dataset.shape[0]
-
-			final_neighbors = sort_neighbors(distances, neighbors)
-			top1, top10, top100, top1000 = print_recall(final_neighbors, gt)
-			print("Top ", args.topk, " Total latency (ms): ", total_latency)
+					n.append(np.vstack([n for n,d in nd])+base_idx)
+					d.append(np.vstack([d for n,d in nd]))
+			base_idx = base_idx + dataset.shape[0]
+		final_neighbors = sort_neighbors(distances, neighbors)
+		for idx in range(len(search_config)):
 			if args.sweep:
+				f.write(str(n_trees)+"\t"+str(sc[idx])+"\t"+str(annoy_metric)+"\n")
 				f.write(str(top1)+" %\t"+str(top10)+" %\t"+str(top100)+" %\t"+str(top1000)+" %\t"+str(total_latency)+"\n")
+			top1, top10, top100, top1000 = print_recall(final_neighbors[idx], gt)
+			print("Top ", args.topk, " Total latency (ms): ", total_latency)[idx]
 	if args.sweep:
 		f.close()
 
