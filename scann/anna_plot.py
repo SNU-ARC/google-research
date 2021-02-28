@@ -200,50 +200,8 @@ if __name__ == "__main__":
         '--metric',
         metavar="METRIC",
         default=None)
-    # parser.add_argument(
-    #     '--count',
-    #     default=10)
-    # parser.add_argument(
-    #     '--definitions',
-    #     metavar='FILE',
-    #     help='load algorithm definitions from FILE',
-    #     default='algos.yaml')
-    # parser.add_argument(
-    #     '--limit',
-    #     default=-1)
     parser.add_argument(
         '-o', '--output')
-    # parser.add_argument(
-    #     '-x', '--x-axis',
-    #     help='Which metric to use on the X-axis',
-    #     # choices=metrics.keys(),
-    #     default="k-nn")
-    # parser.add_argument(
-    #     '-y', '--y-axis',
-    #     help='Which metric to use on the Y-axis',
-    #     # choices=metrics.keys(),
-    #     default="qps")
-    # parser.add_argument(
-    #     '-X', '--x-scale',
-    #     help='Scale to use when drawing the X-axis. Typically linear, logit or a2',
-    #     default='linear')
-    # parser.add_argument(
-    #     '-Y', '--y-scale',
-    #     help='Scale to use when drawing the Y-axis',
-    #     choices=["linear", "log", "symlog", "logit"],
-    #     default='linear')
-    # parser.add_argument(
-    #     '--raw',
-    #     help='Show raw results (not just Pareto frontier) in faded colours',
-    #     action='store_true')
-    # parser.add_argument(
-    #     '--batch',
-    #     help='Plot runs in batch mode',
-    #     action='store_true')
-    # parser.add_argument(
-    #     '--recompute',
-    #     help='Clears the cache and recomputes the metrics',
-    #     action='store_true')
     parser.add_argument(
         '--build_config',
         help='Whether to plot according to the build_config',
@@ -255,16 +213,7 @@ if __name__ == "__main__":
         assert args.program!=None and args.dataset!=None and args.metric!=None
 
     def check_build_config(fn):
-        return (args.metric in fn) and ("GPU" in fn if ("GPU" in args.program) else True)
-    # dataset = get_dataset(args.dataset)
-    # count = int(args.count)
-    # unique_algorithms = get_unique_algorithms()
-    # results = load_all_results(args.dataset, count, args.batch)
-    # linestyles = create_linestyles(sorted(unique_algorithms))
-    # runs = compute_metrics(np.array(dataset["distances"]),
-    #                        results, args.x_axis, args.y_axis, args.recompute)
-    # if not runs:
-    #     raise Exception('Nothing to plot')
+        return (args.metric in fn) and ("GPU" in fn if ("GPU" in args.program) else "GPU" not in fn)
 
     results = list()
     for root, _, files in os.walk('./result'):
