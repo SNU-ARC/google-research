@@ -88,13 +88,12 @@ def create_searcher(db, scann_config, training_threads=0):
       scann_pybind.ScannNumpy(db, scann_config, training_threads))
 
 
-def load_searcher(artifacts_dir):
+def load_searcher(artifacts_dir, N, D):
   """Loads searcher assets from artifacts_dir and returns a ScaNN searcher."""
 
   def load_if_exists(filename):
     path = os.path.join(artifacts_dir, filename)
-    return np.load(path) if os.path.isfile(path) else None
-
+    return np.load(path, mmap_mode="r") if os.path.isfile(path) else None
   db = load_if_exists("dataset.npy")
   tokenization = load_if_exists("datapoint_to_token.npy")
   hashed_db = load_if_exists("hashed_dataset.npy")

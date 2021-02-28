@@ -28,14 +28,12 @@ def create_plot(dataset, results, linestyles, build_config):
         if build_config:
             print(algo['build_key'])
             color, faded, linestyle, marker = linestyles[algo['build_key']]
-            # handle, = plt.plot(xs, ys, '-', label=algo['build_key'], color=color,
-            #                    ms=4, mew=3, lw=3, linestyle=linestyle,
-            #                    marker=marker)
             handle, = plt.plot(xs, ys, '-', label=algo['build_key'], color=color,
-                               ms=4, mew=3, lw=3, linestyle=linestyle,
-                               marker='${}$'.format('1'))
+                               ms=0.5, mew=3, lw=1.5, linestyle=linestyle,
+                               marker=marker)
             for i, sc in enumerate(algo['search_key']):
-                test = [plt.annotate('${}$'.format(sc), xy=(xs[i], ys[i]), xytext=(xs[i]-0.7*(len(results)-i), ys[i]+max_time/100*i*10), color=color, arrowprops=dict(facecolor=color, width=0.1, headwidth=5, headlength=5, lw=0))]
+                #test = [plt.annotate('${}$'.format(sc), xy=(xs[i], ys[i]), xytext=(xs[i]-0.7*(len(results)-i), ys[i]+max_time/100*i*10), color=color, arrowprops=dict(facecolor=color, width=0.1, headwidth=5, headlength=5, lw=0))]
+                plt.annotate('${}$'.format(sc), xy=(xs[i], ys[i]), xytext=(xs[i]-0.3, ys[i]+max_time/1000*i), color=color, arrowprops=dict(facecolor=color, width=0.1, headwidth=0.5, headlength=0.5, lw=0))
                 # from adjustText import adjust_text
                 # adjust_text(test)
 
@@ -97,10 +95,11 @@ def create_plot(dataset, results, linestyles, build_config):
     plt.xlim(max(x0,0), min(x1,1))
 
 
-    # # Workaround for bug https://github.com/matplotlib/matplotlib/issues/6789
+    # Workaround for bug https://github.com/matplotlib/matplotlib/issues/6789
     ax.spines['bottom']._adjust_location()
+    os.makedirs("./result/plots/", exist_ok=True)
 
-    plt.savefig("./"+title+".png", bbox_inches='tight')
+    plt.savefig("./result/plots/"+title+".pdf", bbox_inches='tight')
     plt.close()
 
 def collect_result(path, args):
@@ -117,6 +116,8 @@ def collect_result(path, args):
     sc = []
     build_keys = []
     collected_result = []
+    build_key = None
+    reorder = -2
     with open(path, 'r') as file:
         lines = file.readlines()
         for i, line in enumerate(lines):
@@ -125,14 +126,17 @@ def collect_result(path, args):
                 program, topk, num_split, batch_size = line.split()[1], int(line.split()[3]), int(line.split()[5]), int(line.split()[7])
                 print("Program: ", program, " / Topk: ", topk, " / Num split: ", num_split, " / Batch size: ", batch_size)
                 if args.build_config:
-                    assert program == args.program
+                    assert program == args.program and batch_size==128
             elif i==1:
                 continue
             elif i%2==0:
                 result = line.split()
                 temp_build_key = '/'.join(result[:result.index("|")])
                 search_key = "/".join(result[result.index("|")+1:-2])  # make sure the last two is reorder and metric
-                reorder = result[-2]
+                if reorder == -2:
+                    reorder = result[-2]
+                elif reorder!=result[-2]:
+                    reorder="various"
                 metric = result[-1]
                 if args.build_config:
                     if temp_build_key not in build_keys:
@@ -149,9 +153,11 @@ def collect_result(path, args):
                             time = []
                             sc = []
                             build_key = temp_build_key
+                            print(build_key)
                             # search_key = temp_search_key
             else:
                 result = line.split()
+                print(result)
                 if topk == 1:
                     acc.append(float(result[0]))
                 elif topk == 10:
@@ -190,50 +196,12 @@ if __name__ == "__main__":
         '--program',
         metavar="ALGO",
         default=None)
-    # parser.add_argument(
-    #     '--count',
-    #     default=10)
-    # parser.add_argument(
-    #     '--definitions',
-    #     metavar='FILE',
-    #     help='load algorithm definitions from FILE',
-    #     default='algos.yaml')
-    # parser.add_argument(
-    #     '--limit',
-    #     default=-1)
+    parser.add_argument(
+        '--metric',
+        metavar="METRIC",
+        default=None)
     parser.add_argument(
         '-o', '--output')
-    # parser.add_argument(
-    #     '-x', '--x-axis',
-    #     help='Which metric to use on the X-axis',
-    #     # choices=metrics.keys(),
-    #     default="k-nn")
-    # parser.add_argument(
-    #     '-y', '--y-axis',
-    #     help='Which metric to use on the Y-axis',
-    #     # choices=metrics.keys(),
-    #     default="qps")
-    # parser.add_argument(
-    #     '-X', '--x-scale',
-    #     help='Scale to use when drawing the X-axis. Typically linear, logit or a2',
-    #     default='linear')
-    # parser.add_argument(
-    #     '-Y', '--y-scale',
-    #     help='Scale to use when drawing the Y-axis',
-    #     choices=["linear", "log", "symlog", "logit"],
-    #     default='linear')
-    # parser.add_argument(
-    #     '--raw',
-    #     help='Show raw results (not just Pareto frontier) in faded colours',
-    #     action='store_true')
-    # parser.add_argument(
-    #     '--batch',
-    #     help='Plot runs in batch mode',
-    #     action='store_true')
-    # parser.add_argument(
-    #     '--recompute',
-    #     help='Clears the cache and recomputes the metrics',
-    #     action='store_true')
     parser.add_argument(
         '--build_config',
         help='Whether to plot according to the build_config',
@@ -241,28 +209,21 @@ if __name__ == "__main__":
         default=False)
     args = parser.parse_args()
 
-    if not args.output:
-        args.output = 'results/%s.png' % (args.dataset)
-        print('writing output to %s' % args.output)
-
     if args.build_config:
-        assert args.program!=None and args.dataset!=None
-    # dataset = get_dataset(args.dataset)
-    # count = int(args.count)
-    # unique_algorithms = get_unique_algorithms()
-    # results = load_all_results(args.dataset, count, args.batch)
-    # linestyles = create_linestyles(sorted(unique_algorithms))
-    # runs = compute_metrics(np.array(dataset["distances"]),
-    #                        results, args.x_axis, args.y_axis, args.recompute)
-    # if not runs:
-    #     raise Exception('Nothing to plot')
+        assert args.program!=None and args.dataset!=None and args.metric!=None
+
+    def check_build_config(fn):
+        return (args.metric in fn) and ("GPU" in fn if ("GPU" in args.program) else "GPU" not in fn)
 
     results = list()
     for root, _, files in os.walk('./result'):
+        if "plot" in root:
+            continue
         for fn in files:
-            if args.dataset in fn and (args.program in fn if args.program!=None else True): 
+            if args.dataset in fn and (args.program in fn if args.program!=None else True) and (args.metric in fn) and (check_build_config(fn) if args.build_config==True else True): 
                 res = collect_result(os.path.join(root, fn), args)
                 results+=res
+    assert len(results) > 0
     linestyles = create_linestyles([key['build_key'] for key in results])
 
     # create_plot(runs, args.raw, args.x_scale,
