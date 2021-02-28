@@ -254,7 +254,7 @@ def print_recall(final_neighbors, gt):
 	return top1, top10, top100, top1000
 
 def get_searcher_path(split):
-	searcher_dir = basedir + args.program + ("GPU_" if args.is_gpu else "_") + '_searcher_' + args.metric + '/' + args.dataset + '/Split_' + str(args.num_split) + '/'
+	searcher_dir = basedir + args.program + ("GPU_" if args.is_gpu else "_") + 'searcher_' + args.metric + '/' + args.dataset + '/Split_' + str(args.num_split) + '/'
 	searcher_path = searcher_dir + args.dataset + '_searcher_' + str(args.num_split)+'_'+str(split)
 	return searcher_dir, searcher_path
 
@@ -541,7 +541,6 @@ def run_annoy(D):
 				dataset = read_data(split_dataset_path + str(args.num_split) + "_" + str(split) if args.num_split>1 else dataset_basedir, base=False if args.num_split>1 else True, offset_=None if args.num_split>1 else 0, shape_=None)
 				# Create Annoy index
 				searcher = annoy.AnnoyIndex(D, metric=annoy_metric)
-
 				if os.path.isfile(searcher_path):
 					print("Loading searcher from ", searcher_path)
 					searcher.load(searcher_path)
@@ -558,26 +557,36 @@ def run_annoy(D):
 				print("Entering Annoy searcher")
 				# Annoy batch version
 				if args.batch > 1:
-					pool = ThreadPool()
+					pool = ThreadPool(args.batch)
 					start = time.time()
 					result = pool.map(lambda q: searcher.get_nns_by_vector(q.tolist(), args.topk, num_search, include_distances=True), queries)
 					end = time.time()
-					result = np.array(result)
-					local_neighbors = result[:,0,:]
-					local_distances = result[:,1,:]
+					neighbors = np.empty((0, args.topk))
+					distances = np.empty((0, args.topk))
+					for n, d in result:
+						if len(n) < args.topk:
+							plus_dim = args.topk-len(n)
+							neighbors = np.append(neighbors, np.array(n+[N]*plus_dim).reshape(1, args.topk), axis=0)
+							distances = np.append(distances, np.array(d+[math.inf if metric=="squared_l2" else -math.inf]*plus_dim).reshape(1, args.topk), axis=0)
+						else:
+							neighbors = np.append(neighbors, np.array(n).reshape(1, args.topk), axis=0)
+							distances = np.append(distances, np.array(d).reshape(1, args.topk), axis=0)
 					total_latency = total_latency + (end - start)*1000
-					neighbors = np.append(neighbors, local_neighbors+base_idx, axis=1)
-					distances = np.append(distances, local_distances, axis=1)
 				else:
 					def single_query(query, base_idx):
 						start = time.time()
-						result = searcher.get_nns_by_vector(query.tolist(), args.topk, num_search, include_distances=True)
-						return (time.time() - start, result)
+						local_neighbors, local_distances = searcher.get_nns_by_vector(query.tolist(), args.topk, num_search, include_distances=True)
+						if len(local_neighbors) < args.topk:
+							plus_dim = args.topk-len(local_neighbors)
+							local_neighbors=np.concatenate((local_neighbors, np.full((plus_dim), N)), axis=-1)
+							local_distances=np.concatenate((local_distances, np.full((plus_dim), math.inf if metric=="squared_l2" else -math.inf)), axis=-1)
+						return (time.time() - start, (local_neighbors, local_distances))
+
 					local_results = [single_query(q, base_idx) for q in queries]
 					total_latency += (np.sum(np.array([time for time, _ in local_results]).reshape(queries.shape[0], 1)))*1000
 					nd = [nd for _, nd in local_results]
-					neighbors = np.append(neighbors, np.array([n for n,d in nd])+base_idx, axis=1)
-					distances = np.append(distances, np.array([d for n,d in nd]), axis=1)
+					neighbors = np.append(neighbors, np.vstack([n for n,d in nd])+base_idx,  axis=1)
+					distances = np.append(distances, np.vstack([d for n,d in nd]), axis=1)
 				base_idx = base_idx + dataset.shape[0]
 
 			final_neighbors = sort_neighbors(distances, neighbors)
