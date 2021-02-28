@@ -625,11 +625,11 @@ def run_annoy(D):
 			distances = np.append(distances, np.array(d), axis=-1)
 		final_neighbors = sort_neighbors(distances, neighbors)
 		for idx in range(len(search_config)):
-			if args.sweep:
-				f.write(str(n_trees)+"\t"+str(sc[idx])+"\t"+str(annoy_metric)+"\n")
-				f.write(str(top1)+" %\t"+str(top10)+" %\t"+str(top100)+" %\t"+str(top1000)+" %\t"+str(total_latency[idx])+"\n")
 			top1, top10, top100, top1000 = print_recall(final_neighbors[idx], gt)
 			print("Top ", args.topk, " Total latency (ms): ", total_latency[idx])
+			if args.sweep:
+				f.write(str(n_trees)+"\t"+str(search_config[idx])+"\t"+str(annoy_metric)+"\n")
+				f.write(str(top1)+" %\t"+str(top10)+" %\t"+str(top100)+" %\t"+str(top1000)+" %\t"+str(total_latency[idx])+"\n")
 	if args.sweep:
 		f.close()
 
