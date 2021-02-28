@@ -145,7 +145,7 @@ def read_data(dataset_path, offset_=None, shape_=None, base=True):
 				return dataset
 		else:
 			dataset = h5py.File(dataset_path, "r")
-			return dataset['dataset']
+			return np.array(dataset['dataset'])
 	else:
 		assert(false)
 
@@ -254,7 +254,7 @@ def print_recall(final_neighbors, gt):
 	return top1, top10, top100, top1000
 
 def get_searcher_path(split):
-	searcher_dir = basedir + args.program + '_searcher_' + args.metric + '/' + args.dataset + '/Split_' + str(args.num_split) + '/'
+	searcher_dir = basedir + args.program + ("GPU_" if args.is_gpu else "_") + '_searcher_' + args.metric + '/' + args.dataset + '/Split_' + str(args.num_split) + '/'
 	searcher_path = searcher_dir + args.dataset + '_searcher_' + str(args.num_split)+'_'+str(split)
 	return searcher_dir, searcher_path
 
@@ -425,7 +425,7 @@ def faiss_pad_dataset(dataset, train_dataset, queries, m):
 			assert False, "somethings wrong.."
 		padded_D = dim_per_block * faiss_m
 		plus_dim = padded_D-D
-		dataset=np.concatenate((dataset, np.full((dataset.shape[0], plus_dim), 0)), axis=-1)
+		dataset=np.concatenate((dataset, np.full((dataset.shape[0], plus_dim), 0, dtype='float32')), axis=-1)
 		train_dataset=np.concatenate((train_dataset, np.full((train_dataset.shape[0], plus_dim), 0)), axis=-1)
 		queries=np.concatenate((queries, np.full((queries.shape[0], plus_dim), 0)), axis=-1)
 		print("Dataset dimension is padded from ", D, " to ", dataset.shape[1])
@@ -484,6 +484,7 @@ def run_faiss(D):
 				train_dataset = get_train(split, args.num_split)
 				dataset = read_data(split_dataset_path + str(args.num_split) + "_" + str(split) if args.num_split>1 else dataset_basedir, base=False if args.num_split>1 else True, offset_=None if args.num_split>1 else 0, shape_=None)
 				padded_D, faiss_m, padded_dataset, padded_train_dataset, padded_queries = faiss_pad_dataset(dataset, train_dataset, queries, m)
+				print("shape:", train_dataset.shape)
 				# Build Faiss index
 				searcher_dir, searcher_path = get_searcher_path(split)
 				args.batch = min(args.batch, queries.shape[0])
@@ -593,9 +594,10 @@ def get_train(split=-1, total=-1):
 		filename = dataset_basedir + 'sift_learn.fvecs' if split<0 else dataset_basedir + 'split_data/sift1m_learn%d_%d' % (total, split)
 		return mmap_fvecs(filename)
 	elif "sift1b" in args.dataset:
-		return bvecs_read(dataset_basedir+'bigann_learn.bvecs')
+		filename = dataset_basedir + 'bigann_learn.bvecs' if split<0 else dataset_basedir + 'split_data/sift1b_learn%d_%d' % (total, split)
+		return bvecs_read(filename)
 	elif "glove" in args.dataset:
-		return h5py.File(dataset_basedir+"glove-100-angular.hdf5", "r")['test']
+		return np.array(h5py.File(dataset_basedir+"glove-100-angular.hdf5", "r")['test'])
 	else:
 		assert False
 
@@ -632,7 +634,7 @@ def get_queries():
 	elif "sift1b" in args.dataset:
 		return bvecs_read(dataset_basedir+'bigann_query.bvecs')
 	elif "glove" in args.dataset:
-		return h5py.File(dataset_basedir+"glove-100-angular.hdf5", "r")['test']
+		return np.array(h5py.File(dataset_basedir+"glove-100-angular.hdf5", "r")['test'])
 	else:
 		assert False
 
