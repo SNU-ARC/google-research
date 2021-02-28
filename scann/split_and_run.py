@@ -136,7 +136,7 @@ def read_data(dataset_path, offset_=None, shape_=None, base=True):
 		file = dataset_path+"glove-100-angular.hdf5" if base else dataset_path
 		if base:
 			dataset = h5py.File(file, "r")
-			dataset = np.array(dataset['train'])
+			dataset = np.array(dataset['train'], dtype='float32')
 			if args.metric == "dot_product":		
 				dataset = dataset / np.linalg.norm(dataset, axis=1)[:, np.newaxis]
 			if offset_!=None and shape_!=None:
@@ -145,7 +145,7 @@ def read_data(dataset_path, offset_=None, shape_=None, base=True):
 				return dataset
 		else:
 			dataset = h5py.File(dataset_path, "r")
-			return np.array(dataset['dataset'])
+			return np.array(dataset['dataset'], dtype='float32')
 	else:
 		assert(false)
 
@@ -597,7 +597,7 @@ def get_train(split=-1, total=-1):
 		filename = dataset_basedir + 'bigann_learn.bvecs' if split<0 else dataset_basedir + 'split_data/sift1b_learn%d_%d' % (total, split)
 		return bvecs_read(filename)
 	elif "glove" in args.dataset:
-		return np.array(h5py.File(dataset_basedir+"glove-100-angular.hdf5", "r")['test'])
+		return np.array(h5py.File(dataset_basedir+"glove-100-angular.hdf5", "r")['test'], dtype='float32')
 	else:
 		assert False
 
@@ -634,7 +634,7 @@ def get_queries():
 	elif "sift1b" in args.dataset:
 		return bvecs_read(dataset_basedir+'bigann_query.bvecs')
 	elif "glove" in args.dataset:
-		return np.array(h5py.File(dataset_basedir+"glove-100-angular.hdf5", "r")['test'])
+		return np.array(h5py.File(dataset_basedir+"glove-100-angular.hdf5", "r")['test'], dtype='float32')
 	else:
 		assert False
 
