@@ -136,7 +136,7 @@ class ScannSearchOp : public OpKernel {
                    context->allocate_output("distance", TensorShape({res_size}),
                                             &distance_t));
     scann_resource->scann_->ReshapeNNResult(
-        res, index_t->flat<int32_t>().data(), distance_t->flat<float>().data());
+        res, index_t->flat<int32_t>().data(), distance_t->flat<float>().data(), final_nn);
   }
 };
 
@@ -168,12 +168,10 @@ class ScannSearchBatchedOp : public OpKernel {
     OP_REQUIRES(context, query_tensor->dims() == 2,
                 errors::InvalidArgument(
                     "Expected 2-dimensional input for query batch."));
-
     int leaves = leaves_tensor->scalar<int>()();
     int final_nn = final_nn_tensor->scalar<int>()();
     int pre_reorder_nn = reorder_nn_tensor->scalar<int>()();
     int batch_size = batch_size_tensor->scalar<int>()();
-
     research_scann::DenseDataset<float> queries;
     OP_REQUIRES_OK(context, scann_ops::PopulateDenseDatasetFromTensor(
                                 *query_tensor, &queries));
@@ -201,7 +199,7 @@ class ScannSearchBatchedOp : public OpKernel {
                        &distance_t));
     scann_resource->scann_->ReshapeBatchedNNResult(
         res_span, index_t->flat<int32_t>().data(),
-        distance_t->flat<float>().data());
+        distance_t->flat<float>().data(), final_nn);
   }
 };
 

@@ -107,11 +107,13 @@ ScannNumpy::Search(const np_row_major_arr<float>& query, int final_nn,
   auto status = scann_.Search(ptr, &res, final_nn, pre_reorder_nn, leaves);
   RuntimeErrorIfNotOk("Error during search: ", status);
 
-  pybind11::array_t<DatapointIndex> indices(res.size());
-  pybind11::array_t<float> distances(res.size());
+  // pybind11::array_t<DatapointIndex> indices(res.size());
+  // pybind11::array_t<float> distances(res.size());
+  pybind11::array_t<DatapointIndex> indices(final_nn);
+  pybind11::array_t<float> distances(final_nn);
   auto idx_ptr = reinterpret_cast<DatapointIndex*>(indices.request().ptr);
   auto dis_ptr = reinterpret_cast<float*>(distances.request().ptr);
-  scann_.ReshapeNNResult(res, idx_ptr, dis_ptr);
+  scann_.ReshapeNNResult(res, idx_ptr, dis_ptr, final_nn);
   return {indices, distances};
 }
 
@@ -134,14 +136,14 @@ ScannNumpy::SearchBatched(const np_row_major_arr<float>& queries, int final_nn,
                                   pre_reorder_nn, leaves);
   RuntimeErrorIfNotOk("Error during search: ", status);
 
-  if (!res.empty()) final_nn = res.front().size();
+  // if (!res.empty()) final_nn = res.front().size();
   pybind11::array_t<DatapointIndex> indices(
       {static_cast<long>(query_dataset.size()), static_cast<long>(final_nn)});
   pybind11::array_t<float> distances(
       {static_cast<long>(query_dataset.size()), static_cast<long>(final_nn)});
   auto idx_ptr = reinterpret_cast<DatapointIndex*>(indices.request().ptr);
   auto dis_ptr = reinterpret_cast<float*>(distances.request().ptr);
-  scann_.ReshapeBatchedNNResult(MakeConstSpan(res), idx_ptr, dis_ptr);
+  scann_.ReshapeBatchedNNResult(MakeConstSpan(res), idx_ptr, dis_ptr, final_nn);
   return {indices, distances};
 }
 

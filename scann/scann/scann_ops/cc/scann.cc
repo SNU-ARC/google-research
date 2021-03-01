@@ -213,7 +213,8 @@ Status ScannInterface::SearchBatched(const DenseDataset<float>& queries,
     scann_->SetUnspecifiedParametersToDefaults(&p);
   }
 
-  return scann_->FindNeighborsBatched(queries, params, MakeMutableSpan(res));
+  auto test = scann_->FindNeighborsBatched(queries, params, MakeMutableSpan(res));
+  return test;
 }
 
 Status ScannInterface::SearchBatchedParallel(const DenseDataset<float>& queries,
@@ -222,7 +223,6 @@ Status ScannInterface::SearchBatchedParallel(const DenseDataset<float>& queries,
                                              int leaves, int batch_size) const {    // [ANNA] batch_size added
   const size_t numQueries = queries.size();
   const size_t numCPUs = GetNumCPUs();
-
   // const size_t kBatchSize = std::min(
   //     std::max(min_batch_size_, DivRoundUp(numQueries, numCPUs)), 256ul);
   

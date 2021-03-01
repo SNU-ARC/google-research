@@ -66,10 +66,10 @@ class ScannInterface {
 
   template <typename T_idx>
   void ReshapeNNResult(const NNResultsVector& res, T_idx* indices,
-                       float* distances);
+                       float* distances, int final_nn);
   template <typename T_idx>
   void ReshapeBatchedNNResult(ConstSpan<NNResultsVector> res, T_idx* indices,
-                              float* distances);
+                              float* distances, int final_nn);
 
   bool needs_dataset() const { return scann_->needs_dataset(); }
   const Dataset* dataset() const { return scann_->dataset(); }
@@ -91,20 +91,39 @@ class ScannInterface {
 
 template <typename T_idx>
 void ScannInterface::ReshapeNNResult(const NNResultsVector& res, T_idx* indices,
-                                     float* distances) {
+                                     float* distances, int final_nn) {
+  auto j=0;
   for (const auto& p : res) {
     *(indices++) = static_cast<T_idx>(p.first);
     *(distances++) = result_multiplier_ * p.second;
+    j++;
+  }
+  if(j<final_nn){
+    for(;j<final_nn; j++) {
+      *(indices++) = static_cast<T_idx>(std::numeric_limits<int>::max());
+      *(distances++) = -1;
+    }
   }
 }
 
 template <typename T_idx>
 void ScannInterface::ReshapeBatchedNNResult(ConstSpan<NNResultsVector> res,
-                                            T_idx* indices, float* distances) {
+                                            T_idx* indices, float* distances, int final_nn) {
+  auto i=0;
   for (const auto& result_vec : res) {
+      i++;
+    // [ANNA] fixed: if search results are less than topk, we pad them with dummy results
+    auto j=0;
     for (const auto& pair : result_vec) {
       *(indices++) = static_cast<T_idx>(pair.first);
       *(distances++) = result_multiplier_ * pair.second;
+      j++;
+    }
+    if(j<final_nn){
+      for(;j<final_nn; j++) {
+        *(indices++) = static_cast<T_idx>(std::numeric_limits<int>::max());
+        *(distances++) = -1;
+      }
     }
   }
 }
