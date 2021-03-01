@@ -264,6 +264,7 @@ def sort_neighbors(distances, neighbors):
 def prepare_eval():
 	gt = get_groundtruth()
 	queries = get_queries()
+	assert gt.shape[1] == 1000
 	return gt, queries
 
 def print_recall(final_neighbors, gt):
@@ -512,7 +513,6 @@ def run_faiss(D):
 				train_dataset = get_train(split, args.num_split)
 				dataset = read_data(split_dataset_path + str(args.num_split) + "_" + str(split) if args.num_split>1 else dataset_basedir, base=False if args.num_split>1 else True, offset_=None if args.num_split>1 else 0, shape_=None)
 				padded_D, faiss_m, padded_dataset, padded_train_dataset, padded_queries = faiss_pad_dataset(dataset, train_dataset, queries, m)
-				print("shape:", train_dataset.shape)
 				# Build Faiss index
 				searcher_dir, searcher_path = get_searcher_path(split)
 				args.batch = min(args.batch, queries.shape[0])
@@ -648,21 +648,22 @@ def get_train(split=-1, total=-1):
 
 def get_groundtruth():
 	print("Reading grountruth from ", groundtruth_path)
-	#if os.path.isfile(groundtruth_path)==False:
-	#	run_groundtruth()
+	if os.path.isfile(groundtruth_path)==False:
+		run_groundtruth()
 	if "glove" in args.dataset:
 		return read_data(groundtruth_path, base=False)
-	#else:
-	#	return ivecs_read(groundtruth_path)
+	else:
+		return ivecs_read(groundtruth_path)
 
-	# if "sift1m" in args.dataset:
-	# 	filename = dataset_basedir + 'sift_groundtruth.ivecs' if args.metric=="squared_l2" else groundtruth_path
-	# 	print("Reading from ", filename)
-	# 	return ivecs_read(filename)
-	elif "sift1b" in args.dataset:
-	 	filename = dataset_basedir +  'gnd/idx_1000M.ivecs' if args.metric=="squared_l2" else groundtruth_path
-	 	print("Reading from ", filename)
-	 	return ivecs_read(filename)
+	# elif "sift1m" in args.dataset:
+	# 	return ivecs_read(groundtruth_path)
+	# 	# filename = dataset_basedir + 'sift_groundtruth.ivecs' if args.metric=="squared_l2" else groundtruth_path
+	# 	# print("Reading from ", filename)
+	# 	# return ivecs_read(filename)
+	# elif "sift1b" in args.dataset:
+	#  	filename = dataset_basedir +  'gnd/idx_1000M.ivecs' if args.metric=="squared_l2" else groundtruth_path
+	#  	print("Reading from ", filename)
+	#  	return ivecs_read(filename)
 	# elif "glove" in args.dataset:
 	# 	if args.metric == "dot_product":
 	# 		print("Reading from ", dataset_basedir+"glove-100-angular.hdf5")
@@ -670,8 +671,8 @@ def get_groundtruth():
 	# 	else:
 	# 		print("Reading from ", groundtruth_path)
 	# 		return read_data(groundtruth_path, base=False)
-	else:
-	 	assert False
+	# else:
+	#  	assert False
 
 def get_queries():
 	if "sift1m" in args.dataset:
@@ -702,7 +703,7 @@ qN = -1
 if "sift1m" in args.dataset:
 	dataset_basedir = basedir + "SIFT1M/"
 	split_dataset_path =dataset_basedir+"split_data/sift1m_"
-	groundtruth_path = dataset_basedir + 'sift_groundtruth.ivecs' if args.metric=="squared_l2" else dataset_basedir + "sift1m_"+args.metric+"_gt"
+	groundtruth_path = dataset_basedir + "sift1m_"+args.metric+"_gt"
 	N=1000000
 	D=128
 	num_iter = 1
