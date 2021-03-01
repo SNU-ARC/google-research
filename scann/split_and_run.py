@@ -254,7 +254,7 @@ def print_recall(final_neighbors, gt):
 	return top1, top10, top100, top1000
 
 def get_searcher_path(split):
-	searcher_dir = basedir + args.program + ("GPU_" if args.is_gpu else "_") + '_searcher_' + args.metric + '/' + args.dataset + '/Split_' + str(args.num_split) + '/'
+	searcher_dir = basedir + args.program + ("GPU_" if args.is_gpu else "_") + 'searcher_' + args.metric + '/' + args.dataset + '/Split_' + str(args.num_split) + '/'
 	searcher_path = searcher_dir + args.dataset + '_searcher_' + str(args.num_split)+'_'+str(split)
 	return searcher_dir, searcher_path
 
@@ -311,8 +311,6 @@ def run_scann():
 			print("Split ", split)
 			# Load splitted dataset
 			batch_size = min(args.batch, queries.shape[0])
-			# Create ScaNN searcher
-			print("Entering ScaNN builder")
 			searcher = None
 			searcher_path = searcher_path + '_' + str(num_leaves) + '_' + str(threshold) + '_' + str(dims) + '_' + metric + ("_reorder" if args.reorder!=-1 else '')
 
@@ -320,6 +318,8 @@ def run_scann():
 				print("Loading searcher from ", searcher_path)
 				searcher = scann.scann_ops_pybind.load_searcher(searcher_path, num_per_split, D)
 			else:
+				# Create ScaNN searcher
+				print("Entering ScaNN builder, will be created to ", searcher_path)
 				dataset = read_data(split_dataset_path + str(args.num_split) + "_" + str(split) if args.num_split>1 else dataset_basedir, base=False if args.num_split>1 else True, offset_=None if args.num_split>1 else 0, shape_=None)
 				if args.reorder!=-1:
 					searcher = scann.scann_ops_pybind.builder(dataset, 10, metric).tree(
