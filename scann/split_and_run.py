@@ -538,8 +538,8 @@ def run_annoy(D):
 		build_config = [(args.metric, 50), (args.metric, 100), (args.metric, 150), (args.metric, 200), (args.metric, 250), (args.metric, 300), (args.metric, 400)]
 		search_config = [100, 200, 400, 1000, 2000, 4000, 10000, 20000, 40000, 100000, 200000, 400000]
 		f = open(sweep_result_path, "w")
-		f.write("Program: " + args.program + " Topk: " + str(args.topk) + " Num_split: " + str(args.num_split)+"\n")
-		f.write("Num trees\tNum search\tMetric\n")
+		f.write("Program: " + args.program + " Topk: " + str(args.topk) + " Num_split: " + str(args.num_split)+ " Batch: "+str(args.batch)+"\n")
+		f.write("Num trees\t|\tNum search\tReorder\tMetric\n")
 	else:
 		build_config = [(args.metric, args.n_trees)]
 		search_config = [args.num_search]
