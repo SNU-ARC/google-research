@@ -267,13 +267,13 @@ def run_scann():
 		f.write("L\tThreashold\tm\t|\tw\tr\tMetric\n")
 	else:
 		build_config = [(args.L, args.threshold, int(D/args.m), args.metric)]
-		search_config = [[[args.w, args.reorder]]]
+		search_config = [[args.w, args.reorder]]
 	# for bc, sc in zip(build_config, search_config):
 	for bc in build_config:
 		num_leaves, threshold, dims, metric = bc
 		for arg in search_config:
-			# leaves_to_search, reorder = arg[0], arg[1]
-			leaves_to_search, reorder = arg, args.reorder
+			leaves_to_search, reorder = arg[0], arg[1]
+			#leaves_to_search, reorder = arg, args.reorder
 			if args.reorder!=-1:
 				assert args.topk <= reorder
 			else:
@@ -457,8 +457,11 @@ def run_annoy(D):
 					end = time.time()
 					print("Train latency (ms): ", (end - start)*1000)
 					print("Saving searcher to ", searcher_path)
+					start2 = time.time()
 					os.makedirs(searcher_dir, exist_ok=True)
 					searcher.save(searcher_path)
+					end2 = time.time()
+					print("Saving latency (ms): ", (end2 - start2)*1000)
 
 				print("Entering Annoy searcher")
 				# Annoy batch version
@@ -470,6 +473,7 @@ def run_annoy(D):
 					result = np.array(result)
 					local_neighbors = result[:,0,:]
 					local_distances = result[:,1,:]
+					print("Local latency (ms) : ", (end-start)*1000)
 					total_latency = total_latency + (end - start)*1000
 					neighbors = np.append(neighbors, local_neighbors+base_idx, axis=1)
 					distances = np.append(distances, local_distances, axis=1)
@@ -507,21 +511,21 @@ def get_train(split=-1, total=-1):
 
 def get_groundtruth():
 	print("Reading grountruth from ", groundtruth_path)
-	if os.path.isfile(groundtruth_path)==False:
-		run_groundtruth()
+	#if os.path.isfile(groundtruth_path)==False:
+	#	run_groundtruth()
 	if "glove" in args.dataset:
 		return read_data(groundtruth_path, base=False)
-	else:
-		return ivecs_read(groundtruth_path)
+	#else:
+	#	return ivecs_read(groundtruth_path)
 
 	# if "sift1m" in args.dataset:
 	# 	filename = dataset_basedir + 'sift_groundtruth.ivecs' if args.metric=="squared_l2" else groundtruth_path
 	# 	print("Reading from ", filename)
 	# 	return ivecs_read(filename)
-	# elif "sift1b" in args.dataset:
-	# 	filename = dataset_basedir +  'gnd/idx_1000M.ivecs' if args.metric=="squared_l2" else groundtruth_path
-	# 	print("Reading from ", filename)
-	# 	return ivecs_read(filename)
+	elif "sift1b" in args.dataset:
+	 	filename = dataset_basedir +  'gnd/idx_1000M.ivecs' if args.metric=="squared_l2" else groundtruth_path
+	 	print("Reading from ", filename)
+	 	return ivecs_read(filename)
 	# elif "glove" in args.dataset:
 	# 	if args.metric == "dot_product":
 	# 		print("Reading from ", dataset_basedir+"glove-100-angular.hdf5")
@@ -529,8 +533,8 @@ def get_groundtruth():
 	# 	else:
 	# 		print("Reading from ", groundtruth_path)
 	# 		return read_data(groundtruth_path, base=False)
-	# else:
-	# 	assert False
+	else:
+	 	assert False
 
 def get_queries():
 	if "sift1m" in args.dataset:
