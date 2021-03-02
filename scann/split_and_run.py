@@ -311,8 +311,10 @@ def run_scann():
 							 [5120, args.reorder], [5632, args.reorder], [6144, args.reorder], [6656, args.reorder], [7168, args.reorder], [7680, args.reorder], \
 							 [8192, args.reorder], [16384, args.reorder]]
 		else:
-			build_config = [[2000, 0.2, 2, args.metric], [2000, 0.2, 1, args.metric], [1500, 0.55, 2, args.metric], [1500, 0.55, 1, args.metric], [1000, 0.55, 2, args.metric], [1000, 0.55, 1, args.metric], \
-			 				  [1000, 0.2, 2, args.metric], [1000, 0.2, 1, args.metric], [1400, 0.15, 1, args.metric], [1400, 0.15, 2, args.metric], [1400, 0.15, 3, args.metric], \
+			# build_config = [[2000, 0.2, 2, args.metric], [2000, 0.2, 1, args.metric], [1500, 0.55, 2, args.metric], [1500, 0.55, 1, args.metric], [1000, 0.55, 2, args.metric], [1000, 0.55, 1, args.metric], \
+			#  				  [1000, 0.2, 2, args.metric], [1000, 0.2, 1, args.metric], [1400, 0.15, 1, args.metric], [1400, 0.15, 2, args.metric], [1400, 0.15, 3, args.metric], \
+			#  				  [800, 0.15, 2, args.metric], [800, 0.15, 1, args.metric]]
+			build_config = [[1400, 0.15, 3, args.metric], \
 			 				  [800, 0.15, 2, args.metric], [800, 0.15, 1, args.metric]]
 			search_config = [[1, args.reorder], [2, args.reorder], [4, args.reorder], [8, args.reorder], [16, args.reorder], [25, args.reorder], [30, args.reorder], [35, args.reorder], [40, args.reorder], \
 							 [45, args.reorder], [50, args.reorder], [55, args.reorder], [60, args.reorder], [65, args.reorder], [75, args.reorder], [90, args.reorder], [110, args.reorder], [130, args.reorder], [150, args.reorder], \
@@ -333,84 +335,85 @@ def run_scann():
 		distances=np.empty((len(sc_list), queries.shape[0],0), dtype=np.float32)
 		total_latency = np.zeros(len(sc_list))
 		base_idx = 0
-		for split in range(args.num_split):
+		if len(sc_list) > 0:
+			for split in range(args.num_split):
 
-			num_per_split = int(N/args.num_split) if split < args.num_split-1 else N-base_idx
-			searcher_dir, searcher_path = get_searcher_path(split)
-			print("Split ", split)
-			# Load splitted dataset
-			batch_size = min(args.batch, queries.shape[0])
-			searcher = None
-			searcher_path = searcher_path + '_' + str(num_leaves) + '_' + str(threshold) + '_' + str(dims) + '_' + metric + ("_reorder" if args.reorder!=-1 else '')
+				num_per_split = int(N/args.num_split) if split < args.num_split-1 else N-base_idx
+				searcher_dir, searcher_path = get_searcher_path(split)
+				print("Split ", split)
+				# Load splitted dataset
+				batch_size = min(args.batch, queries.shape[0])
+				searcher = None
+				searcher_path = searcher_path + '_' + str(num_leaves) + '_' + str(threshold) + '_' + str(dims) + '_' + metric + ("_reorder" if args.reorder!=-1 else '')
 
-			if os.path.isdir(searcher_path):
-				print("Loading searcher from ", searcher_path)
-				searcher = scann.scann_ops_pybind.load_searcher(searcher_path, num_per_split, D)
-			else:
-				# Create ScaNN searcher
-				print("Entering ScaNN builder, will be created to ", searcher_path)
-				dataset = read_data(split_dataset_path + str(args.num_split) + "_" + str(split) if args.num_split>1 else dataset_basedir, base=False if args.num_split>1 else True, offset_=None if args.num_split>1 else 0, shape_=None)
-				if args.reorder!=-1:
-					searcher = scann.scann_ops_pybind.builder(dataset, 10, metric).tree(
-						num_leaves=num_leaves, num_leaves_to_search=num_leaves, training_sample_size=args.coarse_training_size).score_ah(
-						dims, anisotropic_quantization_threshold=threshold, training_sample_size=args.fine_training_size).reorder(args.reorder).build()
+				if os.path.isdir(searcher_path):
+					print("Loading searcher from ", searcher_path)
+					searcher = scann.scann_ops_pybind.load_searcher(searcher_path, num_per_split, D)
 				else:
-					searcher = scann.scann_ops_pybind.builder(dataset, 10, metric).tree(
+					# Create ScaNN searcher
+					print("Entering ScaNN builder, will be created to ", searcher_path)
+					dataset = read_data(split_dataset_path + str(args.num_split) + "_" + str(split) if args.num_split>1 else dataset_basedir, base=False if args.num_split>1 else True, offset_=None if args.num_split>1 else 0, shape_=None)
+					if args.reorder!=-1:
+						searcher = scann.scann_ops_pybind.builder(dataset, 10, metric).tree(
 							num_leaves=num_leaves, num_leaves_to_search=num_leaves, training_sample_size=args.coarse_training_size).score_ah(
-							dims, anisotropic_quantization_threshold=threshold, training_sample_size=args.fine_training_size).build()
-				print("Saving searcher to ", searcher_path)
-				os.makedirs(searcher_path, exist_ok=True)
-				searcher.serialize(searcher_path)
+							dims, anisotropic_quantization_threshold=threshold, training_sample_size=args.fine_training_size).reorder(args.reorder).build()
+					else:
+						searcher = scann.scann_ops_pybind.builder(dataset, 10, metric).tree(
+								num_leaves=num_leaves, num_leaves_to_search=num_leaves, training_sample_size=args.coarse_training_size).score_ah(
+								dims, anisotropic_quantization_threshold=threshold, training_sample_size=args.fine_training_size).build()
+					print("Saving searcher to ", searcher_path)
+					os.makedirs(searcher_path, exist_ok=True)
+					searcher.serialize(searcher_path)
 
-			n = list()
-			d = list()
-			for idx in sc_list:
-				leaves_to_search, reorder = search_config[idx]
-				assert D%dims == 0
+				n = list()
+				d = list()
+				for idx in sc_list:
+					leaves_to_search, reorder = search_config[idx]
+					assert D%dims == 0
 
-				if args.reorder!=-1:
-					assert args.topk <= reorder
-				else:
-					if args.sweep:
-						assert False, "Do you want reordering or not?"
+					if args.reorder!=-1:
+						assert args.topk <= reorder
+					else:
+						if args.sweep:
+							assert False, "Do you want reordering or not?"
 
-				print(str(num_leaves)+"\t"+str(threshold)+"\t"+str(int(D/dims))+"\t|\t"+str(leaves_to_search)+"\t"+str(reorder)+"\t"+str(metric)+"\n")
-				if args.batch > 1:
-					start = time.time()
-					local_neighbors, local_distances = searcher.search_batched_parallel(queries, leaves_to_search=leaves_to_search, pre_reorder_num_neighbors=reorder, final_num_neighbors=args.topk, batch_size=batch_size)
-					# local_neighbors, local_distances = searcher.search_batched(queries, leaves_to_search=leaves_to_search, pre_reorder_num_neighbors=reorder, final_num_neighbors=args.topk)
-					end = time.time()
-					local_distances[local_neighbors==2147483647] =  math.inf if metric=="squared_l2" else -math.inf 		# 2147483647: maximum integer value
-					total_latency[idx] = total_latency[idx] + 1000*(end - start)
-					n.append(local_neighbors+base_idx)
-					d.append(local_distances)
-				else:
-					# ScaNN search
-					def single_query(query, base_idx):
+					print(str(num_leaves)+"\t"+str(threshold)+"\t"+str(int(D/dims))+"\t|\t"+str(leaves_to_search)+"\t"+str(reorder)+"\t"+str(metric)+"\n")
+					if args.batch > 1:
 						start = time.time()
-						local_neighbors, local_distances = searcher.search(query, leaves_to_search=leaves_to_search, pre_reorder_num_neighbors=reorder, final_num_neighbors=args.topk)
+						local_neighbors, local_distances = searcher.search_batched_parallel(queries, leaves_to_search=leaves_to_search, pre_reorder_num_neighbors=reorder, final_num_neighbors=args.topk, batch_size=batch_size)
+						# local_neighbors, local_distances = searcher.search_batched(queries, leaves_to_search=leaves_to_search, pre_reorder_num_neighbors=reorder, final_num_neighbors=args.topk)
+						end = time.time()
 						local_distances[local_neighbors==2147483647] =  math.inf if metric=="squared_l2" else -math.inf 		# 2147483647: maximum integer value
-						return (time.time() - start, (local_neighbors, local_distances))
-					# ScaNN search
-					print("Entering ScaNN searcher")
-					local_results = [single_query(q, base_idx) for q in queries]
-					total_latency[idx] += (np.sum(np.array([time for time, _ in local_results]).reshape(queries.shape[0], 1)))*1000
-					nd = [nd for _, nd in local_results]
-					n.append(np.vstack([n for n,d in nd])+base_idx)
-					d.append(np.vstack([d for n,d in nd]))
-			base_idx = base_idx + num_per_split
-			neighbors = np.append(neighbors, np.array(n), axis=-1)
-			distances = np.append(distances, np.array(d), axis=-1)
-		final_neighbors = sort_neighbors(distances, neighbors)
-		for idx in range(len(sc_list)):
-			if args.sweep:
-				leaves_to_search, reorder = search_config[sc_list[idx]]
-				f.write(str(num_leaves)+"\t"+str(threshold)+"\t"+str(int(D/dims))+"\t|\t"+str(leaves_to_search)+"\t"+str(reorder)+"\t"+str(metric)+"\n")
-			print(str(num_leaves)+"\t"+str(threshold)+"\t"+str(int(D/dims))+"\t|\t"+str(leaves_to_search)+"\t"+str(reorder)+"\t"+str(metric)+"\n")
-			top1, top10, top100, top1000 = print_recall(final_neighbors[idx], gt)
-			print("Top ", args.topk, " Total latency (ms): ", total_latency[idx])
-			if args.sweep:
-				f.write(str(top1)+" %\t"+str(top10)+" %\t"+str(top100)+" %\t"+str(top1000)+" %\t"+str(total_latency[idx])+"\n")
+						total_latency[idx] = total_latency[idx] + 1000*(end - start)
+						n.append(local_neighbors+base_idx)
+						d.append(local_distances)
+					else:
+						# ScaNN search
+						def single_query(query, base_idx):
+							start = time.time()
+							local_neighbors, local_distances = searcher.search(query, leaves_to_search=leaves_to_search, pre_reorder_num_neighbors=reorder, final_num_neighbors=args.topk)
+							local_distances[local_neighbors==2147483647] =  math.inf if metric=="squared_l2" else -math.inf 		# 2147483647: maximum integer value
+							return (time.time() - start, (local_neighbors, local_distances))
+						# ScaNN search
+						print("Entering ScaNN searcher")
+						local_results = [single_query(q, base_idx) for q in queries]
+						total_latency[idx] += (np.sum(np.array([time for time, _ in local_results]).reshape(queries.shape[0], 1)))*1000
+						nd = [nd for _, nd in local_results]
+						n.append(np.vstack([n for n,d in nd])+base_idx)
+						d.append(np.vstack([d for n,d in nd]))
+				base_idx = base_idx + num_per_split
+				neighbors = np.append(neighbors, np.array(n), axis=-1)
+				distances = np.append(distances, np.array(d), axis=-1)
+			final_neighbors = sort_neighbors(distances, neighbors)
+			for idx in range(len(sc_list)):
+				if args.sweep:
+					leaves_to_search, reorder = search_config[sc_list[idx]]
+					f.write(str(num_leaves)+"\t"+str(threshold)+"\t"+str(int(D/dims))+"\t|\t"+str(leaves_to_search)+"\t"+str(reorder)+"\t"+str(metric)+"\n")
+				print(str(num_leaves)+"\t"+str(threshold)+"\t"+str(int(D/dims))+"\t|\t"+str(leaves_to_search)+"\t"+str(reorder)+"\t"+str(metric)+"\n")
+				top1, top10, top100, top1000 = print_recall(final_neighbors[idx], gt)
+				print("Top ", args.topk, " Total latency (ms): ", total_latency[idx])
+				if args.sweep:
+					f.write(str(top1)+" %\t"+str(top10)+" %\t"+str(top100)+" %\t"+str(top1000)+" %\t"+str(total_latency[idx])+"\n")
 	if args.sweep:
 		f.close()
 
