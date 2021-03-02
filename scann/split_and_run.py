@@ -60,8 +60,8 @@ if args.program=='scann':
 		assert args.L!=-1 and args.w!=-1 and args.topk!=-1 and args.k_star == -1 and args.m!=-1 and (args.topk <= args.reorder if args.reorder!=-1 else True) and args.is_gpu==False
 	assert args.topk!=-1
 elif args.program == "faiss":
-	if os.environ.get('LD_PRELOAD') == None:
-		assert False, "Please set LD_PRELOAD environment path and retry"
+	#if os.environ.get('LD_PRELOAD') == None:
+	#	assert False, "Please set LD_PRELOAD environment path and retry"
 	# export LD_PRELOAD=/opt/intel/mkl/lib/intel64/libmkl_def.so:/opt/intel/mkl/lib/intel64/libmkl_avx2.so:/opt/intel/mkl/lib/intel64/libmkl_core.so:/opt/intel/mkl/lib/intel64/libmkl_intel_lp64.so:/opt/intel/mkl/lib/intel64/libmkl_intel_thread.so:/opt/intel/lib/intel64_lin/libiomp5.so
 	from runfaiss import run_local_faiss
 	import math
@@ -71,7 +71,7 @@ elif args.program == "annoy":
 	import annoy
 	if args.batch > 1:
 		from multiprocessing.pool import ThreadPool
-	assert args.topk!=-1 and args.is_gpu==False
+	assert args.topk!=-1 and args.is_gpu==False and (args.num_search!=-1 and args.n_trees!=-1 if args.sweep!=True else True)
 
 def compute_recall(neighbors, true_neighbors):
 	total = 0
@@ -264,9 +264,12 @@ def sort_neighbors(distances, neighbors):
 def prepare_eval():
 	gt = get_groundtruth()
 	queries = get_queries()
+	assert gt.shape[1] == 1000
 	return gt, queries
 
 def print_recall(final_neighbors, gt):
+	print("final_neighbors :", final_neighbors.shape)
+	print("gt :", gt.shape)
 	top1 = compute_recall(final_neighbors[:,:1], gt[:, :1])
 	top10 = compute_recall(final_neighbors[:,:10], gt[:, :10])
 	top100 = compute_recall(final_neighbors[:,:100], gt[:, :100])
@@ -275,12 +278,12 @@ def print_recall(final_neighbors, gt):
 	print("Recall 1@1:", top1)
 	print("Recall 10@10:", top10)
 	print("Recall 100@100:", top100)
-	print("Recall 1000@1000:", top100)
-	print("Recall 1000@10000:", top1000)
+	print("Recall 1000@1000:", top1000)
+	print("Recall 1000@10000:", top1000_10000)
 	return top1, top10, top100, top1000
 
 def get_searcher_path(split):
-	searcher_dir = basedir + args.program + ("GPU_" if args.is_gpu else "_") + '_searcher_' + args.metric + '/' + args.dataset + '/Split_' + str(args.num_split) + '/'
+	searcher_dir = basedir + args.program + ("GPU_" if args.is_gpu else "_") + 'searcher_' + args.metric + '/' + args.dataset + '/Split_' + str(args.num_split) + '/'
 	searcher_path = searcher_dir + args.dataset + '_searcher_' + str(args.num_split)+'_'+str(split)
 	return searcher_dir, searcher_path
 
@@ -337,8 +340,6 @@ def run_scann():
 			print("Split ", split)
 			# Load splitted dataset
 			batch_size = min(args.batch, queries.shape[0])
-			# Create ScaNN searcher
-			print("Entering ScaNN builder")
 			searcher = None
 			searcher_path = searcher_path + '_' + str(num_leaves) + '_' + str(threshold) + '_' + str(dims) + '_' + metric + ("_reorder" if args.reorder!=-1 else '')
 
@@ -346,6 +347,8 @@ def run_scann():
 				print("Loading searcher from ", searcher_path)
 				searcher = scann.scann_ops_pybind.load_searcher(searcher_path, num_per_split, D)
 			else:
+				# Create ScaNN searcher
+				print("Entering ScaNN builder, will be created to ", searcher_path)
 				dataset = read_data(split_dataset_path + str(args.num_split) + "_" + str(split) if args.num_split>1 else dataset_basedir, base=False if args.num_split>1 else True, offset_=None if args.num_split>1 else 0, shape_=None)
 				if args.reorder!=-1:
 					searcher = scann.scann_ops_pybind.builder(dataset, 10, metric).tree(
@@ -510,7 +513,6 @@ def run_faiss(D):
 				train_dataset = get_train(split, args.num_split)
 				dataset = read_data(split_dataset_path + str(args.num_split) + "_" + str(split) if args.num_split>1 else dataset_basedir, base=False if args.num_split>1 else True, offset_=None if args.num_split>1 else 0, shape_=None)
 				padded_D, faiss_m, padded_dataset, padded_train_dataset, padded_queries = faiss_pad_dataset(dataset, train_dataset, queries, m)
-				print("shape:", train_dataset.shape)
 				# Build Faiss index
 				searcher_dir, searcher_path = get_searcher_path(split)
 				args.batch = min(args.batch, queries.shape[0])
@@ -533,11 +535,11 @@ def run_annoy(D):
 	gt, queries = prepare_eval()
 	assert args.metric!='angular', "[TODO] don't understand how angular works yet..."
 	if args.sweep:
-		build_config = [(args.metric, 100), (args.metric, 200), (args.metric, 400)]
+		build_config = [(args.metric, 50), (args.metric, 100), (args.metric, 150), (args.metric, 200), (args.metric, 250), (args.metric, 300), (args.metric, 400)]
 		search_config = [100, 200, 400, 1000, 2000, 4000, 10000, 20000, 40000, 100000, 200000, 400000]
 		f = open(sweep_result_path, "w")
-		f.write("Program: " + args.program + " Topk: " + str(args.topk) + " Num_split: " + str(args.num_split)+"\n")
-		f.write("Num trees\tNum search\tMetric\n")
+		f.write("Program: " + args.program + " Topk: " + str(args.topk) + " Num_split: " + str(args.num_split)+ " Batch: "+str(args.batch)+"\n")
+		f.write("Num trees\t|\tNum search\tReorder\tMetric\n")
 	else:
 		build_config = [(args.metric, args.n_trees)]
 		search_config = [args.num_search]
@@ -549,68 +551,85 @@ def run_annoy(D):
 			annoy_metric = "euclidean"
 		elif metric == "angular":
 			annoy_metric = "angular"
-		for sc in search_config:
-			num_search = sc
-			if args.sweep:
-				f.write(str(n_trees)+"\t"+str(num_search)+"\t"+str(annoy_metric)+"\n")
-			print(str(n_trees)+"\t"+str(num_search)+"\t"+str(annoy_metric))
-			neighbors=np.empty((queries.shape[0],0))
-			distances=np.empty((queries.shape[0],0))
-			base_idx = 0
-			total_latency = 0
-			for split in range(args.num_split):
-				searcher_dir, searcher_path = get_searcher_path(split)
-				searcher_path = searcher_path + '_' + str(n_trees) + '_' + metric
-				print("Split ", split)
 
+		neighbors = np.empty((len(search_config), queries.shape[0],0), dtype=np.int32)
+		distances = np.empty((len(search_config), queries.shape[0],0), dtype=np.float32)
+		total_latency = np.zeros(len(search_config))
+		base_idx = 0
+		for split in range(args.num_split):
+			num_per_split = int(N/args.num_split) if split < args.num_split-1 else N-base_idx
+			searcher_dir, searcher_path = get_searcher_path(split)
+			searcher_path = searcher_path + '_' + str(n_trees) + '_' + metric
+			print("Split ", split)
+
+			# Create Annoy index
+			searcher = annoy.AnnoyIndex(D, metric=annoy_metric)
+			if os.path.isfile(searcher_path):
+				print("Loading searcher from ", searcher_path)
+				searcher.load(searcher_path)
+			else:
 				# Load splitted dataset
 				dataset = read_data(split_dataset_path + str(args.num_split) + "_" + str(split) if args.num_split>1 else dataset_basedir, base=False if args.num_split>1 else True, offset_=None if args.num_split>1 else 0, shape_=None)
-				# Create Annoy index
-				searcher = annoy.AnnoyIndex(D, metric=annoy_metric)
-
-				if os.path.isfile(searcher_path):
-					print("Loading searcher from ", searcher_path)
-					searcher.load(searcher_path)
-				else:
-					print("Annoy, adding items")
-					for i, x in enumerate(dataset):
-					    searcher.add_item(i, x.tolist())
-					print("Annoy, building trees")
-					searcher.build(n_trees)
-					print("Saving searcher to ", searcher_path)
-					os.makedirs(searcher_dir, exist_ok=True)
-					searcher.save(searcher_path)
-
+				print("Annoy, adding items")
+				for i, x in enumerate(dataset):
+				    searcher.add_item(i, x.tolist())
+				print("Annoy, building trees")
+				searcher.build(n_trees)
+				print("Saving searcher to ", searcher_path)
+				os.makedirs(searcher_dir, exist_ok=True)
+				searcher.save(searcher_path)
+			n = list()
+			d = list()			
+			for idx, sc in enumerate(search_config):
+				num_search = sc
+				# if args.sweep:
+				# 	f.write(str(n_trees)+"\t"+str(num_search)+"\t"+str(annoy_metric)+"\n")
+				print(str(n_trees)+"\t"+str(num_search)+"\t"+str(annoy_metric))
 				print("Entering Annoy searcher")
 				# Annoy batch version
 				if args.batch > 1:
-					pool = ThreadPool()
+					pool = ThreadPool(args.batch)
 					start = time.time()
 					result = pool.map(lambda q: searcher.get_nns_by_vector(q.tolist(), args.topk, num_search, include_distances=True), queries)
 					end = time.time()
-					result = np.array(result)
-					local_neighbors = result[:,0,:]
-					local_distances = result[:,1,:]
-					total_latency = total_latency + (end - start)*1000
-					neighbors = np.append(neighbors, local_neighbors+base_idx, axis=1)
-					distances = np.append(distances, local_distances, axis=1)
+					ne = np.empty((0, args.topk))
+					di = np.empty((0, args.topk))
+					for nn, dd in result:
+						if len(nn) < args.topk:
+							plus_dim = args.topk-len(nn)
+							ne = np.append(ne, np.array(nn+[N]*plus_dim).reshape(1, args.topk), axis=0)
+							di = np.append(di, np.array(dd+[math.inf if metric=="squared_l2" else -math.inf]*plus_dim).reshape(1, args.topk), axis=0)
+						else:
+							ne = np.append(ne, np.array(nn).reshape(1, args.topk), axis=0)
+							di = np.append(di, np.array(dd).reshape(1, args.topk), axis=0)
+					total_latency[idx] = total_latency[idx] + 1000*(end - start)
+					n.append(ne+base_idx)
+					d.append(di)
 				else:
 					def single_query(query, base_idx):
 						start = time.time()
-						result = searcher.get_nns_by_vector(query.tolist(), args.topk, num_search, include_distances=True)
-						return (time.time() - start, result)
-					local_results = [single_query(q, base_idx) for q in queries]
-					total_latency += (np.sum(np.array([time for time, _ in local_results]).reshape(queries.shape[0], 1)))*1000
-					nd = [nd for _, nd in local_results]
-					neighbors = np.append(neighbors, np.array([n for n,d in nd])+base_idx, axis=1)
-					distances = np.append(distances, np.array([d for n,d in nd]), axis=1)
-				base_idx = base_idx + dataset.shape[0]
+						local_neighbors, local_distances = searcher.get_nns_by_vector(query.tolist(), args.topk, num_search, include_distances=True)
+						if len(local_neighbors) < args.topk:
+							plus_dim = args.topk-len(local_neighbors)
+							local_neighbors=np.concatenate((local_neighbors, np.full((plus_dim), N)), axis=-1)
+							local_distances=np.concatenate((local_distances, np.full((plus_dim), math.inf if metric=="squared_l2" else -math.inf)), axis=-1)
+						return (time.time() - start, (local_neighbors, local_distances))
 
-			final_neighbors = sort_neighbors(distances, neighbors)
-			top1, top10, top100, top1000 = print_recall(final_neighbors, gt)
-			print("Top ", args.topk, " Total latency (ms): ", total_latency)
+					local_results = [single_query(q, base_idx) for q in queries]
+					total_latency[idx]  += (np.sum(np.array([time for time, _ in local_results]).reshape(queries.shape[0], 1)))*1000
+					nd = [nd for _, nd in local_results]
+					n.append(np.vstack([n for n,d in nd])+base_idx)
+					d.append(np.vstack([d for n,d in nd]))
+			base_idx = base_idx + num_per_split
+			neighbors = np.append(neighbors, np.array(n), axis=-1)
+			distances = np.append(distances, np.array(d), axis=-1)
+		final_neighbors = sort_neighbors(distances, neighbors)
+		for idx in range(len(search_config)):
+			top1, top10, top100, top1000 = print_recall(final_neighbors[idx], gt)
+			print("Top ", args.topk, " Total latency (ms): ", total_latency[idx])
 			if args.sweep:
-				f.write(str(top1)+" %\t"+str(top10)+" %\t"+str(top100)+" %\t"+str(top1000)+" %\t"+str(total_latency)+"\n")
+				f.write(str(n_trees)+"\t"+str(search_config[idx])+"\t"+str(annoy_metric)+"\n")
+				f.write(str(top1)+" %\t"+str(top10)+" %\t"+str(top100)+" %\t"+str(top1000)+" %\t"+str(total_latency[idx])+"\n")
 	if args.sweep:
 		f.close()
 
@@ -636,14 +655,15 @@ def get_groundtruth():
 	else:
 		return ivecs_read(groundtruth_path)
 
-	# if "sift1m" in args.dataset:
-	# 	filename = dataset_basedir + 'sift_groundtruth.ivecs' if args.metric=="squared_l2" else groundtruth_path
-	# 	print("Reading from ", filename)
-	# 	return ivecs_read(filename)
+	# elif "sift1m" in args.dataset:
+	# 	return ivecs_read(groundtruth_path)
+	# 	# filename = dataset_basedir + 'sift_groundtruth.ivecs' if args.metric=="squared_l2" else groundtruth_path
+	# 	# print("Reading from ", filename)
+	# 	# return ivecs_read(filename)
 	# elif "sift1b" in args.dataset:
-	# 	filename = dataset_basedir +  'gnd/idx_1000M.ivecs' if args.metric=="squared_l2" else groundtruth_path
-	# 	print("Reading from ", filename)
-	# 	return ivecs_read(filename)
+	#  	filename = dataset_basedir +  'gnd/idx_1000M.ivecs' if args.metric=="squared_l2" else groundtruth_path
+	#  	print("Reading from ", filename)
+	#  	return ivecs_read(filename)
 	# elif "glove" in args.dataset:
 	# 	if args.metric == "dot_product":
 	# 		print("Reading from ", dataset_basedir+"glove-100-angular.hdf5")
@@ -652,7 +672,7 @@ def get_groundtruth():
 	# 		print("Reading from ", groundtruth_path)
 	# 		return read_data(groundtruth_path, base=False)
 	# else:
-	# 	assert False
+	#  	assert False
 
 def get_queries():
 	if "sift1m" in args.dataset:
@@ -683,7 +703,7 @@ qN = -1
 if "sift1m" in args.dataset:
 	dataset_basedir = basedir + "SIFT1M/"
 	split_dataset_path =dataset_basedir+"split_data/sift1m_"
-	groundtruth_path = dataset_basedir + 'sift_groundtruth.ivecs' if args.metric=="squared_l2" else dataset_basedir + "sift1m_"+args.metric+"_gt"
+	groundtruth_path = dataset_basedir + "sift1m_"+args.metric+"_gt"
 	N=1000000
 	D=128
 	num_iter = 1
