@@ -126,11 +126,13 @@ def collect_result(path, args):
                 program, topk, num_split, batch_size = line.split()[1], int(line.split()[3]), int(line.split()[5]), int(line.split()[7])
                 print("Program: ", program, " / Topk: ", topk, " / Num split: ", num_split, " / Batch size: ", batch_size)
                 if args.build_config:
-                    assert program == args.program and batch_size==128
+                    assert program == args.program and (batch_size==128 if args.program != "annoy" else True)
             elif i==1:
                 continue
             elif i%2==0:
                 result = line.split()
+                print(line)
+                print(result)
                 temp_build_key = '/'.join(result[:result.index("|")])
                 search_key = "/".join(result[result.index("|")+1:-2])  # make sure the last two is reorder and metric
                 if reorder == -2:
