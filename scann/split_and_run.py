@@ -250,7 +250,7 @@ def run_groundtruth():
 			libc = ctypes.CDLL('./groundtruth.so')
 			libc.compute_groundtruth.restype=None
 			libc.compute_groundtruth(num, num_per_split, D, qN, xpp, ypp, gpp, gspp, True if args.metric=="dot_product" else False)
-		split_gt_path = groundtruth_path+"_split"
+		split_gt_path = groundtruth_path
 		write_split_gt_data(split_gt_path, groundtruth)
 
 def sort_neighbors(distances, neighbors):
