@@ -60,8 +60,8 @@ if args.program=='scann':
 		assert args.L!=-1 and args.w!=-1 and args.topk!=-1 and args.k_star == -1 and args.m!=-1 and (args.topk <= args.reorder if args.reorder!=-1 else True) and args.is_gpu==False
 	assert args.topk!=-1
 elif args.program == "faiss":
-	if os.environ.get('LD_PRELOAD') == None:
-		assert False, "Please set LD_PRELOAD environment path and retry"
+	#if os.environ.get('LD_PRELOAD') == None:
+	#	assert False, "Please set LD_PRELOAD environment path and retry"
 	# export LD_PRELOAD=/opt/intel/mkl/lib/intel64/libmkl_def.so:/opt/intel/mkl/lib/intel64/libmkl_avx2.so:/opt/intel/mkl/lib/intel64/libmkl_core.so:/opt/intel/mkl/lib/intel64/libmkl_intel_lp64.so:/opt/intel/mkl/lib/intel64/libmkl_intel_thread.so:/opt/intel/lib/intel64_lin/libiomp5.so
 	from runfaiss import run_local_faiss
 	import math

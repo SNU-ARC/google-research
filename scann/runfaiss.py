@@ -272,6 +272,9 @@ def run_local_faiss(args, cacheroot, split, D, index_key, train, base, query):
     ngpu = faiss.get_num_gpus()
     tempmem = -1
 
+	if n_gpu == 0 and args.is_gpu==True:
+		assert False, "Cannot detect gpu in this machine"
+
     # process index_key
     preproc_str, ivf_str, pqflat_str = process_index_key(index_key)
     ncentroid = int(ivf_str[3:])
