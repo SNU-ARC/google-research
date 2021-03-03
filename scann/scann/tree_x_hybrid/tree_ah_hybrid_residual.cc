@@ -48,6 +48,8 @@ namespace research_scann {
 
 using asymmetric_hashing2::AsymmetricHashingOptionalParameters;
 
+const DenseDataset<uint8_t>* hashed;
+
 Status TreeAHHybridResidual::EnableCrowdingImpl(
     ConstSpan<int64_t> datapoint_index_to_crowding_attribute) {
   if (leaf_searchers_.empty()) return OkStatus();
@@ -231,6 +233,7 @@ Status TreeAHHybridResidual::BuildLeafSearchers(
     shared_ptr<const asymmetric_hashing2::Model<float>> ah_model,
     vector<std::vector<DatapointIndex>> datapoints_by_token,
     const DenseDataset<uint8_t>* hashed_dataset, ThreadPool* pool) {
+	hashed = hashed_dataset;
   DCHECK(partitioner);
   SCANN_RETURN_IF_ERROR(
       CheckBuildLeafSearchersPreconditions(config, *partitioner));
@@ -485,7 +488,11 @@ Status TreeAHHybridResidual::FindNeighborsBatchedImpl(
       }
     }
   }
-
+	//std::cout << "fault? " << std::endl;
+	//////////////////////////////////////////////////////////////////////////////
+	//auto packed_dataset_ =
+  //      ::research_scann::asymmetric_hashing2::CreatePackedDataset(*hashed);
+	//std::cout << "real?" << std::endl;
   vector<vector<KMeansTreeSearchResult>> centers_to_search(queries.size());
   if (centers_overridden)
     SCANN_RETURN_IF_ERROR(
@@ -523,6 +530,7 @@ Status TreeAHHybridResidual::FindNeighborsBatchedImpl(
                         p.pre_reordering_epsilon());
     top_ns[idx].AcquireMutator(&mutators[idx]);
   }
+	int sum = 0; //////////////////////////////////////////////////////////////
   vector<NNResultsVector> leaf_results;
   for (size_t leaf_token : leaf_tokens_by_norm_) {
     ConstSpan<QueryForLeaf> queries_for_cur_leaf = queries_by_leaf[leaf_token];
@@ -552,6 +560,17 @@ Status TreeAHHybridResidual::FindNeighborsBatchedImpl(
     for (size_t j = 0; j < queries_for_cur_leaf.size(); ++j) {
       const DatapointIndex cur_query_index =
           queries_for_cur_leaf[j].query_index;
+			if(cur_query_index == 0)
+				sum += leaf_results[j].size();
+			if(leaf_token == 0 && j == 0){///////////////////////////////////////
+				std::cout << "datapoints_by_token_[leaf_token] size : " << datapoints_by_token_[leaf_token].size() << std::endl;
+				std::cout << "leaf_results size : " << leaf_results.size() << std::endl;
+				std::cout << "leaf_results[j] size : " << leaf_results[j].size() << std::endl;
+					for(const auto& result : leaf_results[j]){
+						std::cout << "local_to_global_index[result.first] : " << local_to_global_index[result.first] << std::endl;
+						std::cout << queries_for_cur_leaf[j].distance_to_center << "   " << result.second << "   " << result.first << std::endl;
+					}
+			}
       AddLeafResultsToTopN(
           local_to_global_index, queries_for_cur_leaf[j].distance_to_center,
           partition_stdev, leaf_results[j], &mutators[cur_query_index]);
@@ -561,6 +580,9 @@ Status TreeAHHybridResidual::FindNeighborsBatchedImpl(
     mutators[query_index].Release();
     top_ns[query_index].FinishUnsorted(&results[query_index]);
   }
+	std::cout << "query0 SOW : " << sum << std::endl;
+	std::cout << "results size : " << results[0].size() << std::endl;
+	std::cout << "results[0][0] index and dist : " << results[0][0].first << "   " << results[0][0].second << std::endl;
   return OkStatus();
 }
 
