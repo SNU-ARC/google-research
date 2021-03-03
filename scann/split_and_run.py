@@ -60,8 +60,8 @@ if args.program=='scann':
 		assert args.L!=-1 and args.w!=-1 and args.topk!=-1 and args.k_star == -1 and args.m!=-1 and (args.topk <= args.reorder if args.reorder!=-1 else True) and args.is_gpu==False
 	assert args.topk!=-1
 elif args.program == "faiss":
-	if os.environ.get('LD_PRELOAD') == None:
-		assert False, "Please set LD_PRELOAD environment path and retry"
+	#if os.environ.get('LD_PRELOAD') == None:
+	#	assert False, "Please set LD_PRELOAD environment path and retry"
 	# export LD_PRELOAD=/opt/intel/mkl/lib/intel64/libmkl_def.so:/opt/intel/mkl/lib/intel64/libmkl_avx2.so:/opt/intel/mkl/lib/intel64/libmkl_core.so:/opt/intel/mkl/lib/intel64/libmkl_intel_lp64.so:/opt/intel/mkl/lib/intel64/libmkl_intel_thread.so:/opt/intel/lib/intel64_lin/libiomp5.so
 	from runfaiss import run_local_faiss
 	import math
@@ -250,7 +250,7 @@ def run_groundtruth():
 			libc = ctypes.CDLL('./groundtruth.so')
 			libc.compute_groundtruth.restype=None
 			libc.compute_groundtruth(num, num_per_split, D, qN, xpp, ypp, gpp, gspp, True if args.metric=="dot_product" else False)
-		split_gt_path = groundtruth_path+"_split"
+		split_gt_path = groundtruth_path
 		write_split_gt_data(split_gt_path, groundtruth)
 
 def sort_neighbors(distances, neighbors):
@@ -312,9 +312,29 @@ def run_scann():
 							 [5120, args.reorder], [5632, args.reorder], [6144, args.reorder], [6656, args.reorder], [7168, args.reorder], [7680, args.reorder], \
 							 [8192, args.reorder], [16384, args.reorder]]
 		else:
-			build_config = [[2000, 0.2, 2, args.metric], [2000, 0.2, 1, args.metric], [1500, 0.55, 2, args.metric], [1500, 0.55, 1, args.metric], [1000, 0.55, 2, args.metric], [1000, 0.55, 1, args.metric], \
-			 				  [1000, 0.2, 2, args.metric], [1000, 0.2, 1, args.metric], [1400, 0.15, 1, args.metric], [1400, 0.15, 2, args.metric], [1400, 0.15, 3, args.metric], \
-			 				  [800, 0.15, 2, args.metric], [800, 0.15, 1, args.metric]]
+			build_config = [
+							[800, 0.2, 1, args.metric], [800, 0.2, 2, args.metric], [800, 0.2, 3, args.metric], [800, 0.2, 4, args.metric], [800, 0.2, 5, args.metric], [800, 0.2, 8, args.metric], [800, 0.2, 10, args.metric], [800, 0.2, 16, args.metric], [800, 0.2, 25, args.metric], [800, 0.2, 32, args.metric], [800, 0.2, 50, args.metric], [800, 0.2, 64, args.metric], \
+							[800, 0.4, 1, args.metric], [800, 0.4, 2, args.metric], [800, 0.4, 3, args.metric], [800, 0.4, 4, args.metric], [800, 0.4, 5, args.metric], [800, 0.4, 8, args.metric], [800, 0.4, 10, args.metric], [800, 0.4, 16, args.metric], [800, 0.4, 25, args.metric], [800, 0.4, 32, args.metric], [800, 0.4, 50, args.metric], [800, 0.4, 64, args.metric], \
+							[800, 0.55, 1, args.metric], [800, 0.55, 2, args.metric], [800, 0.55, 3, args.metric], [800, 0.55, 4, args.metric], [800, 0.55, 5, args.metric], [800, 0.55, 8, args.metric], [800, 0.55, 10, args.metric], [800, 0.55, 16, args.metric], [800, 0.55, 25, args.metric], [800, 0.55, 32, args.metric], [800, 0.55, 50, args.metric], [800, 0.55, 64, args.metric], \
+							[1000, 0.2, 1, args.metric], [1000, 0.2, 2, args.metric], [1000, 0.2, 3, args.metric], [1000, 0.2, 4, args.metric], [1000, 0.2, 5, args.metric], [1000, 0.2, 8, args.metric], [1000, 0.2, 10, args.metric], [1000, 0.2, 16, args.metric], [1000, 0.2, 25, args.metric], [1000, 0.2, 32, args.metric], [1000, 0.2, 50, args.metric], [1000, 0.2, 64, args.metric], \
+							[1000, 0.4, 1, args.metric], [1000, 0.4, 2, args.metric], [1000, 0.4, 3, args.metric], [1000, 0.4, 4, args.metric], [1000, 0.4, 5, args.metric], [1000, 0.4, 8, args.metric], [1000, 0.4, 10, args.metric], [1000, 0.4, 16, args.metric], [1000, 0.4, 25, args.metric], [1000, 0.4, 32, args.metric], [1000, 0.4, 50, args.metric], [1000, 0.4, 64, args.metric], \
+							[1000, 0.55, 1, args.metric], [1000, 0.55, 2, args.metric], [1000, 0.55, 3, args.metric], [1000, 0.55, 4, args.metric], [1000, 0.55, 5, args.metric], [1000, 0.55, 8, args.metric], [1000, 0.55, 10, args.metric], [1000, 0.55, 16, args.metric], [1000, 0.55, 25, args.metric], [1000, 0.55, 32, args.metric], [1000, 0.55, 50, args.metric], [1000, 0.55, 64, args.metric], \
+							[1500, 0.2, 1, args.metric], [1500, 0.2, 2, args.metric], [1500, 0.2, 3, args.metric], [1500, 0.2, 4, args.metric], [1500, 0.2, 5, args.metric], [1500, 0.2, 8, args.metric], [1500, 0.2, 10, args.metric], [1500, 0.2, 16, args.metric], [1500, 0.2, 25, args.metric], [1500, 0.2, 32, args.metric], [1500, 0.2, 50, args.metric], [1500, 0.2, 64, args.metric], \
+							[1500, 0.4, 1, args.metric], [1500, 0.4, 2, args.metric], [1500, 0.4, 3, args.metric], [1500, 0.4, 4, args.metric], [1500, 0.4, 5, args.metric], [1500, 0.4, 8, args.metric], [1500, 0.4, 10, args.metric], [1500, 0.4, 16, args.metric], [1500, 0.4, 25, args.metric], [1500, 0.4, 32, args.metric], [1500, 0.4, 50, args.metric], [1500, 0.4, 64, args.metric], \
+							[1500, 0.55, 1, args.metric], [1500, 0.55, 2, args.metric], [1500, 0.55, 3, args.metric], [1500, 0.55, 4, args.metric], [1500, 0.55, 5, args.metric], [1500, 0.55, 8, args.metric], [1500, 0.55, 10, args.metric], [1500, 0.55, 16, args.metric], [1500, 0.55, 25, args.metric], [1500, 0.55, 32, args.metric], [1500, 0.55, 50, args.metric], [1500, 0.55, 64, args.metric], \
+							[2000, 0.2, 1, args.metric], [2000, 0.2, 2, args.metric], [2000, 0.2, 3, args.metric], [2000, 0.2, 4, args.metric], [2000, 0.2, 5, args.metric], [2000, 0.2, 8, args.metric], [2000, 0.2, 10, args.metric], [2000, 0.2, 16, args.metric], [2000, 0.2, 25, args.metric], [2000, 0.2, 32, args.metric], [2000, 0.2, 50, args.metric], [2000, 0.2, 64, args.metric], \
+							[2000, 0.4, 1, args.metric], [2000, 0.4, 2, args.metric], [2000, 0.4, 3, args.metric], [2000, 0.4, 4, args.metric], [2000, 0.4, 5, args.metric], [2000, 0.4, 8, args.metric], [2000, 0.4, 10, args.metric], [2000, 0.4, 16, args.metric], [2000, 0.4, 25, args.metric], [2000, 0.4, 32, args.metric], [2000, 0.4, 50, args.metric], [2000, 0.4, 64, args.metric], \
+							[2000, 0.55, 1, args.metric], [2000, 0.55, 2, args.metric], [2000, 0.55, 3, args.metric], [2000, 0.55, 4, args.metric], [2000, 0.55, 5, args.metric], [2000, 0.55, 8, args.metric], [2000, 0.55, 10, args.metric], [2000, 0.55, 16, args.metric], [2000, 0.55, 25, args.metric], [2000, 0.55, 32, args.metric], [2000, 0.55, 50, args.metric], [2000, 0.55, 64, args.metric], \
+							[4000, 0.2, 1, args.metric],[4000, 0.2, 2, args.metric], [4000, 0.2, 3, args.metric], [4000, 0.2, 4, args.metric], [4000, 0.2, 5, args.metric], [4000, 0.2, 8, args.metric], [4000, 0.2, 10, args.metric], [4000, 0.2, 16, args.metric], [4000, 0.2, 25, args.metric], [4000, 0.2, 32, args.metric], [4000, 0.2, 50, args.metric], [4000, 0.2, 64, args.metric], \
+							[4000, 0.4, 1, args.metric], [4000, 0.4, 2, args.metric], [4000, 0.4, 3, args.metric], [4000, 0.4, 4, args.metric], [4000, 0.4, 5, args.metric], [4000, 0.4, 8, args.metric], [4000, 0.4, 10, args.metric], [4000, 0.4, 16, args.metric], [4000, 0.4, 25, args.metric], [4000, 0.4, 32, args.metric], [4000, 0.4, 50, args.metric], [4000, 0.4, 64, args.metric], \
+							[4000, 0.55, 1, args.metric], [4000, 0.55, 2, args.metric], [4000, 0.55, 3, args.metric], [4000, 0.55, 4, args.metric], [4000, 0.55, 5, args.metric], [4000, 0.55, 8, args.metric], [4000, 0.55, 10, args.metric], [4000, 0.55, 16, args.metric], [4000, 0.55, 25, args.metric], [4000, 0.55, 32, args.metric], [4000, 0.55, 50, args.metric], [4000, 0.55, 64, args.metric]]
+
+
+			# build_config = [[2000, 0.2, 2, args.metric], [2000, 0.2, 1, args.metric], [1500, 0.55, 2, args.metric], [1500, 0.55, 1, args.metric], [1000, 0.55, 2, args.metric], [1000, 0.55, 1, args.metric], \
+			#  				  [1000, 0.2, 2, args.metric], [1000, 0.2, 1, args.metric], [1400, 0.15, 1, args.metric], [1400, 0.15, 2, args.metric], [1400, 0.15, 3, args.metric], \
+			#  				  [800, 0.15, 2, args.metric], [800, 0.15, 1, args.metric]]
+			# build_config = [[1400, 0.15, 3, args.metric], \
+			#  				  [800, 0.15, 2, args.metric], [800, 0.15, 1, args.metric]]
 			search_config = [[1, args.reorder], [2, args.reorder], [4, args.reorder], [8, args.reorder], [16, args.reorder], [25, args.reorder], [30, args.reorder], [35, args.reorder], [40, args.reorder], \
 							 [45, args.reorder], [50, args.reorder], [55, args.reorder], [60, args.reorder], [65, args.reorder], [75, args.reorder], [90, args.reorder], [110, args.reorder], [130, args.reorder], [150, args.reorder], \
 							 [170, args.reorder], [200, args.reorder], [220, args.reorder], [250, args.reorder], [310, args.reorder], [400, args.reorder], [500, args.reorder], [800, args.reorder], [1000, args.reorder], \
@@ -416,7 +436,7 @@ def run_scann():
 					leaves_to_search, reorder = search_config[sc_list[idx]]
 					f.write(str(num_leaves)+"\t"+str(threshold)+"\t"+str(int(D/dims))+"\t|\t"+str(leaves_to_search)+"\t"+str(reorder)+"\t"+str(metric)+"\n")
 				print(str(num_leaves)+"\t"+str(threshold)+"\t"+str(int(D/dims))+"\t|\t"+str(leaves_to_search)+"\t"+str(reorder)+"\t"+str(metric)+"\n")
- 				top1, top10, top100, top1000 = print_recall(final_neighbors[idx], gt)
+				top1, top10, top100, top1000 = print_recall(final_neighbors[idx], gt)
 				print("Top ", args.topk, " Total latency (ms): ", total_latency[idx])
 				if args.sweep:
 					f.write(str(top1)+" %\t"+str(top10)+" %\t"+str(top100)+" %\t"+str(top1000)+" %\t"+str(total_latency[idx])+"\n")
@@ -475,9 +495,12 @@ def run_faiss(D):
 	if args.sweep:
 		if args.is_gpu:
 			log2kstar_ = 8
-			build_config = [[1000, int(D/32), log2kstar_, args.metric], [1000, int(D/16), log2kstar_, args.metric], [1000, int(D/8), log2kstar_, args.metric], [1000, int(D/4), log2kstar_, args.metric], [1000, int(D/3), log2kstar_, args.metric], [1000, int(D/2), log2kstar_, args.metric], [1000, D, log2kstar_, args.metric], \
+			build_config = [[800, int(D/32), log2kstar_, args.metric], [800, int(D/16), log2kstar_, args.metric], [800, int(D/8), log2kstar_, args.metric], [800, int(D/4), log2kstar_, args.metric], [800, int(D/3), log2kstar_, args.metric], [800, int(D/2), log2kstar_, args.metric], [800, D, log2kstar_, args.metric], \
+							[1000, int(D/32), log2kstar_, args.metric], [1000, int(D/16), log2kstar_, args.metric], [1000, int(D/8), log2kstar_, args.metric], [1000, int(D/4), log2kstar_, args.metric], [1000, int(D/3), log2kstar_, args.metric], [1000, int(D/2), log2kstar_, args.metric], [1000, D, log2kstar_, args.metric], \
+							[1500, int(D/32), log2kstar_, args.metric], [1500, int(D/16), log2kstar_, args.metric], [1500, int(D/8), log2kstar_, args.metric], [1500, int(D/4), log2kstar_, args.metric], [1500, int(D/3), log2kstar_, args.metric], [1500, int(D/2), log2kstar_, args.metric], [1500, D, log2kstar_, args.metric], \
 							[2000, int(D/32), log2kstar_, args.metric], [2000, int(D/16), log2kstar_, args.metric], [2000, int(D/8), log2kstar_, args.metric], [2000, int(D/4), log2kstar_, args.metric], [2000, int(D/3), log2kstar_, args.metric], [2000, int(D/2), log2kstar_, args.metric], [2000, D, log2kstar_, args.metric], \
-							[800, int(D/32), log2kstar_, args.metric], [800, int(D/16), log2kstar_, args.metric], [800, int(D/8), log2kstar_, args.metric], [800, int(D/4), log2kstar_, args.metric], [800, int(D/3), log2kstar_, args.metric], [800, int(D/2), log2kstar_, args.metric], [800, D, log2kstar_, args.metric]]	# L, m, log2(k*), metric
+							[4000, int(D/32), log2kstar_, args.metric], [4000, int(D/16), log2kstar_, args.metric], [4000, int(D/8), log2kstar_, args.metric], [4000, int(D/4), log2kstar_, args.metric], [4000, int(D/3), log2kstar_, args.metric], [4000, int(D/2), log2kstar_, args.metric], [4000, D, log2kstar_, args.metric]]
+							
 		else:
 			build_config = [[1000, int(D/32), 4, args.metric], [1000, int(D/16), 4, args.metric], [1000, int(D/8), 4, args.metric], [1000, int(D/4), 4, args.metric], [1000, int(D/3), 4, args.metric], [1000, int(D/2), 4, args.metric], [1000, D, 4, args.metric], \
 							[1000, int(D/32), 6, args.metric], [1000, int(D/16), 6, args.metric], [1000, int(D/8), 6, args.metric], [1000, int(D/4), 6, args.metric], [1000, int(D/3), 6, args.metric], [1000, int(D/2), 6, args.metric], [1000, D, 6, args.metric], \
@@ -547,8 +570,8 @@ def run_annoy(D):
 		build_config = [(args.metric, 50), (args.metric, 100), (args.metric, 150), (args.metric, 200), (args.metric, 250), (args.metric, 300), (args.metric, 400)]
 		search_config = [100, 200, 400, 1000, 2000, 4000, 10000, 20000, 40000, 100000, 200000, 400000]
 		f = open(sweep_result_path, "w")
-		f.write("Program: " + args.program + " Topk: " + str(args.topk) + " Num_split: " + str(args.num_split)+"\n")
-		f.write("Num trees\tNum search\tMetric\n")
+		f.write("Program: " + args.program + " Topk: " + str(args.topk) + " Num_split: " + str(args.num_split)+ " Batch: "+str(args.batch)+"\n")
+		f.write("Num trees\t|\tNum search\tReorder\tMetric\n")
 	else:
 		build_config = [(args.metric, args.n_trees)]
 		search_config = [args.num_search]
