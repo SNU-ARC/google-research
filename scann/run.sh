@@ -17,9 +17,9 @@
 
 
 # ScaNN
-# python3 split_and_run.py --dataset sift1m --program scann --sweep --num_split 1 --metric squared_l2 --topk 1000 --reorder 1000 --batch 128
+python3 split_and_run.py --dataset sift1m --program scann --sweep --num_split 1 --metric squared_l2 --topk 1000 --reorder 1000 --batch 128
 python3 split_and_run.py --dataset glove --program scann --sweep --num_split 1 --metric squared_l2 --topk 1000 --reorder 1000 --batch 128
-# python3 split_and_run.py --dataset sift1b --program scann --sweep --num_split 20 --metric squared_l2 --topk 1000 --reorder 1000 --batch 128
-# python3 split_and_run.py --dataset sift1m --program scann --sweep --num_split 1 --metric dot_product --topk 1000 --reorder 1000 --batch 128
+#python3 split_and_run.py --dataset sift1b --program scann --sweep --num_split 20 --metric squared_l2 --topk 1000 --reorder 1000 --batch 128
+python3 split_and_run.py --dataset sift1m --program scann --sweep --num_split 1 --metric dot_product --topk 1000 --reorder 1000 --batch 128
 python3 split_and_run.py --dataset glove --program scann --sweep --num_split 1 --metric dot_product --topk 1000 --reorder 1000 --batch 128
 # python3 split_and_run.py --dataset sift1b --program scann --sweep --num_split 20 --metric dot_product --topk 1000 --reorder 1000 --batch 128
