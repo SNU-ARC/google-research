@@ -242,7 +242,7 @@ def dataset_iterator(x, preproc, bs):
     return rate_limited_imap(prepare_block, block_ranges)
 
 
-def run_local_faiss(args, cacheroot, split, D, index_key, train, base, query):
+def build_faiss(args, cacheroot, split, D, index_key, train, base, query_):
 
     # set global variables
     name1_to_metric = {
@@ -263,7 +263,9 @@ def run_local_faiss(args, cacheroot, split, D, index_key, train, base, query):
     global ngpu
     global usePrecomputed
     global useFloat16
+    global query
 
+    query = query_
     # set default arguments
     usePrecomputed = False
     useFloat16 = True
@@ -339,21 +341,23 @@ def run_local_faiss(args, cacheroot, split, D, index_key, train, base, query):
             del index_load
         else:
             index = index_load
+    return index, preproc
 
+def faiss_search(index, preproc, args, reorder, w):
     # search environment
     index.use_precomputed_table = usePrecomputed
     if args.is_gpu:
         ps = faiss.GpuParameterSpace()
         ps.initialize(index)
-        ps.set_index_parameter(index, 'nprobe', args.w)
+        ps.set_index_parameter(index, 'nprobe', w)
     else:
         faiss.omp_set_num_threads(faiss.omp_get_max_threads())
-        index.nprobe = args.w
+        index.nprobe = w
 
     # reorder
-    if args.reorder != -1 and not args.is_gpu:
+    if reorder != -1 and not args.is_gpu:
         index_refine = faiss.IndexRefineFlat(index, faiss.swig_ptr(xb))
-        index_refine.k_factor = args.reorder / args.topk
+        index_refine.k_factor = reorder / args.topk
         index_ready = index_refine
     else:
         index_ready = index
