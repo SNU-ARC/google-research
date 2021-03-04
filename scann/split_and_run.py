@@ -255,9 +255,9 @@ def run_groundtruth():
 
 def sort_neighbors(distances, neighbors):
 	if "dot_product" == args.metric or "angular" == args.metric:
-		return np.take_along_axis(neighbors, np.argsort(-distances, axis=-1), -1)
+		return np.take_along_axis(neighbors, np.argsort(-distances, axis=-1), -1)[:,:,:args.topk], -np.sort(-distances, axis=-1)[:,:,:args.topk]
 	elif "squared_l2" == args.metric:
-		return np.take_along_axis(neighbors, np.argsort(distances, axis=-1), -1)
+		return np.take_along_axis(neighbors, np.argsort(distances, axis=-1), -1)[:,:,:args.topk], np.sort(distances, axis=-1)[:,:,:args.topk]
 	else:
 		assert False
 
@@ -302,9 +302,10 @@ def run_scann():
 	if args.sweep:
 		if "sift1b" in args.dataset:
 			# For sift 1b
-			build_config = [[7000, 0.55, 2, args.metric], [7000, 0.2, 3, args.metric], [7000, 0.2, 2, args.metric], [7000, 0.2, 1, args.metric], \
-							[8000, 0.55, 2, args.metric], [8000, 0.2, 3, args.metric], [8000, 0.2, 2, args.metric], [8000, 0.2, 1, args.metric], \
-							[6000, 0.55, 2, args.metric], [6000, 0.2, 3 , args.metric], [6000, 0.2, 2, args.metric], [6000, 0.2, 1, args.metric]]
+			# build_config = [[7000, 0.55, 2, args.metric], [7000, 0.2, 4, args.metric], [7000, 0.2, 2, args.metric], [7000, 0.2, 1, args.metric], \
+			build_config = [[7000, 0.2, 4, args.metric], [7000, 0.2, 1, args.metric], \
+							[8000, 0.55, 2, args.metric], [8000, 0.2, 4, args.metric], [8000, 0.2, 2, args.metric], [8000, 0.2, 1, args.metric], \
+							[6000, 0.55, 2, args.metric], [6000, 0.2, 4 , args.metric], [6000, 0.2, 2, args.metric], [6000, 0.2, 1, args.metric]]
 			search_config = [[1, args.reorder], [16, args.reorder], [32, args.reorder], [64, args.reorder], [128, args.reorder], \
 							 [256, args.reorder], [320, args.reorder], [384, args.reorder], [448, args.reorder], [512, args.reorder], [576, args.reorder], [640, args.reorder], [704, args.reorder], [768, args.reorder], \
 							 [1024, args.reorder], [1280, args.reorder], [1536, args.reorder], [2048, args.reorder], [2560, args.reorder], [3072, args.reorder], [4096, args.reorder], [4608, args.reorder], \
@@ -343,6 +344,7 @@ def run_scann():
 		f.write("Program: " + args.program + " Topk: " + str(args.topk) + " Num_split: " + str(args.num_split)+ " Batch: "+str(args.batch)+"\n")
 		f.write("L\tThreashold\tm\t|\tw\tr\tMetric\n")
 	else:
+		# assert D%args.m == 0
 		build_config = [(args.L, args.threshold, int(D/args.m), args.metric)]
 		search_config = [[args.w, args.reorder]]
 
@@ -382,7 +384,7 @@ def run_scann():
 					print("Saving searcher to ", searcher_path)
 					os.makedirs(searcher_path, exist_ok=True)
 					searcher.serialize(searcher_path)
-
+				print("sc_list: ", sc_list)
 				n = list()
 				d = list()
 				for idx in sc_list:
@@ -420,9 +422,15 @@ def run_scann():
 						n.append(np.vstack([n for n,d in nd])+base_idx)
 						d.append(np.vstack([d for n,d in nd]))
 				base_idx = base_idx + num_per_split
-				neighbors = np.append(neighbors, np.array(n), axis=-1)
-				distances = np.append(distances, np.array(d), axis=-1)
-			final_neighbors = sort_neighbors(distances, neighbors)
+				neighbors = np.append(neighbors, np.array(n, dtype=np.int32), axis=-1)
+				distances = np.append(distances, np.array(d, dtype=np.float32), axis=-1)
+				# print("type(neighbors): ", type(neighbors))
+				# print("type(distances): ", type(distances))
+				neighbors, distances = sort_neighbors(distances, neighbors)
+				print("neighbors: ", neighbors.shape)
+				print("distances: ", distances.shape)
+
+			final_neighbors, _ = sort_neighbors(distances, neighbors)
 			for idx in range(len(sc_list)):
 				if args.sweep:
 					leaves_to_search, reorder = search_config[sc_list[idx]]
@@ -487,9 +495,12 @@ def run_faiss(D):
 	if args.sweep:
 		if args.is_gpu:
 			log2kstar_ = 8
-			build_config = [[1000, int(D/32), log2kstar_, args.metric], [1000, int(D/16), log2kstar_, args.metric], [1000, int(D/8), log2kstar_, args.metric], [1000, int(D/4), log2kstar_, args.metric], [1000, int(D/3), log2kstar_, args.metric], [1000, int(D/2), log2kstar_, args.metric], [1000, D, log2kstar_, args.metric], \
+			build_config = [[800, int(D/32), log2kstar_, args.metric], [800, int(D/16), log2kstar_, args.metric], [800, int(D/8), log2kstar_, args.metric], [800, int(D/4), log2kstar_, args.metric], [800, int(D/3), log2kstar_, args.metric], [800, int(D/2), log2kstar_, args.metric], [800, D, log2kstar_, args.metric], \
+							[1000, int(D/32), log2kstar_, args.metric], [1000, int(D/16), log2kstar_, args.metric], [1000, int(D/8), log2kstar_, args.metric], [1000, int(D/4), log2kstar_, args.metric], [1000, int(D/3), log2kstar_, args.metric], [1000, int(D/2), log2kstar_, args.metric], [1000, D, log2kstar_, args.metric], \
+							[1500, int(D/32), log2kstar_, args.metric], [1500, int(D/16), log2kstar_, args.metric], [1500, int(D/8), log2kstar_, args.metric], [1500, int(D/4), log2kstar_, args.metric], [1500, int(D/3), log2kstar_, args.metric], [1500, int(D/2), log2kstar_, args.metric], [1500, D, log2kstar_, args.metric], \
 							[2000, int(D/32), log2kstar_, args.metric], [2000, int(D/16), log2kstar_, args.metric], [2000, int(D/8), log2kstar_, args.metric], [2000, int(D/4), log2kstar_, args.metric], [2000, int(D/3), log2kstar_, args.metric], [2000, int(D/2), log2kstar_, args.metric], [2000, D, log2kstar_, args.metric], \
-							[800, int(D/32), log2kstar_, args.metric], [800, int(D/16), log2kstar_, args.metric], [800, int(D/8), log2kstar_, args.metric], [800, int(D/4), log2kstar_, args.metric], [800, int(D/3), log2kstar_, args.metric], [800, int(D/2), log2kstar_, args.metric], [800, D, log2kstar_, args.metric]]	# L, m, log2(k*), metric
+							[4000, int(D/32), log2kstar_, args.metric], [4000, int(D/16), log2kstar_, args.metric], [4000, int(D/8), log2kstar_, args.metric], [4000, int(D/4), log2kstar_, args.metric], [4000, int(D/3), log2kstar_, args.metric], [4000, int(D/2), log2kstar_, args.metric], [4000, D, log2kstar_, args.metric]]
+							
 		else:
 			build_config = [[1000, int(D/32), 4, args.metric], [1000, int(D/16), 4, args.metric], [1000, int(D/8), 4, args.metric], [1000, int(D/4), 4, args.metric], [1000, int(D/3), 4, args.metric], [1000, int(D/2), 4, args.metric], [1000, D, 4, args.metric], \
 							[1000, int(D/32), 6, args.metric], [1000, int(D/16), 6, args.metric], [1000, int(D/8), 6, args.metric], [1000, int(D/4), 6, args.metric], [1000, int(D/3), 6, args.metric], [1000, int(D/2), 6, args.metric], [1000, D, 6, args.metric], \
@@ -649,7 +660,7 @@ def run_annoy(D):
 			top1, top10, top100, top1000 = print_recall(final_neighbors[idx], gt)
 			print("Top ", args.topk, " Total latency (ms): ", total_latency[idx])
 			if args.sweep:
-				f.write(str(n_trees)+"\t"+str(search_config[idx])+"\t"+str(annoy_metric)+"\n")
+				f.write(str(n_trees)+"\t|\t"+str(search_config[idx])+"\t-1\t"+str(annoy_metric)+"\n")
 				f.write(str(top1)+" %\t"+str(top10)+" %\t"+str(top100)+" %\t"+str(top1000)+" %\t"+str(total_latency[idx])+"\n")
 	if args.sweep:
 		f.close()
