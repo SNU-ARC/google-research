@@ -301,7 +301,7 @@ def check_available_search_config(program, bc, search_config):
 		L, m, log2kstar, metric = bc
 		for idx, sc in enumerate(search_config):
 			nprobe, args.reorder = sc[0], sc[1]
-			if nprobe > L or (D%m!=0 and args.sweep==True) or m > 96 or (not args.is_gpu and log2kstar>8) or (args.is_gpu and log2kstar != 8):
+			if nprobe > L or (D%m!=0 and args.sweep==True) or (m > 96 and args.is_gpu) or (not args.is_gpu and log2kstar>8) or (args.is_gpu and log2kstar != 8):
 				continue
 			else:
 				sc_list.append(idx)
@@ -459,7 +459,7 @@ def run_scann():
 
 def faiss_pad_dataset(dataset, train_dataset, queries, m):
 	D = dataset.shape[1]
-	if m==1 or m==2 or m==3 or m==4 or m==8 or m==12 or m==16 or m==20 or m==24 or m==28 or m==32 or m==40 or m==48 or m==56 or m==64 or m==96:
+	if (args.is_gpu and (m==1 or m==2 or m==3 or m==4 or m==8 or m==12 or m==16 or m==20 or m==24 or m==28 or m==32 or m==40 or m==48 or m==56 or m==64 or m==96)) or (not args.is_gpu):
 		return D, m, dataset, train_dataset, queries
 	else:
 		dim_per_block = int(D/m)
@@ -530,7 +530,8 @@ def run_faiss(D):
 		f.write("Program: " + args.program + ("GPU" if args.is_gpu else "") + " Topk: " + str(args.topk) + " Num_split: " + str(args.num_split)+ " Batch: "+str(args.batch)+"\n")
 		f.write("L\tm\tk_star\t|\tw\tMetric\n")
 	else:
-		build_config = [[args.L, args.m, math.log(args.k_star,2), args.metric]]
+		assert D% args.m == 0
+		build_config = [[args.L, args.m, int(math.log(args.k_star,2)), args.metric]]
 		search_config = [[args.w, args.reorder]]
 	for bc in build_config:
 		L, m, log2kstar, metric = bc
