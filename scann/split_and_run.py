@@ -588,7 +588,7 @@ def run_faiss(D):
 				top1, top10, top100, top1000 = print_recall(final_neighbors[idx], gt)
 				print("Top ", args.topk, " Total latency (ms): ", total_latency[idx])
 				if args.sweep:
-					f.write(str(top1)+" %\t"+str(top10)+" %\t"+str(top100)+" %\t"+str(top1000)+" %\t"+str(total_latency)+"\n")
+					f.write(str(top1)+" %\t"+str(top10)+" %\t"+str(top100)+" %\t"+str(top1000)+" %\t"+str(total_latency[idx])+"\n")
 
 	if args.sweep:
 		f.close()
