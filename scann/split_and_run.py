@@ -41,6 +41,7 @@ parser.add_argument('--split', action='store_true')
 parser.add_argument('--eval_split', action='store_true')
 parser.add_argument('--groundtruth', action='store_true')
 parser.add_argument('--sweep', action='store_true')
+parser.add_argument('--profile', action='store_true')
 args = parser.parse_args()
 
 assert args.dataset != None and args.topk <= 1000
@@ -500,7 +501,7 @@ def run_faiss(D):
 							[1500, int(D/32), log2kstar_, args.metric], [1500, int(D/16), log2kstar_, args.metric], [1500, int(D/8), log2kstar_, args.metric], [1500, int(D/4), log2kstar_, args.metric], [1500, int(D/3), log2kstar_, args.metric], [1500, int(D/2), log2kstar_, args.metric], [1500, D, log2kstar_, args.metric], \
 							[2000, int(D/32), log2kstar_, args.metric], [2000, int(D/16), log2kstar_, args.metric], [2000, int(D/8), log2kstar_, args.metric], [2000, int(D/4), log2kstar_, args.metric], [2000, int(D/3), log2kstar_, args.metric], [2000, int(D/2), log2kstar_, args.metric], [2000, D, log2kstar_, args.metric], \
 							[4000, int(D/32), log2kstar_, args.metric], [4000, int(D/16), log2kstar_, args.metric], [4000, int(D/8), log2kstar_, args.metric], [4000, int(D/4), log2kstar_, args.metric], [4000, int(D/3), log2kstar_, args.metric], [4000, int(D/2), log2kstar_, args.metric], [4000, D, log2kstar_, args.metric]]
-							
+
 		else:
 			build_config = [[1000, int(D/32), 4, args.metric], [1000, int(D/16), 4, args.metric], [1000, int(D/8), 4, args.metric], [1000, int(D/4), 4, args.metric], [1000, int(D/3), 4, args.metric], [1000, int(D/2), 4, args.metric], [1000, D, 4, args.metric], \
 							[1000, int(D/32), 6, args.metric], [1000, int(D/16), 6, args.metric], [1000, int(D/8), 6, args.metric], [1000, int(D/4), 6, args.metric], [1000, int(D/3), 6, args.metric], [1000, int(D/2), 6, args.metric], [1000, D, 6, args.metric], \
@@ -611,7 +612,7 @@ def run_annoy(D):
 				os.makedirs(searcher_dir, exist_ok=True)
 				searcher.save(searcher_path)
 			n = list()
-			d = list()			
+			d = list()
 			for idx, sc in enumerate(search_config):
 				num_search = sc
 				# if args.sweep:
@@ -759,6 +760,37 @@ elif "glove" in args.dataset:
 	num_iter = 10
 	qN = 10000
 
+def run_profile():
+	profile = open("./profile.out", 'r')
+	lines = profile.readlines()
+
+	phase_1_time = 0
+	phase_2_time = 0
+	phase_3_time = 0
+	others_time = 0
+	search_time = 0
+
+	for line in lines:
+		if line.split()[0] != "arcm::Phase" and line.split()[0] != "arcm::Search" :
+			break;
+		if line.split()[1] == "1":
+			phase_1_time += int(line.split()[3])
+		elif line.split()[1] == "2":
+			phase_2_time += int(line.split()[3])
+		elif line.split()[1] == "3":
+			phase_3_time += int(line.split()[3])
+		else:
+			search_time += int(line.split()[2])
+
+	others_time = search_time - (phase_1_time + phase_2_time + phase_3_time)
+	print("\n==========PROFILING INFORMATION==========")
+	print("Phase 1:", phase_1_time/1000., "ms (", round(phase_1_time/search_time*100, 2), "% )")
+	print("Phase 2:", phase_2_time/1000., "ms (", round(phase_2_time/search_time*100, 2), "% )")
+	print("Phase 3:", phase_3_time/1000., "ms (", round(phase_3_time/search_time*100, 2), "% )")
+	print("Others:", others_time/1000., "ms (", round(others_time/search_time*100, 2), "% )")
+	print("Total Search:", search_time/1000., "ms")
+
+	os.remove("./profile.out")
 
 # main
 if args.split:
@@ -766,6 +798,12 @@ if args.split:
 if args.eval_split or args.sweep:
 	if args.program == "scann":
 		run_scann()
+		if args.profile:
+			run_profile()
+		if os.path.exists("./profile.out"):
+			os.remove("./profile.out")
+		else:
+			print("The profile.out file does not exist")
 	elif args.program == "faiss":
 		run_faiss(D)
 	elif args.program == "annoy":

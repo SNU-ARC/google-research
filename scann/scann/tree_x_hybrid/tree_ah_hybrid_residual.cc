@@ -19,6 +19,9 @@
 #include <algorithm>
 #include <numeric>
 #include <unordered_set>
+#include <iostream>
+#include <fstream>
+#include <chrono>
 
 #include "absl/flags/flag.h"
 #include "absl/synchronization/mutex.h"
@@ -377,8 +380,25 @@ Status TreeAHHybridResidual::FindNeighborsImpl(const DatapointPtr<float>& query,
     if (center_override > 0) num_centers = center_override;
   }
   vector<KMeansTreeSearchResult> centers_to_search;
+
+  //arcm::Phase 1 starts
+  //std::cout << "arcm::Phase 1 starts ..." << std::endl;
+  std::chrono::system_clock::time_point phase_1_start = std::chrono::system_clock::now();
+
   SCANN_RETURN_IF_ERROR(query_tokenizer_->TokensForDatapointWithSpilling(
       query, num_centers, &centers_to_search));
+
+  //std::cout << "arcm::Phase 1 ends ..." << std::endl;
+  std::chrono::system_clock::time_point phase_1_end = std::chrono::system_clock::now();
+  std::chrono::nanoseconds phase_1_ns  = phase_1_end - phase_1_start;
+
+  std::ofstream profile_file;
+  profile_file.open("profile.out", std::ios_base::app);
+  profile_file << "arcm::Phase 1 time: " << phase_1_ns.count() << " ns" << std::endl;
+  profile_file.close();
+
+  //arcm::Phase 1 ends
+
   return FindNeighborsInternal1(query, params, centers_to_search, result);
 }
 
@@ -589,16 +609,35 @@ Status TreeAHHybridResidual::FindNeighborsInternal1(
       DCHECK(query_preprocessing_results->lookup_table());
       leaf_specific_params = query_preprocessing_results->lookup_table();
     } else {
+      //arcm::Phase 2 starts (check)
+      //std::cout << "arcm::Phase 2 starts ..." << std::endl;
+      std::chrono::system_clock::time_point phase_2_start = std::chrono::system_clock::now();
+
       TF_ASSIGN_OR_RETURN(
           auto shared_lookup_table,
           asymmetric_queryer_->CreateLookupTable(query, lookup_type_tag_));
+
+      //std::cout << "arcm::Phase 2 ends ..." << std::endl;
+      std::chrono::system_clock::time_point phase_2_end = std::chrono::system_clock::now();
+      std::chrono::nanoseconds phase_2_ns  = phase_2_end - phase_2_start;
+
+      std::ofstream profile_file;
+      profile_file.open("profile.out", std::ios_base::app);
+      profile_file << "arcm::Phase 2 time: " << phase_2_ns.count() << " ns" << std::endl;
+      profile_file.close();
+
+      //arcm::Phase 2 ends
+
       leaf_specific_params = make_shared<AsymmetricHashingOptionalParameters>(
-          std::move(shared_lookup_table));
+            std::move(shared_lookup_table));
     }
     leaf_specific_params->SetFastTopNeighbors(&top_n);
     leaf_params.set_searcher_specific_optional_parameters(leaf_specific_params);
     NNResultsVector unused_leaf_results;
 
+    //arcm::Phase 3 starts (check)
+    //std::cout << "arcm::Phase 3 starts ..." << std::endl;
+    std::chrono::system_clock::time_point phase_3_start = std::chrono::system_clock::now();
     for (size_t i = 0; i < centers_to_search.size(); ++i) {
       const uint32_t token = centers_to_search[i].node->LeafId();
       const float distance_to_center = centers_to_search[i].distance_to_center;
@@ -607,10 +646,23 @@ Status TreeAHHybridResidual::FindNeighborsInternal1(
 
       TranslateGlobalToLeafLocalWhitelist(params, datapoints_by_token_[token],
                                           &leaf_params);
+      //arcm::Phase 3 starts (inner)
       SCANN_RETURN_IF_ERROR(
           leaf_searchers_[token]->FindNeighborsNoSortNoExactReorder(
               query, leaf_params, &unused_leaf_results));
+      //arcm::Phase 3 ends (inner)
+
     }
+    //std::cout << "arcm::Phase 3 ends ..." << std::endl;
+    std::chrono::system_clock::time_point phase_3_end = std::chrono::system_clock::now();
+    std::chrono::nanoseconds phase_3_ns  = phase_3_end - phase_3_start;
+
+    std::ofstream profile_file;
+    profile_file.open("profile.out", std::ios_base::app);
+    profile_file << "arcm::Phase 3 time: " << phase_3_ns.count() << " ns" << std::endl;
+    profile_file.close();
+
+    //arcm::Phase 3 ends (check)
 
     AssignResults(&top_n, result);
 

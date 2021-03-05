@@ -14,7 +14,9 @@
 
 #include "scann/scann_ops/cc/scann.h"
 
+#include <iostream>
 #include <fstream>
+#include <chrono>
 
 #include "absl/base/internal/sysinfo.h"
 #include "absl/container/node_hash_set.h"
@@ -160,6 +162,10 @@ Status ScannInterface::Initialize(shared_ptr<DenseDataset<float>> dataset,
 Status ScannInterface::Search(const DatapointPtr<float> query,
                               NNResultsVector* res, int final_nn,
                               int pre_reorder_nn, int leaves) const {
+  //arcm::Search starts
+  //std::cout << "arcm::Search starts ..." << std::endl;
+  std::chrono::system_clock::time_point search_start = std::chrono::system_clock::now();
+
   if (query.dimensionality() != dimensionality_)
     return InvalidArgumentError("Query doesn't match dataset dimsensionality");
   bool has_reordering =
@@ -179,7 +185,20 @@ Status ScannInterface::Search(const DatapointPtr<float> query,
     params.set_searcher_specific_optional_parameters(tree_params);
   }
   scann_->SetUnspecifiedParametersToDefaults(&params);
-  return scann_->FindNeighbors(query, params, res);
+  Status search_result = scann_->FindNeighbors(query, params, res);
+
+  //std::cout << "arcm::Search ends ..." << std::endl;
+  std::chrono::system_clock::time_point search_end = std::chrono::system_clock::now();
+  std::chrono::nanoseconds search_ns  = search_end - search_start;
+
+  std::ofstream profile_file;
+  profile_file.open("profile.out", std::ios_base::app);
+  profile_file << "arcm::Search time: " << search_ns.count() << " ns" << std::endl;
+  profile_file.close();
+
+  //arcm::Search ends
+
+  return search_result;
 }
 
 Status ScannInterface::SearchBatched(const DenseDataset<float>& queries,
@@ -225,7 +244,7 @@ Status ScannInterface::SearchBatchedParallel(const DenseDataset<float>& queries,
   const size_t numCPUs = GetNumCPUs();
   // const size_t kBatchSize = std::min(
   //     std::max(min_batch_size_, DivRoundUp(numQueries, numCPUs)), 256ul);
-  
+
   // [ANNA] batch_size
   const size_t kBatchSize = batch_size;
   std::cout << "kBatchSize: " << kBatchSize << std::endl;
