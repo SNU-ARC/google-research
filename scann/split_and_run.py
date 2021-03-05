@@ -704,7 +704,8 @@ def get_train(split=-1, total=-1):
 		filename = dataset_basedir + 'bigann_learn.bvecs' if split<0 else dataset_basedir + 'split_data/sift1b_learn%d_%d' % (total, split)
 		return bvecs_read(filename)
 	elif "glove" in args.dataset:
-		return np.array(h5py.File(dataset_basedir+"glove-100-angular.hdf5", "r")['test'], dtype='float32')
+		filename = dataset_basedir + 'split_data/glove_learn%d_%d' % (total, split)
+		return read_data(filename, base=False)
 	else:
 		assert False
 
