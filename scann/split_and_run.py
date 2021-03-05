@@ -64,7 +64,7 @@ elif args.program == "faiss":
 	#if os.environ.get('LD_PRELOAD') == None:
 	#	assert False, "Please set LD_PRELOAD environment path and retry"
 	# export LD_PRELOAD=/opt/intel/mkl/lib/intel64/libmkl_def.so:/opt/intel/mkl/lib/intel64/libmkl_avx2.so:/opt/intel/mkl/lib/intel64/libmkl_core.so:/opt/intel/mkl/lib/intel64/libmkl_intel_lp64.so:/opt/intel/mkl/lib/intel64/libmkl_intel_thread.so:/opt/intel/lib/intel64_lin/libiomp5.so
-	from runfaiss import run_local_faiss
+	from runfaiss import build_faiss, faiss_search
 	import math
 	if args.sweep == False:
 		assert args.L!=-1 and args.k_star!=-1 and args.w!=-1 and args.m!=-1
@@ -288,14 +288,27 @@ def get_searcher_path(split):
 	searcher_path = searcher_dir + args.dataset + '_searcher_' + str(args.num_split)+'_'+str(split)
 	return searcher_dir, searcher_path
 
-def check_available_search_config(search_config, num_leaves, dims):
+def check_available_search_config(program, bc, search_config):
 	sc_list = list()
-	for idx, sc in enumerate(search_config):
-		leaves_to_search = sc[0]
-		if leaves_to_search > num_leaves or (D%dims!=0 and args.sweep==True):
-			continue
-		else:
-			sc_list.append(idx)
+	if program == "scann":
+		num_leaves, threshold, dims, metric = bc
+		for idx, sc in enumerate(search_config):
+			leaves_to_search = sc[0]
+			if leaves_to_search > num_leaves or (D%dims!=0 and args.sweep==True):
+				continue
+			else:
+				sc_list.append(idx)
+	elif program == "faiss":
+		L, m, log2kstar, metric = bc
+		for idx, sc in enumerate(search_config):
+			nprobe, args.reorder = sc[0], sc[1]
+			if nprobe > L or (nprobe > 2048 and args.is_gpu) or (D%m!=0 and args.sweep==True) or (m > 96 and args.is_gpu) or (not args.is_gpu and log2kstar>8) or (args.is_gpu and log2kstar != 8):
+				continue
+			else:
+				sc_list.append(idx)
+	else:
+		assert False
+	
 	return sc_list
 
 def run_scann():
@@ -351,7 +364,7 @@ def run_scann():
 
 	for bc in build_config:
 		num_leaves, threshold, dims, metric = bc
-		sc_list = check_available_search_config(search_config, num_leaves, dims)
+		sc_list = check_available_search_config(args.program, bc, search_config)
 		neighbors=np.empty((len(sc_list), queries.shape[0],0), dtype=np.int32)
 		distances=np.empty((len(sc_list), queries.shape[0],0), dtype=np.float32)
 		total_latency = np.zeros(len(sc_list))
@@ -388,8 +401,8 @@ def run_scann():
 				print("sc_list: ", sc_list)
 				n = list()
 				d = list()
-				for idx in sc_list:
-					leaves_to_search, reorder = search_config[idx]
+				for idx in range(len(sc_list)):
+					leaves_to_search, reorder = search_config[sc_list[idx]]
 					assert D%dims == 0
 
 					if args.reorder!=-1:
@@ -444,15 +457,10 @@ def run_scann():
 	if args.sweep:
 		f.close()
 
-def check_m_available(m):
-	if m>96:
-		return False
-	else:
-		return True
 
 def faiss_pad_dataset(dataset, train_dataset, queries, m):
 	D = dataset.shape[1]
-	if m==1 or m==2 or m==3 or m==4 or m==8 or m==12 or m==16 or m==20 or m==24 or m==28 or m==32 or m==40 or m==48 or m==56 or m==64 or m==96:
+	if (args.is_gpu and (m==1 or m==2 or m==3 or m==4 or m==8 or m==12 or m==16 or m==20 or m==24 or m==28 or m==32 or m==40 or m==48 or m==56 or m==64 or m==96)) or (not args.is_gpu):
 		return D, m, dataset, train_dataset, queries
 	else:
 		dim_per_block = int(D/m)
@@ -496,11 +504,12 @@ def run_faiss(D):
 	if args.sweep:
 		if args.is_gpu:
 			log2kstar_ = 8
-			build_config = [[800, int(D/32), log2kstar_, args.metric], [800, int(D/16), log2kstar_, args.metric], [800, int(D/8), log2kstar_, args.metric], [800, int(D/4), log2kstar_, args.metric], [800, int(D/3), log2kstar_, args.metric], [800, int(D/2), log2kstar_, args.metric], [800, D, log2kstar_, args.metric], \
-							[1000, int(D/32), log2kstar_, args.metric], [1000, int(D/16), log2kstar_, args.metric], [1000, int(D/8), log2kstar_, args.metric], [1000, int(D/4), log2kstar_, args.metric], [1000, int(D/3), log2kstar_, args.metric], [1000, int(D/2), log2kstar_, args.metric], [1000, D, log2kstar_, args.metric], \
-							[1500, int(D/32), log2kstar_, args.metric], [1500, int(D/16), log2kstar_, args.metric], [1500, int(D/8), log2kstar_, args.metric], [1500, int(D/4), log2kstar_, args.metric], [1500, int(D/3), log2kstar_, args.metric], [1500, int(D/2), log2kstar_, args.metric], [1500, D, log2kstar_, args.metric], \
-							[2000, int(D/32), log2kstar_, args.metric], [2000, int(D/16), log2kstar_, args.metric], [2000, int(D/8), log2kstar_, args.metric], [2000, int(D/4), log2kstar_, args.metric], [2000, int(D/3), log2kstar_, args.metric], [2000, int(D/2), log2kstar_, args.metric], [2000, D, log2kstar_, args.metric], \
-							[4000, int(D/32), log2kstar_, args.metric], [4000, int(D/16), log2kstar_, args.metric], [4000, int(D/8), log2kstar_, args.metric], [4000, int(D/4), log2kstar_, args.metric], [4000, int(D/3), log2kstar_, args.metric], [4000, int(D/2), log2kstar_, args.metric], [4000, D, log2kstar_, args.metric]]
+
+			build_config = [[800, int(D/64), log2kstar_, args.metric], [800, int(D/50), log2kstar_, args.metric], [800, int(D/32), log2kstar_, args.metric], [800, int(D/25), log2kstar_, args.metric], [800, int(D/16), log2kstar_, args.metric], [800, int(D/10), log2kstar_, args.metric], [800, int(D/8), log2kstar_, args.metric], [800, int(D/5), log2kstar_, args.metric], [800, int(D/4), log2kstar_, args.metric], [800, int(D/3), log2kstar_, args.metric], [800, int(D/2), log2kstar_, args.metric], [800, D, log2kstar_, args.metric], \
+							[1000, int(D/64), log2kstar_, args.metric], [1000, int(D/50), log2kstar_, args.metric], [1000, int(D/32), log2kstar_, args.metric], [1000, int(D/25), log2kstar_, args.metric], [1000, int(D/16), log2kstar_, args.metric], [1000, int(D/10), log2kstar_, args.metric], [1000, int(D/8), log2kstar_, args.metric], [1000, int(D/5), log2kstar_, args.metric], [1000, int(D/4), log2kstar_, args.metric], [1000, int(D/3), log2kstar_, args.metric], [1000, int(D/2), log2kstar_, args.metric], [1000, D, log2kstar_, args.metric], \
+							[1500, int(D/64), log2kstar_, args.metric], [1500, int(D/50), log2kstar_, args.metric], [1500, int(D/32), log2kstar_, args.metric], [1500, int(D/25), log2kstar_, args.metric], [1500, int(D/16), log2kstar_, args.metric], [1500, int(D/10), log2kstar_, args.metric], [1500, int(D/8), log2kstar_, args.metric], [1500, int(D/5), log2kstar_, args.metric], [1500, int(D/4), log2kstar_, args.metric], [1500, int(D/3), log2kstar_, args.metric], [1500, int(D/2), log2kstar_, args.metric], [1500, D, log2kstar_, args.metric], \
+							[2000, int(D/64), log2kstar_, args.metric], [2000, int(D/50), log2kstar_, args.metric], [2000, int(D/32), log2kstar_, args.metric], [2000, int(D/25), log2kstar_, args.metric], [2000, int(D/16), log2kstar_, args.metric], [2000, int(D/10), log2kstar_, args.metric], [2000, int(D/8), log2kstar_, args.metric], [2000, int(D/5), log2kstar_, args.metric], [2000, int(D/4), log2kstar_, args.metric], [2000, int(D/3), log2kstar_, args.metric], [2000, int(D/2), log2kstar_, args.metric], [2000, D, log2kstar_, args.metric], \
+							[4000, int(D/64), log2kstar_, args.metric], [4000, int(D/50), log2kstar_, args.metric], [4000, int(D/32), log2kstar_, args.metric], [4000, int(D/25), log2kstar_, args.metric], [4000, int(D/16), log2kstar_, args.metric], [4000, int(D/10), log2kstar_, args.metric], [4000, int(D/8), log2kstar_, args.metric], [4000, int(D/5), log2kstar_, args.metric], [4000, int(D/4), log2kstar_, args.metric], [4000, int(D/3), log2kstar_, args.metric], [4000, int(D/2), log2kstar_, args.metric], [4000, D, log2kstar_, args.metric]]
 
 		else:
 			build_config = [[1000, int(D/32), 4, args.metric], [1000, int(D/16), 4, args.metric], [1000, int(D/8), 4, args.metric], [1000, int(D/4), 4, args.metric], [1000, int(D/3), 4, args.metric], [1000, int(D/2), 4, args.metric], [1000, D, 4, args.metric], \
@@ -514,52 +523,74 @@ def run_faiss(D):
 							[800, int(D/32), 8, args.metric], [800, int(D/16), 8, args.metric], [800, int(D/8), 8, args.metric], [800, int(D/4), 8, args.metric], [800, int(D/3), 8, args.metric], [800, int(D/2), 8, args.metric], [800, D, 8, args.metric], \
 							]	# L, m, log2(k*), metric
 
-			# assert False, "still thinking how to configure this"
-		search_config = [[1, args.reorder], [2, args.reorder], [4, args.reorder], [8, args.reorder], [16, args.reorder], [25, args.reorder], [130, args.reorder], [35, args.reorder], [40, args.reorder], \
+		search_config = [[1, args.reorder], [2, args.reorder], [4, args.reorder], [8, args.reorder], [16, args.reorder], [25, args.reorder], [30, args.reorder], [35, args.reorder], [40, args.reorder], \
 						 [45, args.reorder], [50, args.reorder], [55, args.reorder], [60, args.reorder], [65, args.reorder], [75, args.reorder], [90, args.reorder], [110, args.reorder], [130, args.reorder], [150, args.reorder], \
 						 [170, args.reorder], [200, args.reorder], [220, args.reorder], [250, args.reorder], [310, args.reorder], [400, args.reorder], [500, args.reorder], [800, args.reorder], [1000, args.reorder], \
-						 [1250, args.reorder], [1500, args.reorder], [1750, args.reorder], [1900, args.reorder], [2000, args.reorder]]
+						 [1250, args.reorder], [1500, args.reorder], [1750, args.reorder], [1900, args.reorder], [2000, args.reorder], [2250, args.reorder], [2500, args.reorder], [2750, args.reorder], [3000, args.reorder], [3500, args.reorder], [4000, args.reorder]]
 
 		f = open(sweep_result_path, "w")
 		f.write("Program: " + args.program + ("GPU" if args.is_gpu else "") + " Topk: " + str(args.topk) + " Num_split: " + str(args.num_split)+ " Batch: "+str(args.batch)+"\n")
 		f.write("L\tm\tk_star\t|\tw\tMetric\n")
 	else:
-		build_config = [[args.L, args.m, math.log(args.k_star,2), args.metric]]
+		assert D% args.m == 0
+		build_config = [[args.L, args.m, int(math.log(args.k_star,2)), args.metric]]
 		search_config = [[args.w, args.reorder]]
 	for bc in build_config:
 		L, m, log2kstar, metric = bc
-		assert (not args.is_gpu and log2kstar<=8) or (log2kstar == 8)
-		for sc in search_config:
-			nprobe, args.reorder = sc[0], sc[1]
-			if nprobe > L or (D%m!=0 and args.sweep==True) or check_m_available(m)==False:
-				continue
-			if args.sweep:
-				f.write(str(L)+"\t"+str(m)+"\t"+str(2**log2kstar)+"\t|\t"+str(nprobe)+"\t"+str(args.reorder)+"\t"+str(metric)+"\n")		# faiss-gpu has no reorder
-			print(str(L)+"\t"+str(m)+"\t"+str(2**log2kstar)+"\t|\t"+str(nprobe)+"\t"+str(args.reorder)+"\t"+str(metric)+"\n")		# faiss-gpu has no reorder
-			neighbors=np.empty((queries.shape[0],0))
-			distances=np.empty((queries.shape[0],0))
-			base_idx = 0
-			total_latency = 0
+		# assert (not args.is_gpu and log2kstar<=8) or (log2kstar == 8)
+		sc_list = check_available_search_config(args.program, bc, search_config)
+		neighbors=np.empty((len(sc_list), queries.shape[0],0), dtype=np.int32)
+		distances=np.empty((len(sc_list), queries.shape[0],0), dtype=np.float32)
+		base_idx = 0
+		total_latency = np.zeros(len(sc_list))
+		print(sc_list)
+		if len(sc_list) > 0:
 			for split in range(args.num_split):
 				print("Split ", split)
+				num_per_split = int(N/args.num_split) if split < args.num_split-1 else N-base_idx
+				searcher_dir, searcher_path = get_searcher_path(split)
+				args.batch = min(args.batch, queries.shape[0])
 				# Load splitted dataset
 				train_dataset = get_train(split, args.num_split)
 				dataset = read_data(split_dataset_path + str(args.num_split) + "_" + str(split) if args.num_split>1 else dataset_basedir, base=False if args.num_split>1 else True, offset_=None if args.num_split>1 else 0, shape_=None)
 				padded_D, faiss_m, padded_dataset, padded_train_dataset, padded_queries = faiss_pad_dataset(dataset, train_dataset, queries, m)
-				# Build Faiss index
-				searcher_dir, searcher_path = get_searcher_path(split)
-				args.batch = min(args.batch, queries.shape[0])
-				args.w = nprobe
-				# Faiss search
-				local_neighbors, local_distances, total_latency = run_local_faiss(args, searcher_dir, split, padded_D, "IVF"+str(L)+",PQ"+str(faiss_m)+"x"+str(log2kstar), padded_train_dataset, padded_dataset, padded_queries)
-				neighbors = np.append(neighbors, local_neighbors+base_idx, axis=1)
-				distances = np.append(distances, local_distances, axis=1)
-				base_idx = base_idx + dataset.shape[0]
-			final_neighbors = sort_neighbors(distances, neighbors)
-			top1, top10, top100, top1000 = print_recall(final_neighbors, gt)
-			print("Top ", args.topk, " Total latency (ms): ", total_latency)
-			if args.sweep:
-				f.write(str(top1)+" %\t"+str(top10)+" %\t"+str(top100)+" %\t"+str(top1000)+" %\t"+str(total_latency)+"\n")
+				# local_neighbors, local_distances, total_latency = run_local_faiss(args, searcher_dir, split, padded_D, "IVF"+str(L)+",PQ"+str(faiss_m)+"x"+str(log2kstar), padded_train_dataset, padded_dataset, padded_queries)
+				index, preproc = build_faiss(args, searcher_dir, split, padded_D, "IVF"+str(L)+",PQ"+str(faiss_m)+"x"+str(log2kstar), padded_train_dataset, padded_dataset, padded_queries)
+
+				n = list()
+				d = list()
+				for idx in range(len(sc_list)):
+					w, reorder = search_config[sc_list[idx]]
+					assert reorder == args.reorder
+					# Build Faiss index
+					# args.w = nprobe
+
+
+					# if args.sweep:
+					# 	f.write(str(L)+"\t"+str(m)+"\t"+str(2**log2kstar)+"\t|\t"+str(nprobe)+"\t"+str(args.reorder)+"\t"+str(metric)+"\n")		# faiss-gpu has no reorder
+					print(str(L)+"\t"+str(m)+"\t"+str(2**log2kstar)+"\t|\t"+str(w)+"\t"+str(reorder)+"\t"+str(metric)+"\n")		# faiss-gpu has no reorder
+					# Faiss search
+					local_neighbors, local_distances, total_latency[idx] = faiss_search(index, preproc, args, reorder, w)
+					n.append((local_neighbors+base_idx).astype(np.int32))
+					d.append(local_distances.astype(np.float32))	
+
+				base_idx = base_idx + num_per_split
+				neighbors = np.append(neighbors, np.array(n, dtype=np.int32), axis=-1)
+				distances = np.append(distances, np.array(d, dtype=np.float32), axis=-1)
+				neighbors, distances = sort_neighbors(distances, neighbors)
+				print("neighbors: ", neighbors.shape)
+				print("distances: ", distances.shape)
+
+			final_neighbors, _ = sort_neighbors(distances, neighbors)
+			for idx in range(len(sc_list)):
+				if args.sweep:
+					w, reorder = search_config[sc_list[idx]]
+					f.write(str(L)+"\t"+str(m)+"\t"+str(2**log2kstar)+"\t|\t"+str(w)+"\t"+str(reorder)+"\t"+str(metric)+"\n")		# faiss-gpu has no reorder
+
+				top1, top10, top100, top1000 = print_recall(final_neighbors[idx], gt)
+				print("Top ", args.topk, " Total latency (ms): ", total_latency[idx])
+				if args.sweep:
+					f.write(str(top1)+" %\t"+str(top10)+" %\t"+str(top100)+" %\t"+str(top1000)+" %\t"+str(total_latency[idx])+"\n")
 
 	if args.sweep:
 		f.close()
@@ -675,7 +706,8 @@ def get_train(split=-1, total=-1):
 		filename = dataset_basedir + 'bigann_learn.bvecs' if split<0 else dataset_basedir + 'split_data/sift1b_learn%d_%d' % (total, split)
 		return bvecs_read(filename)
 	elif "glove" in args.dataset:
-		return np.array(h5py.File(dataset_basedir+"glove-100-angular.hdf5", "r")['test'], dtype='float32')
+		filename = dataset_basedir + 'split_data/glove_learn%d_%d' % (total, split)
+		return read_data(filename, base=False)
 	else:
 		assert False
 
