@@ -54,7 +54,6 @@ Status KMeansTree::Train(const Dataset& training_data,
                          const DistanceMeasure& training_distance,
                          int32_t k_per_level,
                          KMeansTreeTrainingOptions* training_options) {
-  std::cout << "[YJ] KMeansTree:Train" << std::endl;
   DCHECK(training_options);
 
   vector<DatapointIndex> subset(training_data.size());

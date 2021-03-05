@@ -55,7 +55,6 @@ class SingleMachineFactoryImplClass {
       ScannConfig config, const shared_ptr<Dataset>& dataset,
       const GenericSearchParameters& params,
       SingleMachineFactoryOptions* opts) {
-    std::cout << "[YJ] SingleMachineFactoryImpl" << std::endl;
     config.mutable_input_output()->set_in_memory_data_type(TagForType<T>());
     SCANN_RETURN_IF_ERROR(CanonicalizeScannConfigForRetrieval(&config));
     auto typed_dataset = std::dynamic_pointer_cast<TypedDataset<T>>(dataset);
@@ -69,7 +68,6 @@ class SingleMachineFactoryImplClass {
     auto* typed_searcher =
         down_cast<SingleMachineSearcherBase<T>*>(searcher.get());
 
-    // [YJ] call Build in reordering_helper_factory.cc
     TF_ASSIGN_OR_RETURN(
         auto reordering_helper,
         ReorderingHelperFactory<T>::Build(config, params.reordering_dist,
@@ -91,7 +89,6 @@ template <typename LeafSearcherT>
 StatusOrSearcherUntyped SingleMachineFactoryUntypedImpl(
     const ScannConfig& config, shared_ptr<Dataset> dataset,
     SingleMachineFactoryOptions opts) {
-  std::cout << "[YJ] SingleMachineFactoryUntypedImpl" << std::endl;
   GenericSearchParameters params;
   SCANN_RETURN_IF_ERROR(params.PopulateValuesFromScannConfig(config));
   if (params.reordering_dist->NormalizationRequired() != NONE && dataset &&

@@ -102,7 +102,6 @@ template <typename T>
 StatusOr<vector<DenseDataset<double>>> AhImpl<T>::TrainAsymmetricHashing(
     const TypedDataset<T>& dataset, const TrainingOptionsT& opts,
     shared_ptr<ThreadPool> pool) {
-  std::cout << "[YJ] TrainAsymmetricHashing, dataset: " << dataset.size() << " / D: " << dataset.dimensionality() << std::endl;
   if (dataset.empty()) {
     return InvalidArgumentError("Cannot train AH on an empty dataset.");
   }
@@ -161,17 +160,13 @@ StatusOr<vector<DenseDataset<double>>> AhImpl<T>::TrainAsymmetricHashing(
         sample.size(), ")."));
   }
 
-  auto yj_sum = 0;
-
   auto append_chunked_blocks = [&] {
     for (size_t j = 0; j < num_blocks; ++j) {
       chunked_dataset[j].AppendOrDie(chunked_vec[j], "");
-      yj_sum += chunked_dataset[j].size();
     }
   };
 
   if (opts.preprocessing_function()) {
-    // std::cout << "[YJ] TrainAsymmetricHashing, Preprocessing function" << std::endl;
     for (DatapointIndex i : sample) {
       TF_ASSIGN_OR_RETURN(Datapoint<T> preprocessed,
                           opts.preprocessing_function()(dataset[i]));
@@ -180,17 +175,12 @@ StatusOr<vector<DenseDataset<double>>> AhImpl<T>::TrainAsymmetricHashing(
       append_chunked_blocks();
     }
   } else {
-    // [YJ] comes here
-    std::cout << "[YJ] TrainAsymmetricHashing, else Preprocessing function" << std::endl;
     for (DatapointIndex i : sample) {
       SCANN_RETURN_IF_ERROR(
           opts.projector()->ProjectInput(dataset[i], &chunked_vec));
       append_chunked_blocks();
     }
   }
-
-  std::cout << "[YJ] yj_sum: " << yj_sum << std::endl;
-  std::cout << "[YJ] sample.size(): " << sample.size() << std::endl;
 
   auto quantization_distance = opts.quantization_distance();
   GmmUtils::Options gmm_opts;
@@ -572,8 +562,6 @@ StatusOr<vector<float>> AhImpl<T>::CreateRawFloatLookupTable(
     const DistanceMeasure& lookup_distance,
     ConstSpan<DenseDataset<FloatT>> centers, int32_t num_clusters_per_block) {
   ChunkedDatapoint<FloatT> projected;
-  std::cout << "[YJ] CreateRawFloatLookupTable" << std::endl;
-  // [YJ] call ProjectInput in chunking_projection.cc, chunk dimension d into M chunks (d/M)
   SCANN_RETURN_IF_ERROR(projection.ProjectInput(query, &projected));
   SCANN_RET_CHECK_EQ(centers.size(), projected.size());
   std::cout << "[YJ] num clusters per block : " << num_clusters_per_block << " / # of blocks : " << projected.size() << std::endl;
@@ -590,11 +578,10 @@ StatusOr<vector<float>> AhImpl<T>::CreateRawFloatLookupTable(
 
   vector<float> result(num_clusters_per_block * projected.size());    // [YJ] (# of centroids) * (# of blocks)
   float* result_row_start = result.data();
-  std::cout << "[YJ] query dimension : " << query.dimensionality() << std::endl;
 
   for (size_t i = 0; i < centers.size();
        ++i, result_row_start += num_clusters_per_block) {
-    const DatapointPtr<FloatT> projected_ptr = projected[i];    // [YJ] chunked query
+    const DatapointPtr<FloatT> projected_ptr = projected[i];
     const DenseDataset<FloatT>& cur_centers = centers[i];
     if (projected_ptr.IsSparse()) {
       // [YJ] does not come here
@@ -606,7 +593,6 @@ StatusOr<vector<float>> AhImpl<T>::CreateRawFloatLookupTable(
     } else {
       if (lookup_distance.specially_optimized_distance_tag() ==
           DistanceMeasure::LIMITED_INNER_PRODUCT) {
-        // std::cout << "[YJ] LIMITED_INNER_PRODUCT" << std::endl;
         DenseDistanceOneToMany(
             DotProductDistance(), projected_ptr, cur_centers,
             MutableSpan<float>(result_row_start, num_clusters_per_block));
@@ -630,7 +616,6 @@ StatusOr<vector<float>> AhImpl<T>::CreateRawFloatLookupTable(
       std::cout << std::endl;
     }
   }
-  std::cout << "[YJ] CreateRawFloatLookupTable, all centers done" << std::endl;
 
   return std::move(result);
 }

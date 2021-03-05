@@ -255,17 +255,16 @@ template <typename T>
 StatusOr<SingleMachineFactoryOptions>
 SingleMachineSearcherBase<T>::ExtractSingleMachineFactoryOptions() {
   SingleMachineFactoryOptions opts;
-
   opts.compressed_dataset =
       std::const_pointer_cast<DenseDataset<uint8_t>>(compressed_dataset_);
   opts.hashed_dataset =
       std::const_pointer_cast<DenseDataset<uint8_t>>(hashed_dataset_);
-
   opts.crowding_attributes = std::const_pointer_cast<vector<int64_t>>(
       datapoint_index_to_crowding_attribute_);
   opts.creation_timestamp = creation_timestamp_;
-  if (reordering_helper_)
+  if (reordering_helper_) {
     reordering_helper_->AppendDataToSingleMachineFactoryOptions(&opts);
+  }
   return opts;
 }
 
@@ -279,7 +278,6 @@ template <typename T>
 Status SingleMachineSearcherBase<T>::FindNeighbors(
     const DatapointPtr<T>& query, const SearchParameters& params,
     NNResultsVector* result) const {
-  std::cout << "[YJ] FindNeighbors" << std::endl;
   SCANN_RET_CHECK(query.IsFinite())
       << "Cannot query ScaNN with vectors that contain NaNs or infinity.";
   DCHECK(result);
@@ -290,7 +288,6 @@ Status SingleMachineSearcherBase<T>::FindNeighbors(
   std::cout << "[YJ] FindNeighbors, after FindNeighborsNoSortNoExactReorder test: " << (*result)[0].first << " " << (*result)[0].second << std::endl;
 
   if (reordering_helper_) {
-    std::cout << "[YJ] FindNeighbors, reordering" << std::endl;
     SCANN_RETURN_IF_ERROR(ReorderResults(query, params, result));
     std::cout << "[YJ] FindNeighbors, after ReorderResults: " << result->size() << std::endl;
     std::cout << "[YJ] FindNeighbors, after ReorderResults test: " << (*result)[0].first << " " << (*result)[0].second << std::endl;
@@ -307,7 +304,6 @@ template <typename T>
 Status SingleMachineSearcherBase<T>::FindNeighborsNoSortNoExactReorder(
     const DatapointPtr<T>& query, const SearchParameters& params,
     NNResultsVector* result) const {
-  std::cout << "[YJ] FindNeighborsNoSortNoExactReorder" << std::endl;
   DCHECK(result);
   bool reordering_enabled =
       compressed_reordering_enabled() || exact_reordering_enabled();
@@ -518,7 +514,6 @@ Status SingleMachineSearcherBase<T>::ReorderResults(
       result->resize(0);
     }
   } else {
-    std::cout << "[YJ] ReorderResults, ComputeDistancesForReordering" << std::endl;
     SCANN_RETURN_IF_ERROR(
         reordering_helper_->ComputeDistancesForReordering(query, result));
   }
@@ -528,7 +523,6 @@ Status SingleMachineSearcherBase<T>::ReorderResults(
 template <typename T>
 Status SingleMachineSearcherBase<T>::SortAndDropResults(
     NNResultsVector* result, const SearchParameters& params) const {
-  std::cout << "[YJ] SortAndDropResults" << std::endl;
   if (reordering_enabled()) {
     // std::cout << "[YJ] SortAndDropResults, reordering_enabled" << std::endl;
     if (params.post_reordering_num_neighbors() == 1) {

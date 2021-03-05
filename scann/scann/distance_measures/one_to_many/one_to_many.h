@@ -314,7 +314,6 @@ enable_if_t<IsIntegerType<T>() || !kSimd, void>
 DenseAccumulatingDistanceMeasureOneToMany(
     const DatapointPtr<T>& query, const DatasetView* __restrict__ database,
     const Lambdas& lambdas, MutableSpan<ResultElem> result,
-
     CallbackFunctor* __restrict__ callback, ThreadPool* pool) {
   for (size_t i = 0; i < result.size(); ++i) {
     callback->invoke(
@@ -346,17 +345,16 @@ DenseAccumulatingDistanceMeasureOneToManyInternal(
     const DatapointPtr<T>& query, const DatasetView* __restrict__ database,
     const Lambdas& lambdas, MutableSpan<ResultElem> result,
     CallbackFunctor* __restrict__ callback, ThreadPool* pool) {
-  std::cout << "[YJ] DenseAccumulatingDistanceMeasureOneToManyInternal" << std::endl;
   if (result.empty()) return;
   DCHECK(!pool || !kShouldPrefetch);
   const size_t dims = query.dimensionality();
   DCHECK_EQ(dims, database->dimensionality());
   // std::cout << "[YJ] DenseAccumulatingDistanceMeasureOneToManyInternal, dims: " << dims << " / db.dim: " << database->dimensionality() << " / db.size: " << database->size() <<  std::endl;
   // std::cout << "[YJ] DenseAccumulatingDistanceMeasureOneToManyInternal, result.size: " << result.size() <<  std::endl;
+  
   DCHECK_GT(dims, 0);
   Lambdas lambdas_vec[4] = {lambdas, lambdas, lambdas, lambdas};
-  const size_t num_outer_iters = result.size() / 3;   // [YJ] # of parallel iters
-  // const size_t num_outer_iters = 0;
+  const size_t num_outer_iters = result.size() / 3;
   const size_t parallel_end = num_outer_iters * 3;
 
   constexpr size_t kMinPrefetchAheadDims =
@@ -377,7 +375,7 @@ DenseAccumulatingDistanceMeasureOneToManyInternal(
     x = _mm_add_ps(x, _mm_castsi128_ps(_mm_srli_si128(_mm_castps_si128(x), 8)));
     return x[0] + x[1];
   };
-  std::cout << "[YJ] query vector: " << query.values()[0] << " " << query.values()[1] << std::endl;
+
   ParallelFor<8>(
       Seq(num_outer_iters), pool, [&](size_t i) ABSL_ATTRIBUTE_ALWAYS_INLINE {
         const float* f0 = get_db_ptr(i);
@@ -442,7 +440,7 @@ DenseAccumulatingDistanceMeasureOneToManyInternal(
           result1 += lambdas_vec[1].GetTerm(query.values()[j], f1[j]);
           result2 += lambdas_vec[2].GetTerm(query.values()[j], f2[j]);
         }
-        std::cout << "[YJ] result0: " << result0 << " / result1: " << result1 << " / result2: " << result2 << std::endl;
+
         callback->invoke(i, lambdas_vec[0].Postprocess(result0));
         callback->invoke(i + num_outer_iters,
                          lambdas_vec[1].Postprocess(result1));
@@ -450,7 +448,6 @@ DenseAccumulatingDistanceMeasureOneToManyInternal(
                          lambdas_vec[2].Postprocess(result2));
       });
 
-  // [YJ] calculate distance for the rest of the vectors in serial
   size_t i = parallel_end;
   // size_t yj_count = 0;
   // for (; i < result.size(); ++i, yj_count++) {
@@ -803,16 +800,12 @@ DenseAccumulatingDistanceMeasureOneToMany(
     const DatapointPtr<T>& query, const DatasetView* __restrict__ database,
     const Lambdas& lambdas, MutableSpan<ResultElem> result,
     CallbackFunctor* __restrict__ callback, ThreadPool* pool) {
-  std::cout << "[YJ] DenseAccumulatingDistanceMeasureOneToMany, db.dim: " << database->dimensionality() << std::endl;
-  std::cout << "[YJ] DenseAccumulatingDistanceMeasureOneToMany, db.size: " << database->size() << std::endl;
   constexpr size_t kMinPrefetchAheadDims =
       (IsFloatingType<ResultElem>()) ? 8 : 4;
   constexpr size_t kMaxPrefetchAheadDims = 512;
   const DimensionIndex dims = query.nonzero_entries();
 
   if (dims < 8 || !RuntimeSupportsAvx2()) {
-    // [YJ] comes here
-    // std::cout << "[YJ] DenseAccumulatingDistanceMeasureOneToMany dims<8, !avx2" << dims << std::endl;
     return DenseAccumulatingDistanceMeasureOneToManyNoFma<T, DatasetView,
                                                           Lambdas, ResultElem>(
         query, database, lambdas, result, callback, pool);
@@ -1332,7 +1325,6 @@ void DenseSquaredL2DistanceOneToMany(const DatapointPtr<T>& query,
                                   pool);
 }
 
-// [YJ] comes here
 template <typename T, typename ResultElem, typename DatasetView,
           typename CallbackFunctor>
 void DenseL2DistanceOneToMany(const DatapointPtr<T>& query,
@@ -1392,7 +1384,6 @@ void DenseL2DistanceOneToMany(const DatapointPtr<T>& query,
   };
 
   L2DistanceLambdas lambdas;
-  // [YJ] line 318
   return one_to_many_low_level::DenseAccumulatingDistanceMeasureOneToMany(
       query, database, lambdas, result, callback, pool);
 }
@@ -1661,18 +1652,16 @@ void DenseGeneralHammingDistanceOneToMany(const DatapointPtr<T>& query,
                                        &set_distance_functor, pool);
 }
 
-// [YJ] Comes here first
 template <typename T, typename ResultElem>
 SCANN_INLINE void DenseDistanceOneToMany(const DistanceMeasure& dist,
                                          const DatapointPtr<T>& query,
-                                         const DenseDataset<T>& database, // [YJ] cur_centers
+                                         const DenseDataset<T>& database,
                                          MutableSpan<ResultElem> result,
                                          ThreadPool* pool) {
   // [YJ] comes here
   // std::cout << "[YJ] DenseDistanceOneToMany, db.dim: " << database.dimensionality() << std::endl;
   // std::cout << "[YJ] DenseDistanceOneToMany, db.data.size: " << database.data().size() << std::endl;
   auto view = DefaultDenseDatasetView<T>(database);
-
   one_to_many_low_level::SetDistanceFunctor<ResultElem> set_distance_functor(
       result);
   return DenseDistanceOneToMany(dist, query, &view, result,
@@ -1690,7 +1679,6 @@ std::pair<DatapointIndex, U> DenseDistanceOneToManyTop1(
   return set_top1_functor.Top1Pair(result);
 }
 
-// [YJ] Comes here second
 template <typename T, typename ResultElem, typename DatasetView,
           typename CallbackFunctor>
 void DenseDistanceOneToMany(const DistanceMeasure& dist,
@@ -1703,8 +1691,6 @@ void DenseDistanceOneToMany(const DistanceMeasure& dist,
   // std::cout << "[YJ] DenseDistanceOneToMany222, " << dist.specially_optimized_distance_tag() << std::endl;
   switch (dist.specially_optimized_distance_tag()) {
     case DistanceMeasure::L1:
-      std::cout << "[YJ] DenseDistanceOneToMany, DistanceMeasure::L1" << std::endl;
-
       return DenseL1DistanceOneToMany<T>(query, database, result, callback,
                                          pool);
     case DistanceMeasure::SQUARED_L2:
@@ -1712,33 +1698,25 @@ void DenseDistanceOneToMany(const DistanceMeasure& dist,
       return DenseSquaredL2DistanceOneToMany<T>(query, database, result,
                                                 callback, pool);
     case DistanceMeasure::L2:
-      std::cout << "[YJ] DenseDistanceOneToMany, DistanceMeasure::L2" << std::endl;
       return DenseL2DistanceOneToMany<T>(query, database, result, callback,
                                          pool);
-    // [YJ] Comes here  
     case DistanceMeasure::DOT_PRODUCT:
       // std::cout << "[YJ] DenseDistanceOneToMany, DistanceMeasure::DOT_PRODUCT, dim: " << database->dimensionality() << std::endl;
       return DenseDotProductDistanceOneToMany<T>(query, database, result,
                                                  callback, pool);
     case DistanceMeasure::ABS_DOT_PRODUCT:
-      std::cout << "[YJ] DenseDistanceOneToMany, DistanceMeasure::ABS_DOT_PRODUCT" << std::endl;
       return DenseAbsDotProductDistanceOneToMany<T>(query, database, result,
                                                     callback, pool);
     case DistanceMeasure::COSINE:
-      std::cout << "[YJ] DenseDistanceOneToMany, DistanceMeasure::COSINE" << std::endl;
       return DenseCosineDistanceOneToMany<T>(query, database, result, callback,
                                              pool);
     case DistanceMeasure::LIMITED_INNER_PRODUCT:
-      std::cout << "[YJ] DenseDistanceOneToMany, DistanceMeasure::LIMITED_INNER_PRODUCT" << std::endl;
       return DenseLimitedInnerProductDistanceOneToMany<T>(
           query, database, result, callback, pool);
-
     case DistanceMeasure::GENERAL_HAMMING:
-      std::cout << "[YJ] DenseDistanceOneToMany, DistanceMeasure::GENERAL_HAMMING" << std::endl;
       return DenseGeneralHammingDistanceOneToMany<T, ResultElem>(
           query, database, result, callback, pool);
     default:
-      std::cout << "[YJ] DenseDistanceOneToMany, default" << std::endl;
       const size_t dim = database->dimensionality();
       ParallelFor<1>(Seq(result.size()), pool, [&](size_t i) {
         callback->invoke(

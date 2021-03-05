@@ -48,7 +48,7 @@ class ScannNumpy {
       int leaves);
   std::pair<pybind11::array_t<DatapointIndex>, pybind11::array_t<float>>
   SearchBatched(const np_row_major_arr<float>& queries, int final_nn,
-                int pre_reorder_nn, int leaves, bool parallel = false);
+                int pre_reorder_nn, int leaves, int batch_size, bool parallel = false);
   void Serialize(std::string path);
 
  private:

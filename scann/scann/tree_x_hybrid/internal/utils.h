@@ -109,8 +109,8 @@ StatusOr<SingleMachineFactoryOptions> MergeAHLeafOptions(
 
     long long int s = hash_dim * expected_size;
     vector<uint8_t> storage(s);
+    //vector<uint8_t> storage(hash_dim * expected_size);
 
-    // vector<uint8_t> storage(hash_dim * expected_size);
     for (int i = 0; i < n_leaves; i++) {
       int inner_idx = 0;
       for (const auto dptr : *leaf_opts[i].hashed_dataset) {

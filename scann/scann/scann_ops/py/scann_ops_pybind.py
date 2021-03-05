@@ -35,7 +35,6 @@ class ScannSearcher(object):
   """Wrapper class around pybind module that provides a cleaner interface."""
 
   def __init__(self, searcher):
-    print("[YJ] ScannSearcher")
     self.searcher = searcher
 
   def search(self,
@@ -56,18 +55,19 @@ class ScannSearcher(object):
     final_nn = -1 if final_num_neighbors is None else final_num_neighbors
     pre_nn = -1 if pre_reorder_num_neighbors is None else pre_reorder_num_neighbors
     leaves = -1 if leaves_to_search is None else leaves_to_search
-    return self.searcher.search_batched(queries, final_nn, pre_nn, leaves,
+    return self.searcher.search_batched(queries, final_nn, pre_nn, leaves, -1, 
                                         False)
 
   def search_batched_parallel(self,
                               queries,
                               final_num_neighbors=None,
                               pre_reorder_num_neighbors=None,
-                              leaves_to_search=None):
+                              leaves_to_search=None,
+                              batch_size=None):
     final_nn = -1 if final_num_neighbors is None else final_num_neighbors
     pre_nn = -1 if pre_reorder_num_neighbors is None else pre_reorder_num_neighbors
     leaves = -1 if leaves_to_search is None else leaves_to_search
-    return self.searcher.search_batched(queries, final_nn, pre_nn, leaves, True)
+    return self.searcher.search_batched(queries, final_nn, pre_nn, leaves, batch_size, True)
 
   def serialize(self, artifacts_dir):
     self.searcher.serialize(artifacts_dir)
@@ -77,7 +77,6 @@ def builder(db, num_neighbors, distance_measure):
   """pybind analogue of builder() in scann_ops.py; see docstring there."""
 
   def builder_lambda(db, config, training_threads, **kwargs):
-    print("[YJ] builder_lambda, scann_ops_pybind.py")
     return create_searcher(db, config, training_threads, **kwargs)
 
   return scann_builder.ScannBuilder(
@@ -85,18 +84,16 @@ def builder(db, num_neighbors, distance_measure):
 
 
 def create_searcher(db, scann_config, training_threads=0):
-  print("[YJ] create_searcher, scann_ops_pybind.py")
   return ScannSearcher(
       scann_pybind.ScannNumpy(db, scann_config, training_threads))
 
 
-def load_searcher(artifacts_dir):
+def load_searcher(artifacts_dir, N, D):
   """Loads searcher assets from artifacts_dir and returns a ScaNN searcher."""
 
   def load_if_exists(filename):
     path = os.path.join(artifacts_dir, filename)
-    return np.load(path) if os.path.isfile(path) else None
-
+    return np.load(path, mmap_mode="r") if os.path.isfile(path) else None
   db = load_if_exists("dataset.npy")
   tokenization = load_if_exists("datapoint_to_token.npy")
   hashed_db = load_if_exists("hashed_dataset.npy")

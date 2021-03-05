@@ -93,18 +93,19 @@ class ScannSearcher(object):
     pre_nn = -1 if pre_reorder_num_neighbors is None else pre_reorder_num_neighbors
     leaves = -1 if leaves_to_search is None else leaves_to_search
     return scann_search_batched(self.searcher_handle, q, final_nn, pre_nn,
-                                leaves, False)
+                                leaves, None, False)
 
   def search_batched_parallel(self,
                               q,
                               final_num_neighbors=None,
                               pre_reorder_num_neighbors=None,
-                              leaves_to_search=None):
+                              leaves_to_search=None, 
+                              batch_size=None):  # [ANNA] batched size
     final_nn = -1 if final_num_neighbors is None else final_num_neighbors
     pre_nn = -1 if pre_reorder_num_neighbors is None else pre_reorder_num_neighbors
     leaves = -1 if leaves_to_search is None else leaves_to_search
     return scann_search_batched(self.searcher_handle, q, final_nn, pre_nn,
-                                leaves, True)
+                                leaves, batch_size, True)
 
   def serialize_to_module(self):
     return ScannState(scann_to_tensors(self.searcher_handle))
@@ -126,7 +127,6 @@ def builder(db, num_neighbors, distance_measure):
   """
 
   def builder_lambda(db, config, training_threads, **kwargs):
-    print("[YJ] builder_lambda, scann_ops.py")
     return create_searcher(db, config, training_threads, **kwargs)
 
   return scann_builder.ScannBuilder(
@@ -141,7 +141,6 @@ def create_searcher(db,
   """Create a ScaNN searcher given a dataset and text config proto."""
   if shared_name is None:
     shared_name = f"scann-{uuid.uuid4()}"
-  print("[YJ] create searcher")
   return ScannSearcher(
       scann_create_searcher(
           x=db,

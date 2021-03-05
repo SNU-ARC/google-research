@@ -71,7 +71,6 @@ void GetNeighborsViaAsymmetricDistanceLUT16WithInt32Accumulator2(
     const RestrictAllowlist* whitelist_or_null,
     PostprocessedDistance max_distance, const Postprocess& postprocess,
     TopN* top_items) {
-  std::cout << "[YJ] GetNeighborsViaAsymmetricDistanceLUT16WithInt32Accumulator2" << std::endl;
   const size_t num_32dp_simd_iters = DivRoundUp(dataset_size, 32);
 
   unique_ptr<int32_t[]> distances(new int32_t[32 * num_32dp_simd_iters]);

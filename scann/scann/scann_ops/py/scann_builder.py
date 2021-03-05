@@ -29,6 +29,7 @@ def _factory_decorator(key):
       kwargs.update(zip(f.__code__.co_varnames[1:], args))
       self.params[key] = kwargs
       return self
+
     inner.proto_maker = f
     return inner
 
@@ -45,7 +46,6 @@ class ScannBuilder(object):
     self.db = db
     self.num_neighbors = num_neighbors
     self.distance_measure = distance_measure
-    print("[YJ] SannBuilder init!!!!!")
 
   def set_n_training_threads(self, threads):
     self.training_threads = threads
@@ -249,7 +249,6 @@ class ScannBuilder(object):
     Raises:
       Exception: if no builder_lambda was set.
     """
-    print("[YJ] scann_builder.py, Build")
     if self.builder_lambda is None:
       raise Exception("build() called but no builder lambda was set.")
     config = self.create_config()

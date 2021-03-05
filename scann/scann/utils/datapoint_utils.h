@@ -275,7 +275,6 @@ void MeanVar(const DatapointPtr<T>& input, double* mean, double* var) {
 template <typename To, typename From>
 inline void CopyToDatapoint(const DatapointPtr<From>& input,
                             Datapoint<To>* output) {
-  // std::cout << "[YJ] CopyToDatapoint" << std::endl;
   output->clear();
   output->set_dimensionality(input.dimensionality());
   output->mutable_indices()->insert(output->mutable_indices()->end(),

@@ -92,9 +92,8 @@ Searcher<T>::Searcher(shared_ptr<TypedDataset<T>> dataset,
                  AsymmetricHasherConfig::INT8_LUT16 &&
              opts_.asymmetric_queryer_) {
   DCHECK(hashed_dataset);
-  std::cout << "[YJ] Searcher" << std::endl;
+
   if (lut16_) {
-    std::cout << "[YJ] Searcher, packed" << std::endl;
     packed_dataset_ =
         ::research_scann::asymmetric_hashing2::CreatePackedDataset(
             *this->hashed_dataset());
@@ -150,12 +149,10 @@ Searcher<T>::Searcher(shared_ptr<TypedDataset<T>> dataset,
 template <typename T>
 Searcher<T>::~Searcher() {}
 
-// [YJ] comes here
 template <typename T>
 Status Searcher<T>::FindNeighborsImpl(const DatapointPtr<T>& query,
                                       const SearchParameters& params,
                                       NNResultsVector* result) const {
-  std::cout << "[YJ] HASHING FindNeighborsImpl" << std::endl;
   if (limited_inner_product_) {
     if (opts_.symmetric_queryer_) {
       return FailedPreconditionError(
@@ -164,7 +161,6 @@ Status Searcher<T>::FindNeighborsImpl(const DatapointPtr<T>& query,
     float query_norm = static_cast<float>(sqrt(SquaredL2Norm(query)));
     asymmetric_hashing_internal::LimitedInnerFunctor functor(query_norm,
                                                              norm_inv_);
-    // std::cout << "[YJ] Limited inner product" << std::endl;
     return FindNeighborsTopNDispatcher<
         asymmetric_hashing_internal::LimitedInnerFunctor>(query, params,
                                                           functor, result);
@@ -172,13 +168,10 @@ Status Searcher<T>::FindNeighborsImpl(const DatapointPtr<T>& query,
              AsymmetricHasherConfig::PRODUCT_AND_BIAS) {
     asymmetric_hashing_internal::AddBiasFunctor functor(
         bias_, query.values_slice().back());
-    // std::cout << "[YJ] PRODUCT_AND_BIAS" << std::endl;
     return FindNeighborsTopNDispatcher<
         asymmetric_hashing_internal::AddBiasFunctor>(query, params, functor,
                                                      result);
   } else {
-    // [YJ] comes here
-    std::cout << "[YJ] HASHING FindNeighborsImpl, basic" << std::endl;
     return FindNeighborsTopNDispatcher<
         asymmetric_hashing_internal::IdentityPostprocessFunctor>(
         query, params,
@@ -214,16 +207,13 @@ template <typename T>
 StatusOr<const LookupTable*> Searcher<T>::GetOrCreateLookupTable(
     const DatapointPtr<T>& query, const SearchParameters& params,
     LookupTable* created_lookup_table_storage) const {
-  std::cout << "[YJ] GetOrCreateLookupTable" << std::endl;
   DCHECK(created_lookup_table_storage);
   auto per_query_opts =
       dynamic_cast<const AsymmetricHashingOptionalParameters*>(
           params.searcher_specific_optional_parameters());
   if (per_query_opts && !per_query_opts->precomputed_lookup_table_.empty()) {
-    std::cout << "[YJ] precomputed lookup table" << std::endl;
     return &per_query_opts->precomputed_lookup_table_;
   } else {
-    std::cout << "[YJ] create lookup table" << std::endl;
     TF_ASSIGN_OR_RETURN(*created_lookup_table_storage,
                         opts_.asymmetric_queryer_->CreateLookupTable(
                             query, opts_.asymmetric_lookup_type_,
@@ -237,7 +227,6 @@ template <typename PostprocessFunctor>
 Status Searcher<T>::FindNeighborsTopNDispatcher(
     const DatapointPtr<T>& query, const SearchParameters& params,
     PostprocessFunctor postprocessing_functor, NNResultsVector* result) const {
-  std::cout << "[YJ] FindNeighborsTopNDispatcher, query dimension: " << query.dimensionality() << std::endl;
   if (params.pre_reordering_crowding_enabled()) {
     return FailedPreconditionError("Crowding is not supported.");
   } else {
@@ -245,7 +234,6 @@ Status Searcher<T>::FindNeighborsTopNDispatcher(
         AsymmetricHashingOptionalParameters>();
     if (ah_optional_params && ah_optional_params->top_n() &&
         !opts_.symmetric_queryer_) {
-      // [YJ] comes here
       auto queryer_opts = GetQueryerOptions(postprocessing_functor);
       queryer_opts.first_dp_index = ah_optional_params->starting_dp_idx_;
       queryer_opts.lut16_bias = ah_optional_params->lut16_bias_;
@@ -277,13 +265,11 @@ QueryerOptions<PostprocessFunctor> Searcher<T>::GetQueryerOptions(
   std::shared_ptr<DefaultDenseDatasetView<uint8_t>> hashed_dataset_view;
 
   if (this->hashed_dataset()) {
-    // std::cout << "[YJ] hashed datset" << std::endl;
     hashed_dataset_view = std::make_shared<DefaultDenseDatasetView<uint8_t>>(
         *this->hashed_dataset());
   }
   queryer_options.hashed_dataset = hashed_dataset_view;
   queryer_options.postprocessing_functor = std::move(postprocessing_functor);
-
   if (lut16_) queryer_options.lut16_packed_dataset = &packed_dataset_;
   return queryer_options;
 }
@@ -293,7 +279,6 @@ template <typename PostprocessFunctor, typename TopN>
 Status Searcher<T>::FindNeighborsQueryerDispatcher(
     const DatapointPtr<T>& query, const SearchParameters& params,
     PostprocessFunctor postprocessing_functor, TopN* result) const {
-  std::cout << "[YJ] FindNeighborsQueryerDispatcher" << std::endl;
   auto queryer_options = GetQueryerOptions(postprocessing_functor);
   if (opts_.symmetric_queryer_) {
     auto view = queryer_options.hashed_dataset.get();
@@ -303,8 +288,6 @@ Status Searcher<T>::FindNeighborsQueryerDispatcher(
         hashed_query.ToPtr(), view, params, std::move(queryer_options),
         result));
   } else {
-    // [YJ] comes here
-    std::cout << "[YJ] else" << std::endl;
     LookupTable lookup_table_storage;
     TF_ASSIGN_OR_RETURN(
         const LookupTable* lookup_table,

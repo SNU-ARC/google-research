@@ -60,7 +60,6 @@ SCANN_AVX2_INLINE Avx2<int16_t, kNumQueries, 2> Avx2LUT16BottomLoop(
   const Avx2<uint8_t> sign7 = 0x0F;
 
   DimensionIndex num_unroll_iter = num_blocks / 2;
-  std::cout << "[YJ] Avx2LUT16BottomLoop, num_unroll_iter: " << num_unroll_iter << std::endl;
   for (; num_unroll_iter != 0; --num_unroll_iter) {
     constexpr uint32_t kPointsPerIter = 32;
     if constexpr (kPrefetch == PrefetchStrategy::kSeq) {
@@ -82,7 +81,6 @@ SCANN_AVX2_INLINE Avx2<int16_t, kNumQueries, 2> Avx2LUT16BottomLoop(
     for (size_t j : Seq(kNumQueries)) {
       const Avx2<uint8_t> dict = Avx2<uint8_t>::Load(lookup_starts[j]);
       lookup_starts[j] += kPointsPerIter;
-      // [YJ] _mm256_shuffle_epi8: Shuffles bytes in the first source vector according to the shuffle control mask in the second source vector. 
       const Avx2<uint8_t> res0 = _mm256_shuffle_epi8(*dict, *mask0);
       const Avx2<uint8_t> res1 = _mm256_shuffle_epi8(*dict, *mask1);
 
@@ -129,7 +127,6 @@ template <size_t kBottomLevelBatchSize, size_t kNumQueries>
 SCANN_AVX2_INLINE array<const uint8_t*, kBottomLevelBatchSize>
 MakeBottomLevelBatchLookupArray(
     array<const uint8_t*, kNumQueries> mid_level_lookups, size_t start) {
-  std::cout << "[YJ] MakeBottomLevelBatchLookupArray" << std::endl;
   DCHECK_LE(start + kBottomLevelBatchSize, kNumQueries);
   array<const uint8_t*, kBottomLevelBatchSize> result;
   for (size_t j : Seq(kBottomLevelBatchSize)) {
@@ -142,8 +139,6 @@ template <size_t kNumQueries, PrefetchStrategy kPrefetch>
 SCANN_AVX2_INLINE Avx2<int16_t, kNumQueries, 2> Avx2LUT16MiddleLoop(
     const uint8_t* data_start, array<const uint8_t*, kNumQueries> lookup_starts,
     const DimensionIndex num_blocks, const uint8_t* prefetch_start) {
-  std::cout << "[YJ] Avx2LUT16MiddleLoop" << std::endl;
-
   constexpr size_t kSizeB = (kNumQueries == 1) ? 1 : 2;
   constexpr size_t kNumBCases[] = {0, 2, 1};
   constexpr size_t kNumB = (kNumQueries == 1) ? 1 : kNumBCases[kNumQueries % 3];
@@ -155,13 +150,10 @@ SCANN_AVX2_INLINE Avx2<int16_t, kNumQueries, 2> Avx2LUT16MiddleLoop(
   constexpr size_t kNumA = kRemaining / 3;
 
   Avx2<int16_t, kNumQueries, 2> result;
-  // std::cout << "[YJ] Avx2LUT16MiddleLoop result.size(), " << result.size() << std::endl;
-  std::cout << "[YJ] Avx2LUT16MiddleLoop kNumA: " << kNumA << " / kNumB: " << kNumB << std::endl;
-  
   for (size_t j : Seq(kNumA)) {
     const size_t start = j * kSizeA;
     auto bottom_level_lookups =
-        MakeBottomLevelBatchLookupArray<kSizeA>(lookup_starts, start);  // [YJ] retrieve pointer of lookup_starts[start] ... lookup_starts[start+kBottomLevelBatchSize]
+        MakeBottomLevelBatchLookupArray<kSizeA>(lookup_starts, start);
     auto acc = Avx2LUT16BottomLoop<kSizeA, kPrefetch>(
         data_start, bottom_level_lookups, num_blocks, prefetch_start);
     for (size_t jj : Seq(kSizeA)) {
@@ -182,32 +174,24 @@ SCANN_AVX2_INLINE Avx2<int16_t, kNumQueries, 2> Avx2LUT16MiddleLoop(
   return result;
 }
 
-// [YJ]
-// auto int16_accums = PrefetchDispatcher<kNumQueries, kPrefetch>(
-//     data_start, lookups, num_blocks, next_partition, &next_prefetch_idx);
 template <size_t kNumQueries, PrefetchStrategy kPrefetch>
 SCANN_AVX2_INLINE Avx2<int16_t, kNumQueries, 2> PrefetchDispatcher(
     const uint8_t* data_start, array<const uint8_t*, kNumQueries> lookups,
     const DimensionIndex num_blocks, const uint8_t* next_partition,
     ssize_t* __restrict__ next_prefetch_idx) {
-  std::cout << "[YJ] PrefetchDispatcher" << std::endl;
   if constexpr (kPrefetch == PrefetchStrategy::kSmart) {
     if ((*next_prefetch_idx) >= 0) {
       const uint8_t* prefetch_start =
           next_partition + (*next_prefetch_idx) * 16 * num_blocks;
       (*next_prefetch_idx)++;
-      // std::cout << "[YJ] PrefetchDispatcher, 111" << std::endl;
       return Avx2LUT16MiddleLoop<kNumQueries, kPrefetch>(
           data_start, lookups, num_blocks, prefetch_start);
     } else {
       (*next_prefetch_idx)++;
-      // std::cout << "[YJ] PrefetchDispatcher, 222" << std::endl;
       return Avx2LUT16MiddleLoop<kNumQueries, PrefetchStrategy::kSeq>(
           data_start, lookups, num_blocks, nullptr);
     }
   } else {
-    // [YJ] comes here
-      std::cout << "[YJ] PrefetchDispatcher, 333" << std::endl;
     return Avx2LUT16MiddleLoop<kNumQueries, kPrefetch>(data_start, lookups,
                                                        num_blocks, nullptr);
   }
@@ -411,7 +395,6 @@ template <size_t kNumQueries, PrefetchStrategy kPrefetch,
           bool kHasFinalPredicate, typename TopN>
 SCANN_AVX2_INLINE void GetTopFloatDistancesImpl(
     LUT16ArgsTopN<float, TopN> args) {
-  std::cout << "[YJ] GetTopFloatDistancesImpl" << std::endl;
   const uint8_t* packed_dataset = args.packed_dataset;
   const uint8_t* next_partition = args.next_partition;
   const size_t num_32dp_simd_iters = args.num_32dp_simd_iters;
@@ -420,7 +403,7 @@ SCANN_AVX2_INLINE void GetTopFloatDistancesImpl(
   const DatapointIndex first_dp_index = args.first_dp_index;
   const uint32_t final_mask = GetFinalMask32(args.num_datapoints);
   DCHECK_EQ(num_32dp_simd_iters, DivRoundUp(args.num_datapoints, 32));
-  std::cout << "[YJ] kNumQueries, " << kNumQueries << " / num_datapoints: " << args.num_datapoints << std::endl;
+
   auto biases = ToLocalArray<kNumQueries>(args.biases);
   Avx2<float> simd_biases[kNumQueries];
   for (size_t j : Seq(kNumQueries)) {
@@ -484,7 +467,6 @@ SCANN_AVX2_INLINE void GetTopFloatDistancesImpl(
         const int offset = bits::FindLSBSetNonZero(push_mask);
         push_mask &= (push_mask - 1);
         const DatapointIndex dp_idx = first_dp_index + 32 * k + offset;
-        std::cout << "[YJ] offset: " << offset << " dp_idx:" << dp_idx << std::endl;
         DCHECK(
             !restrict_whitelist_ptrs[j] ||
             args.restrict_whitelists[j].IsWhitelisted(dp_idx - first_dp_index))
@@ -514,7 +496,6 @@ SCANN_AVX2_INLINE void GetTopFloatDistancesImpl(
 template <size_t kNumQueries, PrefetchStrategy kPrefetch>
 SCANN_AVX2_OUTLINE void LUT16Avx2<kNumQueries, kPrefetch>::GetTopFloatDistances(
     LUT16ArgsTopN<float> args) {
-  std::cout << "[YJ] GetTopFloatDistances" << std::endl;
   if (args.final_predicate) {
     return GetTopFloatDistancesImpl<kNumQueries, kPrefetch, true>(
         std::move(args));

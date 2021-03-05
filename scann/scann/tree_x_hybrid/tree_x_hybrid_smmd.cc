@@ -349,8 +349,6 @@ template <typename T>
 Status TreeXHybridSMMD<T>::FindNeighborsImpl(const DatapointPtr<T>& query,
                                              const SearchParameters& params,
                                              NNResultsVector* result) const {
-  std::cout << "[YJ] TREE FindNeighborsImpl" << std::endl;
-
   SCANN_RETURN_IF_ERROR(CheckReadyToQuery(params));
   auto tree_x_params =
       params.searcher_specific_optional_parameters<TreeXOptionalParameters>();
