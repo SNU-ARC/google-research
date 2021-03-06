@@ -556,6 +556,7 @@ def run_faiss(D):
 				dataset = read_data(split_dataset_path + str(args.num_split) + "_" + str(split) if args.num_split>1 else dataset_basedir, base=False if args.num_split>1 else True, offset_=None if args.num_split>1 else 0, shape_=None)
 				padded_D, faiss_m, padded_dataset, padded_train_dataset, padded_queries = faiss_pad_dataset(dataset, train_dataset, queries, m)
 				# local_neighbors, local_distances, total_latency = run_local_faiss(args, searcher_dir, split, padded_D, "IVF"+str(L)+",PQ"+str(faiss_m)+"x"+str(log2kstar), padded_train_dataset, padded_dataset, padded_queries)
+				args.m = faiss_m
 				index, preproc = build_faiss(args, searcher_dir, split, padded_D, "IVF"+str(L)+",PQ"+str(faiss_m)+"x"+str(log2kstar), padded_train_dataset, padded_dataset, padded_queries)
 
 				n = list()

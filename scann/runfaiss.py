@@ -121,8 +121,7 @@ def prepare_trained_index(preproc, coarse_quantizer, ncent, pqflat_str):
         key = pqflat_str[2:].split("x")
         assert len(key) == 2, "use format PQ(m)x(log2kstar)"
         m, log2kstar = map(int, pqflat_str[2:].split("x"))
-        use_float16 = True
-        assert m < 56 or use_float16, "PQ%d will work only with -float16" % m
+        assert m < 56 or useFloat16, "PQ%d will work only with -float16" % m
 
         print("making an IVFPQ index, m = %d, log2kstar = %d" % (m, log2kstar))
         idx_model = faiss.IndexIVFPQ(coarse_quantizer, d, ncent, m, log2kstar, fmetric)
