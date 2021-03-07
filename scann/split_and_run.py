@@ -363,8 +363,8 @@ def run_scann():
 
 	for bc in build_config:
 		num_leaves, threshold, dims, metric = bc
-		if (metric == 'squared_l2' and (D/dims) <=8):
-			print("============== SKIP ======================= \nscann, squared_l2, m<=8 shows inconsistent result")
+		if (metric == 'squared_l2' and dims > 8):
+			print("============== SKIP ======================= \nscann, squared_l2, D/m > 8 may show inconsistent result")
 			continue
 		sc_list = check_available_search_config(args.program, bc, search_config)
 		neighbors=np.empty((len(sc_list), queries.shape[0],0), dtype=np.int32)
