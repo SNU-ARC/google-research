@@ -18,6 +18,9 @@
 
 #include <algorithm>
 #include <unordered_set>
+#include <iostream>
+#include <fstream>
+#include <chrono>
 
 #include "absl/base/casts.h"
 #include "absl/memory/memory.h"
@@ -374,10 +377,24 @@ Status TreeXHybridSMMD<T>::FindNeighborsImpl(const DatapointPtr<T>& query,
               "not"
               " a KMeansTreePartitioner.");
 
+        //arcm::Phase 1 for squared_l2 starts
+        //std::cout << "arcm::Phase 1 starts ..." << std::endl;
+        std::chrono::system_clock::time_point phase_1_start = std::chrono::system_clock::now();
+
         SCANN_RETURN_IF_ERROR(
             kmeans_tokenizer->TokensForDatapointWithSpillingAndOverride(
                 query, num_partitions_to_search_override,
                 &query_tokens_storage));
+
+        //std::cout << "arcm::Phase 1 ends ..." << std::endl;
+        std::chrono::system_clock::time_point phase_1_end = std::chrono::system_clock::now();
+        std::chrono::nanoseconds phase_1_ns  = phase_1_end - phase_1_start;
+        std::ofstream profile_file;
+        profile_file.open("profile.out", std::ios_base::app);
+        profile_file << "arcm::Phase 1 time: " << phase_1_ns.count() << " ns" << std::endl;
+        profile_file.close();
+        //arcm::Phase 1 for squared_l2 ends
+
         override = true;
       }
     }
@@ -610,9 +627,23 @@ Status TreeXHybridSMMD<T>::FindNeighborsPreTokenizedImpl(
           "LeafSearcherOptionalParameterCreator.");
     }
 
+    //arcm::Phase 2 for squared_l2 starts
+    //std::cout << "arcm::Phase 2 starts ..." << std::endl;
+    std::chrono::system_clock::time_point phase_2_start = std::chrono::system_clock::now();
+
     TF_ASSIGN_OR_RETURN(internal_all_leaf_optional_parameters,
                         leaf_searcher_optional_parameter_creator_
                             ->CreateLeafSearcherOptionalParameters(query));
+
+    //std::cout << "arcm::Phase 2 ends ..." << std::endl;
+    std::chrono::system_clock::time_point phase_2_end = std::chrono::system_clock::now();
+    std::chrono::nanoseconds phase_2_ns  = phase_2_end - phase_2_start;
+    std::ofstream profile_file;
+    profile_file.open("profile.out", std::ios_base::app);
+    profile_file << "arcm::Phase 2 time: " << phase_2_ns.count() << " ns" << std::endl;
+    profile_file.close();
+    //arcm::Phase 2 for squared_l2 ends
+
   }
 
   auto set_leaf_optional_params = [&](size_t query_token_index,
@@ -678,9 +709,25 @@ Status TreeXHybridSMMD<T>::FindNeighborsPreTokenizedImpl(
       TranslateGlobalToLeafLocalWhitelist(params, datapoints_by_token_[token],
                                           &leaf_params);
       NNResultsVector leaf_results;
+
+
+      //arcm::Phase 3 for squared_l2 starts
+      //std::cout << "arcm::Phase 3 starts ..." << std::endl;
+      std::chrono::system_clock::time_point phase_3_start = std::chrono::system_clock::now();
+
       SCANN_RETURN_IF_ERROR(
           leaf_searchers_[token]->FindNeighborsNoSortNoExactReorder(
               query, leaf_params, &leaf_results));
+
+      //std::cout << "arcm::Phase 3 ends ..." << std::endl;
+      std::chrono::system_clock::time_point phase_3_end = std::chrono::system_clock::now();
+      std::chrono::nanoseconds phase_3_ns  = phase_3_end - phase_3_start;
+      std::ofstream profile_file;
+      profile_file.open("profile.out", std::ios_base::app);
+      profile_file << "arcm::Phase 3 time: " << phase_3_ns.count() << " ns" << std::endl;
+      profile_file.close();
+      //arcm::Phase 3 for squared_l2 ends
+
       RemapToGlobalDatapointIndices(MakeMutableSpan(leaf_results),
                                     datapoints_by_token_[token]);
       for (const auto& result : leaf_results) {
