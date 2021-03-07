@@ -189,6 +189,9 @@ template <typename T>
 Status KMeansTreePartitioner<T>::TokensForDatapointWithSpilling(
     const DatapointPtr<T>& dptr, int32_t max_centers_override,
     vector<KMeansTreeSearchResult>* result) const {
+
+  std::cout << "arcm::kmeans_tree_partitioner.cc::KMeansTreePartitioner<T>::TokensForDatapointWithSpilling" << std::endl;
+
   DCHECK(result);
 
   if (this->tokenization_mode() == UntypedPartitioner::QUERY) {
@@ -317,6 +320,10 @@ template <typename T>
 Status KMeansTreePartitioner<T>::TokensForDatapointWithSpillingAndOverride(
     const DatapointPtr<T>& dptr, int32_t max_centers_override,
     vector<int32_t>* result) const {
+
+  std::cout << "arcm::kmeans_tree_partitioner.cc::KMeansTreePartitioner<T>::TokensForDatapointWithSpillingAndOverride" << std::endl;
+
+
   vector<KMeansTreeSearchResult> result_raw;
   SCANN_RETURN_IF_ERROR(
       TokensForDatapointWithSpilling(dptr, max_centers_override, &result_raw));

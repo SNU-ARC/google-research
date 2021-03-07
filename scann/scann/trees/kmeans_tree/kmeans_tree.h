@@ -301,6 +301,10 @@ Status KMeansTree::Tokenize(const DatapointPtr<T>& query,
                             const DistanceMeasure& dist,
                             const TokenizationOptions& opts,
                             std::vector<KMeansTreeSearchResult>* result) const {
+
+  std::cout << "arcm::kmeans_tree.h::KMeansTree::Tokenize" << std::endl;
+
+
   SCANN_RETURN_IF_ERROR(root_.CheckDimensionality(query.dimensionality()));
 
   Status status;
@@ -325,6 +329,9 @@ Status KMeansTree::TokenizeImpl(
     const DatapointPtr<float>& query, const DistanceMeasure& dist,
     const TokenizationOptions& opts,
     std::vector<KMeansTreeSearchResult>* result) const {
+
+  std::cout << "arcm::kmeans_tree.h::KMeansTree::TokenizeImpl" << std::endl;
+
   switch (opts.spilling_type) {
     case TokenizationOptions::NONE:
       result->resize(1);
@@ -361,6 +368,10 @@ Status KMeansTree::TokenizeWithoutSpillingImpl(
     const DatapointPtr<float>& query, const DistanceMeasure& dist,
     const KMeansTreeNode* root, KMeansTreeSearchResult* result,
     bool populate_residual_stdev) const {
+
+  //arcm::does not enter here for squared_l2
+  std::cout << "arcm::kmeans_tree.h::KMeansTree::TokenizeWithoutSpillingImpl" << std::endl;
+
   CHECK(result);
   if (root->IsLeaf()) {
     result->node = root;
@@ -404,6 +415,9 @@ Status KMeansTree::TokenizeWithSpillingImpl(
     int32_t max_centers, const KMeansTreeNode* current_node,
     std::vector<KMeansTreeSearchResult>* results,
     bool populate_residual_stdev) const {
+
+  std::cout << "arcm::kmeans_tree.h::KMeansTree::TokenizeWithSpillingImpl" << std::endl;
+
   DCHECK(results);
   DCHECK(current_node);
 

@@ -349,6 +349,9 @@ template <typename T>
 Status TreeXHybridSMMD<T>::FindNeighborsImpl(const DatapointPtr<T>& query,
                                              const SearchParameters& params,
                                              NNResultsVector* result) const {
+
+  std::cout << "arcm::tree_x_hybrid_smmd.cc::TreeXHybridSMMD<T>::FindNeighborsImpl" << std::endl;
+
   SCANN_RETURN_IF_ERROR(CheckReadyToQuery(params));
   auto tree_x_params =
       params.searcher_specific_optional_parameters<TreeXOptionalParameters>();
@@ -384,6 +387,8 @@ Status TreeXHybridSMMD<T>::FindNeighborsImpl(const DatapointPtr<T>& query,
     }
 
     if (!override) {
+      //arcm::does not enter here for squared_l2
+      std::cout << "arcm::tree_x_hybrid_smmd.cc::TreeXHybridSMMD<T>::FindNeighborsImpl::!override" << std::endl;
       SCANN_RETURN_IF_ERROR(query_tokenizer_->TokensForDatapointWithSpilling(
           query, &query_tokens_storage));
     }
@@ -567,6 +572,9 @@ Status TreeXHybridSMMD<T>::FindNeighborsPreTokenizedImpl(
     const DatapointPtr<T>& query, const SearchParameters& params,
     ConstSpan<int32_t> query_tokens, TopN top_n,
     NNResultsVector* result) const {
+
+  std::cout << "arcm::tree_x_hybrid_smmd.cc::TreeXHybridSMMD<T>::FindNeighborsPreTokenizedImpl" << std::endl;
+
   DCHECK(result);
   DCHECK(top_n.empty());
 
@@ -590,6 +598,8 @@ Status TreeXHybridSMMD<T>::FindNeighborsPreTokenizedImpl(
 
   SCANN_RETURN_IF_ERROR(
       ValidateTokenList(query_tokens, query_tokenizer_ != nullptr));
+  std::cout << "arcm::tree_x_hybrid_smmd.cc::TreeXHybridSMMD<T>::FindNeighborsPreTokenizedImpl::after ValidateTokenList" << std::endl;
+
 
   auto tree_x_params =
       params.searcher_specific_optional_parameters<TreeXOptionalParameters>();
@@ -613,9 +623,14 @@ Status TreeXHybridSMMD<T>::FindNeighborsPreTokenizedImpl(
           "LeafSearcherOptionalParameterCreator.");
     }
 
+    //std::cout << "arcm::tree_x_hybrid_smmd.cc::TreeXHybridSMMD<T>::FindNeighborsPreTokenizedImpl::before CreateLeafSearcherOptionalParameters" << std::endl;
+
     TF_ASSIGN_OR_RETURN(internal_all_leaf_optional_parameters,
                         leaf_searcher_optional_parameter_creator_
                             ->CreateLeafSearcherOptionalParameters(query));
+
+    //std::cout << "arcm::tree_x_hybrid_smmd.cc::TreeXHybridSMMD<T>::FindNeighborsPreTokenizedImpl::after CreateLeafSearcherOptionalParameters" << std::endl;
+
   }
 
   auto set_leaf_optional_params = [&](size_t query_token_index,
@@ -659,8 +674,16 @@ Status TreeXHybridSMMD<T>::FindNeighborsPreTokenizedImpl(
     set_leaf_optional_params(0, &leaf_params);
     TranslateGlobalToLeafLocalWhitelist(params, datapoints_by_token_[token],
                                         &leaf_params);
+
+    //arcm::does not enter here for squared_l2
+    std::cout << "arcm::tree_x_hybrid_smmd.cc::TreeXHybridSMMD<T>::FindNeighborsPreTokenizedImpl::after TranslateGlobalToLeafLocalWhitelist 1" << std::endl;
+
     Status status = leaf_searchers_[token]->FindNeighborsNoSortNoExactReorder(
         query, leaf_params, result);
+
+    //arcm::does not enter here for squared_l2
+    std::cout << "arcm::tree_x_hybrid_smmd.cc::TreeXHybridSMMD<T>::FindNeighborsPreTokenizedImpl::after FindNeighborsNoSortNoExactReorder 1" << std::endl;
+
     if (!status.ok()) return status;
     RemapToGlobalDatapointIndices(MakeMutableSpan(*result),
                                   datapoints_by_token_[token]);
@@ -680,10 +703,16 @@ Status TreeXHybridSMMD<T>::FindNeighborsPreTokenizedImpl(
       set_leaf_optional_params(i, &leaf_params);
       TranslateGlobalToLeafLocalWhitelist(params, datapoints_by_token_[token],
                                           &leaf_params);
+
+      std::cout << "arcm::tree_x_hybrid_smmd.cc::TreeXHybridSMMD<T>::FindNeighborsPreTokenizedImpl::before FindNeighborsNoSortNoExactReorder 2" << std::endl;
+
       NNResultsVector leaf_results;
       SCANN_RETURN_IF_ERROR(
           leaf_searchers_[token]->FindNeighborsNoSortNoExactReorder(
               query, leaf_params, &leaf_results));
+
+      std::cout << "arcm::tree_x_hybrid_smmd.cc::TreeXHybridSMMD<T>::FindNeighborsPreTokenizedImpl::after FindNeighborsNoSortNoExactReorder 2" << std::endl;
+
       RemapToGlobalDatapointIndices(MakeMutableSpan(leaf_results),
                                     datapoints_by_token_[token]);
       for (const auto& result : leaf_results) {
@@ -710,8 +739,16 @@ Status TreeXHybridSMMD<T>::FindNeighborsPreTokenizedImpl(
       set_leaf_optional_params(i, &leaf_params);
       TranslateGlobalToLeafLocalWhitelist(params, datapoints_by_token_[token],
                                           &leaf_params);
+
+      //arcm::does not enter here for squared_l2
+      std::cout << "arcm::tree_x_hybrid_smmd.cc::TreeXHybridSMMD<T>::FindNeighborsPreTokenizedImpl::after TranslateGlobalToLeafLocalWhitelist 3" << std::endl;
+
       Status status = leaf_searchers_[token]->FindNeighborsNoSortNoExactReorder(
           query, leaf_params, &leaf_results[i]);
+
+      //arcm::does not enter here for squared_l2
+      std::cout << "arcm::tree_x_hybrid_smmd.cc::TreeXHybridSMMD<T>::FindNeighborsPreTokenizedImpl::after FindNeighborsNoSortNoExactReorder 3" << std::endl;
+
       if (!status.ok()) return status;
       RemapToGlobalDatapointIndices(MakeMutableSpan(leaf_results[i]),
                                     datapoints_by_token_[token]);

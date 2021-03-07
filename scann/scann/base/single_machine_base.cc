@@ -278,6 +278,9 @@ template <typename T>
 Status SingleMachineSearcherBase<T>::FindNeighbors(
     const DatapointPtr<T>& query, const SearchParameters& params,
     NNResultsVector* result) const {
+
+  std::cout << "arcm::singe_machine_base.cc::SingleMachineSearcherBase<T>::FindNeighbors" << std::endl;
+
   SCANN_RET_CHECK(query.IsFinite())
       << "Cannot query ScaNN with vectors that contain NaNs or infinity.";
   DCHECK(result);
@@ -304,6 +307,9 @@ template <typename T>
 Status SingleMachineSearcherBase<T>::FindNeighborsNoSortNoExactReorder(
     const DatapointPtr<T>& query, const SearchParameters& params,
     NNResultsVector* result) const {
+
+  std::cout << "arcm::singe_machine_base.cc::SingleMachineSearcherBase<T>::FindNeighborsNoSortNoExactReorder" << std::endl;
+
   DCHECK(result);
   bool reordering_enabled =
       compressed_reordering_enabled() || exact_reordering_enabled();

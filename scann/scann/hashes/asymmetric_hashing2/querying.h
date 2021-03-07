@@ -292,6 +292,10 @@ StatusOr<LookupTable> AsymmetricQueryer<T>::CreateLookupTable(
     const DatapointPtr<T>& query, const DistanceMeasure& lookup_distance,
     AsymmetricHasherConfig::FixedPointLUTConversionOptions
         float_int_conversion_options) const {
+
+  std::cout << "arcm::querying.h::AsymmetricQueryer<T>::CreateLookupTable" << std::endl;
+
+
   const DatapointPtr<T> query_no_bias = [&] {
     if (quantization_scheme() == AsymmetricHasherConfig::PRODUCT_AND_BIAS) {
       return MakeDatapointPtr(query.indices(), query.values(),
@@ -413,7 +417,7 @@ Status FindApproxNeighborsFastTopNeighbors(
     ConstSpan<DatapointIndex> ii;
     ConstSpan<int16_t> vv;
     std::tie(ii, vv) = ftns[batch_idx].FinishUnsorted();
-    
+
 	NNResultsVector v(ii.size());
     const float inv_fixed_point_multiplier =
         1.0f / lookup_tables[batch_idx]->fixed_point_multiplier;
@@ -546,7 +550,7 @@ Status AsymmetricQueryer<T>::FindApproximateTopNeighborsTopNDispatch(
     auto lookup_index = packed & 15;
     approximate_distance += lookups[0][16*i+lookup_index];
     // std::cout << lookups[0][16*i+lookup_index] << " ";
-  }  
+  }
   // std::cout << std::endl;
   std::cout << "[YJ] approximate distance:" << approximate_distance << std::endl;
   return OkStatus();

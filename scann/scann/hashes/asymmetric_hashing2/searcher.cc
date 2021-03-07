@@ -153,6 +153,8 @@ template <typename T>
 Status Searcher<T>::FindNeighborsImpl(const DatapointPtr<T>& query,
                                       const SearchParameters& params,
                                       NNResultsVector* result) const {
+  std::cout << "arcm::searcher.cc::Searcher<T>::FindNeighborsImpl" << std::endl;
+
   if (limited_inner_product_) {
     if (opts_.symmetric_queryer_) {
       return FailedPreconditionError(
@@ -422,6 +424,9 @@ template <typename T>
 StatusOr<unique_ptr<SearcherSpecificOptionalParameters>>
 PrecomputedAsymmetricLookupTableCreator<T>::
     CreateLeafSearcherOptionalParameters(const DatapointPtr<T>& query) const {
+
+  std::cout << "arcm::searcher.cc::PrecomputedAsymmetricLookupTableCreator<T>::CreateLeafSearcherOptionalParameters" << std::endl;
+
   TF_ASSIGN_OR_RETURN(auto lookup_table,
                       queryer_->CreateLookupTable(query, lookup_type_));
   return unique_ptr<SearcherSpecificOptionalParameters>(

@@ -119,7 +119,7 @@ StatusOr<vector<DenseDataset<double>>> AhImpl<T>::TrainAsymmetricHashing(
   }
   int32_t num_blocks = chunked_vec.size();
   vector<DenseDataset<double>> chunked_dataset(num_blocks);
-  
+
   std::cout << "[YJ] TrainAsymmetricHashing, num_blocks: " << num_blocks << std::endl;
   std::cout << "[YJ] TrainAsymmetricHashing, expected_sample_size: " << opts.config().expected_sample_size() << std::endl;
 
@@ -561,6 +561,9 @@ StatusOr<vector<float>> AhImpl<T>::CreateRawFloatLookupTable(
     const DatapointPtr<T>& query, const ChunkingProjection<T>& projection,
     const DistanceMeasure& lookup_distance,
     ConstSpan<DenseDataset<FloatT>> centers, int32_t num_clusters_per_block) {
+
+  std::cout << "arcm::asymmetric_hashing_impl.cc::AhImpl<T>::CreateRawFloatLookupTable" << std::endl;
+
   ChunkedDatapoint<FloatT> projected;
   SCANN_RETURN_IF_ERROR(projection.ProjectInput(query, &projected));
   SCANN_RET_CHECK_EQ(centers.size(), projected.size());

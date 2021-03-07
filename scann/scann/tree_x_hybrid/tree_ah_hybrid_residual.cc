@@ -361,6 +361,9 @@ Status TreeAHHybridResidual::BuildLeafSearchers(
 Status TreeAHHybridResidual::FindNeighborsImpl(const DatapointPtr<float>& query,
                                                const SearchParameters& params,
                                                NNResultsVector* result) const {
+
+  std::cout << "arcm::tree_ah_hybrid_residual.cc::TreeAHHybridResidual::FindNeighborsImpl" << std::endl;
+
   auto query_preprocessing_results =
       params.unlocked_query_preprocessing_results<
           UnlockedTreeAHHybridResidualPreprocessingResults>();
