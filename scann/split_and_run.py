@@ -307,7 +307,7 @@ def check_available_search_config(program, bc, search_config):
 				sc_list.append(idx)
 	else:
 		assert False
-	
+
 	return sc_list
 
 def run_scann():
@@ -508,7 +508,7 @@ def run_faiss(D):
 							[1500, int(D/64), log2kstar_, args.metric], [1500, int(D/50), log2kstar_, args.metric], [1500, int(D/32), log2kstar_, args.metric], [1500, int(D/25), log2kstar_, args.metric], [1500, int(D/16), log2kstar_, args.metric], [1500, int(D/10), log2kstar_, args.metric], [1500, int(D/8), log2kstar_, args.metric], [1500, int(D/5), log2kstar_, args.metric], [1500, int(D/4), log2kstar_, args.metric], [1500, int(D/3), log2kstar_, args.metric], [1500, int(D/2), log2kstar_, args.metric], [1500, D, log2kstar_, args.metric], \
 							[2000, int(D/64), log2kstar_, args.metric], [2000, int(D/50), log2kstar_, args.metric], [2000, int(D/32), log2kstar_, args.metric], [2000, int(D/25), log2kstar_, args.metric], [2000, int(D/16), log2kstar_, args.metric], [2000, int(D/10), log2kstar_, args.metric], [2000, int(D/8), log2kstar_, args.metric], [2000, int(D/5), log2kstar_, args.metric], [2000, int(D/4), log2kstar_, args.metric], [2000, int(D/3), log2kstar_, args.metric], [2000, int(D/2), log2kstar_, args.metric], [2000, D, log2kstar_, args.metric], \
 							[4000, int(D/64), log2kstar_, args.metric], [4000, int(D/50), log2kstar_, args.metric], [4000, int(D/32), log2kstar_, args.metric], [4000, int(D/25), log2kstar_, args.metric], [4000, int(D/16), log2kstar_, args.metric], [4000, int(D/10), log2kstar_, args.metric], [4000, int(D/8), log2kstar_, args.metric], [4000, int(D/5), log2kstar_, args.metric], [4000, int(D/4), log2kstar_, args.metric], [4000, int(D/3), log2kstar_, args.metric], [4000, int(D/2), log2kstar_, args.metric], [4000, D, log2kstar_, args.metric]]
-					
+
 		else:
 			build_config = [[1000, int(D/32), 4, args.metric], [1000, int(D/16), 4, args.metric], [1000, int(D/8), 4, args.metric], [1000, int(D/4), 4, args.metric], [1000, int(D/3), 4, args.metric], [1000, int(D/2), 4, args.metric], [1000, D, 4, args.metric], \
 							[1000, int(D/32), 6, args.metric], [1000, int(D/16), 6, args.metric], [1000, int(D/8), 6, args.metric], [1000, int(D/4), 6, args.metric], [1000, int(D/3), 6, args.metric], [1000, int(D/2), 6, args.metric], [1000, D, 6, args.metric], \
@@ -570,7 +570,7 @@ def run_faiss(D):
 					# Faiss search
 					local_neighbors, local_distances, total_latency[idx] = faiss_search(index, preproc, args, reorder, w)
 					n.append((local_neighbors+base_idx).astype(np.int32))
-					d.append(local_distances.astype(np.float32))	
+					d.append(local_distances.astype(np.float32))
 
 				base_idx = base_idx + num_per_split
 				neighbors = np.append(neighbors, np.array(n, dtype=np.int32), axis=-1)
@@ -641,7 +641,7 @@ def run_annoy(D):
 				os.makedirs(searcher_dir, exist_ok=True)
 				searcher.save(searcher_path)
 			n = list()
-			d = list()			
+			d = list()
 			for idx, sc in enumerate(search_config):
 				num_search = sc
 				# if args.sweep:
