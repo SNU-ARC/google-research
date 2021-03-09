@@ -293,7 +293,7 @@ def check_available_search_config(program, bc, search_config):
 		num_leaves, threshold, dims, metric = bc
 		for idx, sc in enumerate(search_config):
 			leaves_to_search = sc[0]
-			if leaves_to_search > num_leaves or (D%dims!=0 and args.sweep==True):
+			if leaves_to_search > num_leaves or (D%dims!=0 and args.sweep==True) or (metric == 'squared_l2' and (4**(D/dims) < N)):
 				continue
 			else:
 				sc_list.append(idx)
@@ -301,7 +301,7 @@ def check_available_search_config(program, bc, search_config):
 		L, m, log2kstar, metric = bc
 		for idx, sc in enumerate(search_config):
 			nprobe, args.reorder = sc[0], sc[1]
-			if nprobe > L or (nprobe > 2048 and args.is_gpu) or (D%m!=0 and args.sweep==True) or (m > 96 and args.is_gpu) or (not args.is_gpu and log2kstar>8) or (args.is_gpu and log2kstar != 8):
+			if nprobe > L or (nprobe > 2048 and args.is_gpu) or (D%m!=0 and args.sweep==True) or (m > 96 and args.is_gpu) or (not args.is_gpu and log2kstar>8) or (args.is_gpu and log2kstar != 8) or (metric == 'dot_product' and (log2kstar**m < N)):
 				continue
 			else:
 				sc_list.append(idx)
@@ -363,9 +363,6 @@ def run_scann():
 
 	for bc in build_config:
 		num_leaves, threshold, dims, metric = bc
-		if (metric == 'squared_l2' and dims > 8):
-			print("============== SKIP ======================= \nscann, squared_l2, D/m > 8 may show inconsistent result")
-			continue
 		sc_list = check_available_search_config(args.program, bc, search_config)
 		neighbors=np.empty((len(sc_list), queries.shape[0],0), dtype=np.int32)
 		distances=np.empty((len(sc_list), queries.shape[0],0), dtype=np.float32)
