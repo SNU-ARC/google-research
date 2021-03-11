@@ -370,7 +370,10 @@ def run_scann():
 		base_idx = 0
 		if len(sc_list) > 0:
 			for split in range(args.num_split):
-
+				# arcm::temporary modification for vtune profiler
+				#if split > 0:
+				#	print("arcm::exiting..")
+				#	exit()
 				num_per_split = int(N/args.num_split) if split < args.num_split-1 else N-base_idx
 				searcher_dir, searcher_path = get_searcher_path(split)
 				print("Split ", split)
