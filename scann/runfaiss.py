@@ -121,8 +121,7 @@ def prepare_trained_index(preproc, coarse_quantizer, ncent, pqflat_str):
         key = pqflat_str[2:].split("x")
         assert len(key) == 2, "use format PQ(m)x(log2kstar)"
         m, log2kstar = map(int, pqflat_str[2:].split("x"))
-        use_float16 = True
-        assert m < 56 or use_float16, "PQ%d will work only with -float16" % m
+        assert m < 56 or useFloat16, "PQ%d will work only with -float16" % m
 
         print("making an IVFPQ index, m = %d, log2kstar = %d" % (m, log2kstar))
         idx_model = faiss.IndexIVFPQ(coarse_quantizer, d, ncent, m, log2kstar, fmetric)
@@ -242,7 +241,7 @@ def dataset_iterator(x, preproc, bs):
     return rate_limited_imap(prepare_block, block_ranges)
 
 
-def run_local_faiss(args, cacheroot, split, D, index_key, train, base, query):
+def build_faiss(args, cacheroot, split, D, index_key, train, base, query_):
 
     # set global variables
     name1_to_metric = {
@@ -263,10 +262,13 @@ def run_local_faiss(args, cacheroot, split, D, index_key, train, base, query):
     global ngpu
     global usePrecomputed
     global useFloat16
+    global query
 
+    query = query_
     # set default arguments
     usePrecomputed = False
-    useFloat16 = True
+    useFloat16 = True if args.m >= 56 else False
+    print("usefloat16? ", useFloat16)
     replicas = 1
     addBatchSize = 32768
     ngpu = faiss.get_num_gpus()
@@ -339,21 +341,23 @@ def run_local_faiss(args, cacheroot, split, D, index_key, train, base, query):
             del index_load
         else:
             index = index_load
+    return index, preproc
 
+def faiss_search(index, preproc, args, reorder, w):
     # search environment
     index.use_precomputed_table = usePrecomputed
     if args.is_gpu:
         ps = faiss.GpuParameterSpace()
         ps.initialize(index)
-        ps.set_index_parameter(index, 'nprobe', args.w)
+        ps.set_index_parameter(index, 'nprobe', w)
     else:
         faiss.omp_set_num_threads(faiss.omp_get_max_threads())
-        index.nprobe = args.w
+        index.nprobe = w
 
     # reorder
-    if args.reorder != -1 and not args.is_gpu:
+    if reorder != -1 and not args.is_gpu:
         index_refine = faiss.IndexRefineFlat(index, faiss.swig_ptr(xb))
-        index_refine.k_factor = args.reorder / args.topk
+        index_refine.k_factor = reorder / args.topk
         index_ready = index_refine
     else:
         index_ready = index
