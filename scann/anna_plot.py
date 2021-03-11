@@ -203,6 +203,10 @@ if __name__ == "__main__":
         metavar="METRIC",
         default=None)
     parser.add_argument(
+        '--topk',
+        metavar="TOPK",
+        default=None)
+    parser.add_argument(
         '-o', '--output')
     parser.add_argument(
         '--build_config',
@@ -222,7 +226,7 @@ if __name__ == "__main__":
         if "plot" in root:
             continue
         for fn in files:
-            if args.dataset in fn and (args.program in fn if args.program!=None else True) and (args.metric in fn) and (check_build_config(fn) if args.build_config==True else True): 
+            if args.dataset in fn and (args.topk in fn) and (args.program in fn if args.program!=None else True) and (args.metric in fn) and (check_build_config(fn) if args.build_config==True else True): 
                 res = collect_result(os.path.join(root, fn), args)
                 results+=res
     assert len(results) > 0
