@@ -135,7 +135,7 @@ class TreeXHybridSMMD : public SingleMachineSearcherBase<T> {
 
   Status FindNeighborsBatchedImpl(
       const TypedDataset<T>& queries, ConstSpan<SearchParameters> params,
-      MutableSpan<NNResultsVector> results) const final;
+      MutableSpan<NNResultsVector> results, double *phase_1_time = nullptr, double *phase_2_time = nullptr, double *phase_3_time = nullptr) const final;
 
  private:
   class CentersToSearch
@@ -159,7 +159,7 @@ class TreeXHybridSMMD : public SingleMachineSearcherBase<T> {
                                        const SearchParameters& params,
                                        ConstSpan<int32_t> query_tokens,
                                        TopN top_n,
-                                       NNResultsVector* results) const;
+                                       NNResultsVector* results, double *phase_1_time = nullptr, double *phase_2_time = nullptr, double *phase_3_time = nullptr) const;
 
   StatusOr<pair<int32_t, DatapointPtr<T>>> TokenizeAndMaybeResidualize(
       const DatapointPtr<T>& dptr, Datapoint<T>*);
@@ -193,7 +193,7 @@ class TreeXHybridSMMD : public SingleMachineSearcherBase<T> {
       FindNeighborsPreTokenizedImpl<TopNeighbors<float>>(                  \
           const DatapointPtr<data_type>& query,                            \
           const SearchParameters& params, ConstSpan<int32_t> query_tokens, \
-          TopNeighbors<float> top_n, NNResultsVector* results) const;      \
+          TopNeighbors<float> top_n, NNResultsVector* results, double *phase_1_time = nullptr, double *phase_2_time = nullptr, double *phase_3_time = nullptr) const;      \
   SCANN_INSTANTIATE_TREE_X_HYBRID_SMMD_CROWDING(extern_keyword, data_type)
 #define SCANN_INSTANTIATE_TREE_X_HYBRID_SMMD(extern_keyword)               \
   SCANN_INSTANTIATE_TREE_X_HYBRID_SMMD_FOR_TYPE(extern_keyword, int8_t);   \

@@ -14,6 +14,12 @@
 
 #include "scann/scann_ops/cc/scann_npy.h"
 
+#include <iostream>
+#include <fstream>
+#include <chrono>
+#include <time.h>
+#define NUM_THREADS 16
+
 namespace research_scann {
 
 template <typename T>
@@ -120,6 +126,20 @@ ScannNumpy::Search(const np_row_major_arr<float>& query, int final_nn,
 std::pair<pybind11::array_t<DatapointIndex>, pybind11::array_t<float>>
 ScannNumpy::SearchBatched(const np_row_major_arr<float>& queries, int final_nn,
                           int pre_reorder_nn, int leaves,  int batch_size, bool parallel) {
+  //arcm::Search starts
+  //std::cout << "arcm::Search starts ..." << std::endl;
+  // std::cout << "arcm::thread_id = " << std::this_thread::get_id() << std::endl;
+
+  // std::chrono::system_clock::time_point search_start = std::chrono::system_clock::now();
+
+  double phase_1_time[NUM_THREADS] = {0};
+  double phase_2_time[NUM_THREADS] = {0};
+  double phase_3_time[NUM_THREADS] = {0};
+
+  struct timespec search_start, search_finish;
+  double search_ns;
+  clock_gettime(CLOCK_MONOTONIC, &search_start);
+
   if (queries.ndim() != 2)
     throw std::invalid_argument("Queries must be in two-dimensional array");
 
@@ -130,10 +150,10 @@ ScannNumpy::SearchBatched(const np_row_major_arr<float>& queries, int final_nn,
   Status status;
   if (parallel)
     status = scann_.SearchBatchedParallel(query_dataset, MakeMutableSpan(res),
-                                          final_nn, pre_reorder_nn, leaves, batch_size);  // [ANNA] batch size added
+                                          final_nn, pre_reorder_nn, leaves, batch_size, phase_1_time, phase_2_time, phase_3_time);  // [ANNA] batch size added
   else
     status = scann_.SearchBatched(query_dataset, MakeMutableSpan(res), final_nn,
-                                  pre_reorder_nn, leaves);
+                                  pre_reorder_nn, leaves, phase_1_time, phase_2_time, phase_3_time);
   RuntimeErrorIfNotOk("Error during search: ", status);
 
   // if (!res.empty()) final_nn = res.front().size();
@@ -144,6 +164,41 @@ ScannNumpy::SearchBatched(const np_row_major_arr<float>& queries, int final_nn,
   auto idx_ptr = reinterpret_cast<DatapointIndex*>(indices.request().ptr);
   auto dis_ptr = reinterpret_cast<float*>(distances.request().ptr);
   scann_.ReshapeBatchedNNResult(MakeConstSpan(res), idx_ptr, dis_ptr, final_nn);
+
+  //std::cout << "arcm::Search ends ..." << std::endl;
+  // std::chrono::system_clock::time_point search_end = std::chrono::system_clock::now();
+  // std::chrono::nanoseconds search_ns  = search_end - search_start;
+
+  clock_gettime(CLOCK_MONOTONIC, &search_finish);
+  search_ns = (search_finish.tv_sec - search_start.tv_sec);
+  search_ns += (search_finish.tv_nsec - search_start.tv_nsec) / 1000000000.0;
+  search_ns *= 1000000000.0;
+
+  double phase_1_time_per_thread = 0.0;
+  double phase_2_time_per_thread = 0.0;
+  double phase_3_time_per_thread = 0.0;
+
+  for (int i = 0; i < NUM_THREADS; i++){
+    phase_1_time_per_thread += phase_1_time[i];
+    phase_2_time_per_thread += phase_2_time[i];
+    phase_3_time_per_thread += phase_3_time[i];
+  }
+
+  phase_1_time_per_thread /= ((double) NUM_THREADS);
+  phase_2_time_per_thread /= ((double) NUM_THREADS);
+  phase_3_time_per_thread /= ((double) NUM_THREADS);
+
+  std::ofstream profile_file;
+  profile_file.open("profile.out", std::ios_base::app);
+  profile_file << "arcm::Search time: " << std::fixed << search_ns << " ns" << std::endl;
+  profile_file << "arcm::Phase 1 BATCH_time: " << std::fixed << phase_1_time_per_thread << " ns" << std::endl;
+  profile_file << "arcm::Phase 2 BATCH_time: " << std::fixed << phase_2_time_per_thread << " ns" << std::endl;
+  profile_file << "arcm::Phase 3 BATCH_time: " << std::fixed << phase_3_time_per_thread << " ns" << std::endl;
+  // profile_file << "arcm::Search time: " << search_ns.count() << " ns" << std::endl;
+  profile_file.close();
+
+  //arcm::Search ends
+
   return {indices, distances};
 }
 

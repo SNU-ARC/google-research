@@ -204,7 +204,8 @@ Status ScannInterface::Search(const DatapointPtr<float> query,
 Status ScannInterface::SearchBatched(const DenseDataset<float>& queries,
                                      MutableSpan<NNResultsVector> res,
                                      int final_nn, int pre_reorder_nn,
-                                     int leaves) const {
+                                     int leaves, double *phase_1_time, double *phase_2_time, double *phase_3_time) const {
+
   if (queries.dimensionality() != dimensionality_)
     return InvalidArgumentError("Query doesn't match dataset dimsensionality");
   if (!std::isinf(scann_->default_pre_reordering_epsilon()) ||
@@ -232,14 +233,14 @@ Status ScannInterface::SearchBatched(const DenseDataset<float>& queries,
     scann_->SetUnspecifiedParametersToDefaults(&p);
   }
 
-  auto test = scann_->FindNeighborsBatched(queries, params, MakeMutableSpan(res));
+  auto test = scann_->FindNeighborsBatched(queries, params, MakeMutableSpan(res), phase_1_time, phase_2_time, phase_3_time);
   return test;
 }
 
 Status ScannInterface::SearchBatchedParallel(const DenseDataset<float>& queries,
                                              MutableSpan<NNResultsVector> res,
                                              int final_nn, int pre_reorder_nn,
-                                             int leaves, int batch_size) const {    // [ANNA] batch_size added
+                                             int leaves, int batch_size, double *phase_1_time, double *phase_2_time, double *phase_3_time) const {    // [ANNA] batch_size added
   const size_t numQueries = queries.size();
   const size_t numCPUs = GetNumCPUs();
   // const size_t kBatchSize = std::min(
@@ -258,7 +259,7 @@ Status ScannInterface::SearchBatchedParallel(const DenseDataset<float>& queries,
             queries.data().begin() + (begin + curSize) * dimensionality_);
         DenseDataset<float> curQueryDataset(queryCopy, curSize);
         return SearchBatched(curQueryDataset, {res.begin() + begin, curSize},
-                             final_nn, pre_reorder_nn, leaves);
+                             final_nn, pre_reorder_nn, leaves, phase_1_time, phase_2_time, phase_3_time);
       });
 }
 

@@ -57,10 +57,10 @@ class ScannInterface {
                 int final_nn, int pre_reorder_nn, int leaves) const;
   Status SearchBatched(const DenseDataset<float>& queries,
                        MutableSpan<NNResultsVector> res, int final_nn,
-                       int pre_reorder_nn, int leaves) const;
+                       int pre_reorder_nn, int leaves, double *phase_1_time = nullptr, double *phase_2_time = nullptr, double *phase_3_time = nullptr) const;
   Status SearchBatchedParallel(const DenseDataset<float>& queries,
                                MutableSpan<NNResultsVector> res, int final_nn,
-                               int pre_reorder_nn, int leaves, int batch_size) const;   // [ANNA] batch_size
+                               int pre_reorder_nn, int leaves, int batch_size, double *phase_1_time = nullptr, double *phase_2_time = nullptr, double *phase_3_time = nullptr) const;   // [ANNA] batch_size
   Status Serialize(std::string path);
   StatusOr<SingleMachineFactoryOptions> ExtractOptions();
 

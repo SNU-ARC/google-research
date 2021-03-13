@@ -292,16 +292,16 @@ BruteForceSearcher<T>::FinishBatchedSearch(
 template <typename T>
 Status BruteForceSearcher<T>::FindNeighborsBatchedImpl(
     const TypedDataset<T>& queries, ConstSpan<SearchParameters> params,
-    MutableSpan<NNResultsVector> results) const {
+    MutableSpan<NNResultsVector> results, double *phase_1_time, double *phase_2_time, double *phase_3_time) const {
   if (!supports_low_level_batching_ || !queries.IsDense()) {
     return SingleMachineSearcherBase<T>::FindNeighborsBatchedImpl(
-        queries, params, results);
+        queries, params, results, phase_1_time, phase_2_time, phase_3_time);
   }
 
   for (const SearchParameters& p : params) {
     if (p.restricts_enabled()) {
       return SingleMachineSearcherBase<T>::FindNeighborsBatchedImpl(
-          queries, params, results);
+          queries, params, results, phase_1_time, phase_2_time, phase_3_time);
     }
   }
   const DenseDataset<T>& database =

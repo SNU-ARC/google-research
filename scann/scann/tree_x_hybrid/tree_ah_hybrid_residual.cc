@@ -22,6 +22,7 @@
 #include <iostream>
 #include <fstream>
 #include <chrono>
+#include <sched.h>
 
 #include "absl/flags/flag.h"
 #include "absl/synchronization/mutex.h"
@@ -363,6 +364,8 @@ Status TreeAHHybridResidual::BuildLeafSearchers(
 Status TreeAHHybridResidual::FindNeighborsImpl(const DatapointPtr<float>& query,
                                                const SearchParameters& params,
                                                NNResultsVector* result) const {
+  //arcm::does not enter here when batch = 128
+  // printf("arcm::ENTERS HERE::tree_ah_hybrid_residual.cc::TreeAHHybridResidual::FindNeighborsImpl");
   auto query_preprocessing_results =
       params.unlocked_query_preprocessing_results<
           UnlockedTreeAHHybridResidualPreprocessingResults>();
@@ -383,21 +386,31 @@ Status TreeAHHybridResidual::FindNeighborsImpl(const DatapointPtr<float>& query,
 
   //arcm::Phase 1 starts
   //std::cout << "arcm::Phase 1 starts ..." << std::endl;
-  std::chrono::system_clock::time_point phase_1_start = std::chrono::system_clock::now();
+  struct timespec phase_1_start, phase_1_end;
+  double phase_1_ns;
+  clock_gettime(CLOCK_MONOTONIC, &phase_1_start);
+
+  // std::chrono::system_clock::time_point phase_1_start = std::chrono::system_clock::now();
 
   SCANN_RETURN_IF_ERROR(query_tokenizer_->TokensForDatapointWithSpilling(
       query, num_centers, &centers_to_search));
 
+  clock_gettime(CLOCK_MONOTONIC, &phase_1_end);
+  phase_1_ns = (phase_1_end.tv_sec - phase_1_start.tv_sec);
+  phase_1_ns += (phase_1_end.tv_nsec - phase_1_start.tv_nsec) / 1000000000.0;
+  phase_1_ns *= 1000000000.0;
+
+  // phase_1_time[int(sched_getcpu())] += phase_1_ns;
+
   //std::cout << "arcm::Phase 1 ends ..." << std::endl;
-  std::chrono::system_clock::time_point phase_1_end = std::chrono::system_clock::now();
-  std::chrono::nanoseconds phase_1_ns  = phase_1_end - phase_1_start;
+  // std::chrono::system_clock::time_point phase_1_end = std::chrono::system_clock::now();
+  // std::chrono::nanoseconds phase_1_ns  = phase_1_end - phase_1_start;
 
-  std::ofstream profile_file;
-  profile_file.open("profile.out", std::ios_base::app);
-  profile_file << "arcm::Phase 1 time: " << phase_1_ns.count() << " ns" << std::endl;
-  profile_file.close();
-
-  //arcm::Phase 1 ends
+  // std::ofstream profile_file;
+  // profile_file.open("profile.out", std::ios_base::app);
+  // profile_file << "arcm::Phase 1 time: " << std::fixed << phase_1_ns << " ns" << std::endl;
+  // profile_file << "arcm::Phase 1 time: " << phase_1_ns.count() << " ns" << std::endl;
+  // profile_file.close();
 
   return FindNeighborsInternal1(query, params, centers_to_search, result);
 }
@@ -490,7 +503,12 @@ inline void AssignResults(TopN* top_n, NNResultsVector* results) {
 
 Status TreeAHHybridResidual::FindNeighborsBatchedImpl(
     const TypedDataset<float>& queries, ConstSpan<SearchParameters> params,
-    MutableSpan<NNResultsVector> results) const {
+    MutableSpan<NNResultsVector> results, double *phase_1_time, double *phase_2_time, double *phase_3_time) const {
+
+  struct timespec phase_1_start, phase_1_end;
+  double phase_1_ns;
+  clock_gettime(CLOCK_MONOTONIC, &phase_1_start);
+
   vector<int32_t> centers_override(queries.size());
   bool centers_overridden = false;
   for (int i = 0; i < queries.size(); i++) {
@@ -507,6 +525,9 @@ Status TreeAHHybridResidual::FindNeighborsBatchedImpl(
   }
 
   vector<vector<KMeansTreeSearchResult>> centers_to_search(queries.size());
+
+  // std::chrono::system_clock::time_point phase_1_start = std::chrono::system_clock::now();
+
   if (centers_overridden)
     SCANN_RETURN_IF_ERROR(
         query_tokenizer_->TokensForDatapointWithSpillingBatched(
@@ -515,26 +536,58 @@ Status TreeAHHybridResidual::FindNeighborsBatchedImpl(
     SCANN_RETURN_IF_ERROR(
         query_tokenizer_->TokensForDatapointWithSpillingBatched(
             queries, vector<int32_t>(), MakeMutableSpan(centers_to_search)));
+
   if (!SupportsLowLevelBatching(queries, params) ||
       !leaf_searchers_[0]->lut16_ ||
       leaf_searchers_[0]->opts_.quantization_scheme() ==
           AsymmetricHasherConfig::PRODUCT_AND_BIAS) {
+
+    //arcm::does not go in here
+    //std::cout << "arcm::tree_ah_hybrid_residual.cc::TreeAHHybridResidual::FindNeighborsBatchedImpl::if (!SupportsLowLevelBatching(queries, params) || !leaf_searchers_[0]->lut16_ || leaf_searchers_[0]->opts_.quantization_scheme() == AsymmetricHasherConfig::PRODUCT_AND_BIAS)" << std::endl;
+
     for (size_t i = 0; i < centers_to_search.size(); ++i) {
       SCANN_RETURN_IF_ERROR(FindNeighborsInternal1(
           queries[i], params[i], centers_to_search[i], &results[i]));
     }
     return OkStatus();
   }
+
+  clock_gettime(CLOCK_MONOTONIC, &phase_1_end);
+  phase_1_ns = (phase_1_end.tv_sec - phase_1_start.tv_sec);
+  phase_1_ns += (phase_1_end.tv_nsec - phase_1_start.tv_nsec) / 1000000000.0;
+  phase_1_ns *= 1000000000.0;
+
+  // phase_1_map[std::this_thread::get_id()].push_back(phase_1_ns);
+  phase_1_time[int(sched_getcpu())] += phase_1_ns;
+
+  // std::ofstream profile_file;
+  // profile_file.open("profile.out", std::ios_base::app);
+  // profile_file << "arcm::Phase 1 BATCH_time: " << std::fixed << phase_1_ns << " ns" << std::endl;
+  // profile_file << "arcm::Phase 1 BATCH_time: " << phase_1_ns.count() << " ns" << std::endl;
+
+  //std::cout << "arcm::Phase 1 ends ..." << std::endl;
+  // std::chrono::system_clock::time_point phase_1_end = std::chrono::system_clock::now();
+  // std::chrono::nanoseconds phase_1_ns  = phase_1_end - phase_1_start;
+  // profile_file.close();
+
+  struct timespec phase_2_start, phase_2_end;
+  double phase_2_ns;
+  clock_gettime(CLOCK_MONOTONIC, &phase_2_start);
+
   auto queries_by_leaf =
       InvertCentersToSearch(centers_to_search, query_tokenizer_->n_tokens());
   vector<shared_ptr<AsymmetricHashingOptionalParameters>> lookup_tables(
       queries.size());
+
+  // std::chrono::system_clock::time_point phase_2_start = std::chrono::system_clock::now();
+
   for (size_t i = 0; i < queries.size(); ++i) {
     TF_ASSIGN_OR_RETURN(auto lut, asymmetric_queryer_->CreateLookupTable(
                                       queries[i], lookup_type_tag_));
     lookup_tables[i] =
         make_shared<AsymmetricHashingOptionalParameters>(std::move(lut));
   }
+
   vector<FastTopNeighbors<float>> top_ns;
   vector<FastTopNeighbors<float>::Mutator> mutators(params.size());
   top_ns.reserve(params.size());
@@ -544,7 +597,28 @@ Status TreeAHHybridResidual::FindNeighborsBatchedImpl(
     top_ns[idx].AcquireMutator(&mutators[idx]);
   }
   vector<NNResultsVector> leaf_results;
+
+  clock_gettime(CLOCK_MONOTONIC, &phase_2_end);
+  phase_2_ns = (phase_2_end.tv_sec - phase_2_start.tv_sec);
+  phase_2_ns += (phase_2_end.tv_nsec - phase_2_start.tv_nsec) / 1000000000.0;
+  phase_2_ns *= 1000000000.0;
+
+  phase_2_time[int(sched_getcpu())] += phase_2_ns;
+  // profile_file.open("profile.out", std::ios_base::app);
+  // profile_file << "arcm::Phase 2 BATCH_time: " << std::fixed << phase_2_ns << " ns" << std::endl;
+  // profile_file << "arcm::Phase 2 BATCH_time: " << phase_2_ns.count() << " ns" << std::endl;
+
+  //std::cout << "arcm::Phase 2 ends ..." << std::endl;
+  // std::chrono::system_clock::time_point phase_2_end = std::chrono::system_clock::now();
+  // std::chrono::nanoseconds phase_2_ns  = phase_2_end - phase_2_start;
+  // profile_file.close();
+
   for (size_t leaf_token : leaf_tokens_by_norm_) {
+
+    struct timespec phase_2_internal_start, phase_2_internal_end;
+    double phase_2_internal_ns;
+    clock_gettime(CLOCK_MONOTONIC, &phase_2_internal_start);
+
     ConstSpan<QueryForLeaf> queries_for_cur_leaf = queries_by_leaf[leaf_token];
     if (queries_for_cur_leaf.empty()) continue;
     vector<SearchParameters> leaf_params = CreateParamsSubsetForLeaf(
@@ -556,11 +630,42 @@ Status TreeAHHybridResidual::FindNeighborsBatchedImpl(
     leaf_results.resize(leaf_params.size());
     using asymmetric_hashing_internal::IdentityPostprocessFunctor;
     IdentityPostprocessFunctor postprocess;
+
+    clock_gettime(CLOCK_MONOTONIC, &phase_2_internal_end);
+    phase_2_internal_ns = (phase_2_internal_end.tv_sec - phase_2_internal_start.tv_sec);
+    phase_2_internal_ns += (phase_2_internal_end.tv_nsec - phase_2_internal_start.tv_nsec) / 1000000000.0;
+    phase_2_internal_ns *= 1000000000.0;
+
+    phase_2_time[int(sched_getcpu())] += phase_2_internal_ns;
+
+    struct timespec phase_3_start, phase_3_end;
+    double phase_3_ns;
+    clock_gettime(CLOCK_MONOTONIC, &phase_3_start);
+
+    // std::chrono::system_clock::time_point phase_3_start = std::chrono::system_clock::now();
+
     SCANN_RETURN_IF_ERROR(
         leaf_searchers_[leaf_token]
             ->FindNeighborsBatchedInternal<IdentityPostprocessFunctor>(
                 get_query, leaf_params, postprocess,
                 MakeMutableSpan(leaf_results)));
+
+
+    clock_gettime(CLOCK_MONOTONIC, &phase_3_end);
+    phase_3_ns = (phase_3_end.tv_sec - phase_3_start.tv_sec);
+    phase_3_ns += (phase_3_end.tv_nsec - phase_3_start.tv_nsec) / 1000000000.0;
+    phase_3_ns *= 1000000000.0;
+
+    phase_3_time[int(sched_getcpu())] += phase_3_ns;
+
+    //std::cout << "arcm::Phase 3 ends ..." << std::endl;
+    // std::chrono::system_clock::time_point phase_3_end = std::chrono::system_clock::now();
+    // std::chrono::nanoseconds phase_3_ns  = phase_3_end - phase_3_start;
+
+    // profile_file.open("profile.out", std::ios_base::app);
+    // profile_file << "arcm::Phase 3 BATCH_time: " << std::fixed << phase_3_ns << " ns" << std::endl;
+    // profile_file << "arcm::Phase 3 time: " << phase_3_ns.count() << " ns" << std::endl;
+    // profile_file.close();
 
     ConstSpan<DatapointIndex> local_to_global_index =
         datapoints_by_token_[leaf_token];
@@ -577,6 +682,7 @@ Status TreeAHHybridResidual::FindNeighborsBatchedImpl(
           partition_stdev, leaf_results[j], &mutators[cur_query_index]);
     }
   }
+
   for (size_t query_index = 0; query_index < results.size(); ++query_index) {
     mutators[query_index].Release();
     top_ns[query_index].FinishUnsorted(&results[query_index]);
@@ -609,23 +715,36 @@ Status TreeAHHybridResidual::FindNeighborsInternal1(
       DCHECK(query_preprocessing_results->lookup_table());
       leaf_specific_params = query_preprocessing_results->lookup_table();
     } else {
+
+      struct timespec phase_2_start, phase_2_end;
+      double phase_2_ns;
+      clock_gettime(CLOCK_MONOTONIC, &phase_2_start);
+
+      // std::chrono::system_clock::time_point phase_2_start = std::chrono::system_clock::now();
+
       //arcm::Phase 2 starts (check)
       //std::cout << "arcm::Phase 2 starts ..." << std::endl;
-      std::chrono::system_clock::time_point phase_2_start = std::chrono::system_clock::now();
 
       TF_ASSIGN_OR_RETURN(
           auto shared_lookup_table,
           asymmetric_queryer_->CreateLookupTable(query, lookup_type_tag_));
 
+      clock_gettime(CLOCK_MONOTONIC, &phase_2_end);
+      phase_2_ns = (phase_2_end.tv_sec - phase_2_start.tv_sec);
+      phase_2_ns += (phase_2_end.tv_nsec - phase_2_start.tv_nsec) / 1000000000.0;
+      phase_2_ns *= 1000000000.0;
+
+      // phase_2_time[int(sched_getcpu())] += phase_2_ns;
+
+      // std::ofstream profile_file;
+      // profile_file.open("profile.out", std::ios_base::app);
+      // profile_file << "arcm::Phase 2 BATCH_time: " << std::fixed << phase_2_ns << " ns" << std::endl;
+      // profile_file << "arcm::Phase 2 BATCH_time: " << phase_2_ns.count() << " ns" << std::endl;
+
       //std::cout << "arcm::Phase 2 ends ..." << std::endl;
-      std::chrono::system_clock::time_point phase_2_end = std::chrono::system_clock::now();
-      std::chrono::nanoseconds phase_2_ns  = phase_2_end - phase_2_start;
-
-      std::ofstream profile_file;
-      profile_file.open("profile.out", std::ios_base::app);
-      profile_file << "arcm::Phase 2 time: " << phase_2_ns.count() << " ns" << std::endl;
-      profile_file.close();
-
+      // std::chrono::system_clock::time_point phase_2_end = std::chrono::system_clock::now();
+      // std::chrono::nanoseconds phase_2_ns  = phase_2_end - phase_2_start;
+      // profile_file.close();
       //arcm::Phase 2 ends
 
       leaf_specific_params = make_shared<AsymmetricHashingOptionalParameters>(
@@ -635,9 +754,15 @@ Status TreeAHHybridResidual::FindNeighborsInternal1(
     leaf_params.set_searcher_specific_optional_parameters(leaf_specific_params);
     NNResultsVector unused_leaf_results;
 
-    //arcm::Phase 3 starts (check)
+
+    //arcm::Phase 3 starts
     //std::cout << "arcm::Phase 3 starts ..." << std::endl;
-    std::chrono::system_clock::time_point phase_3_start = std::chrono::system_clock::now();
+    struct timespec phase_3_start, phase_3_end;
+    double phase_3_ns;
+    clock_gettime(CLOCK_MONOTONIC, &phase_3_start);
+
+    // std::chrono::system_clock::time_point phase_3_start = std::chrono::system_clock::now();
+
     for (size_t i = 0; i < centers_to_search.size(); ++i) {
       const uint32_t token = centers_to_search[i].node->LeafId();
       const float distance_to_center = centers_to_search[i].distance_to_center;
@@ -653,15 +778,23 @@ Status TreeAHHybridResidual::FindNeighborsInternal1(
       //arcm::Phase 3 ends (inner)
 
     }
+
+    clock_gettime(CLOCK_MONOTONIC, &phase_3_end);
+    phase_3_ns = (phase_3_end.tv_sec - phase_3_start.tv_sec);
+    phase_3_ns += (phase_3_end.tv_nsec - phase_3_start.tv_nsec) / 1000000000.0;
+    phase_3_ns *= 1000000000.0;
+
+    // phase_3_time[int(sched_getcpu())] += phase_3_ns;
+
     //std::cout << "arcm::Phase 3 ends ..." << std::endl;
-    std::chrono::system_clock::time_point phase_3_end = std::chrono::system_clock::now();
-    std::chrono::nanoseconds phase_3_ns  = phase_3_end - phase_3_start;
+    // std::chrono::system_clock::time_point phase_3_end = std::chrono::system_clock::now();
+    // std::chrono::nanoseconds phase_3_ns  = phase_3_end - phase_3_start;
 
-    std::ofstream profile_file;
-    profile_file.open("profile.out", std::ios_base::app);
-    profile_file << "arcm::Phase 3 time: " << phase_3_ns.count() << " ns" << std::endl;
-    profile_file.close();
-
+    // std::ofstream profile_file;
+    // profile_file.open("profile.out", std::ios_base::app);
+    // profile_file << "arcm::Phase 3 time: " << std::fixed << phase_3_ns << " ns" << std::endl;
+    // profile_file << "arcm::Phase 3 time: " << phase_3_ns.count() << " ns" << std::endl;
+    // profile_file.close();
     //arcm::Phase 3 ends (check)
 
     AssignResults(&top_n, result);

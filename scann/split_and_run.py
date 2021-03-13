@@ -793,6 +793,10 @@ elif "glove" in args.dataset:
 	qN = 10000
 
 def run_profile():
+	profile = open("./profile.out", 'a')
+	profile.write("This is EOF.\n")
+	profile.close()
+
 	profile = open("./profile.out", 'r')
 	lines = profile.readlines()
 
@@ -806,21 +810,21 @@ def run_profile():
 		if line.split()[0] != "arcm::Phase" and line.split()[0] != "arcm::Search" :
 			break;
 		if line.split()[1] == "1":
-			phase_1_time += int(line.split()[3])
+			phase_1_time += int(float(line.split()[3]))
 		elif line.split()[1] == "2":
-			phase_2_time += int(line.split()[3])
+			phase_2_time += int(float(line.split()[3]))
 		elif line.split()[1] == "3":
-			phase_3_time += int(line.split()[3])
+			phase_3_time += int(float(line.split()[3]))
 		else:
-			search_time += int(line.split()[2])
+			search_time += int(float(line.split()[2]))
 
 	others_time = search_time - (phase_1_time + phase_2_time + phase_3_time)
 	print("\n==========PROFILING INFORMATION==========")
-	print("Phase 1:", phase_1_time/1000., "ms (", round(phase_1_time/search_time*100, 2), "% )")
-	print("Phase 2:", phase_2_time/1000., "ms (", round(phase_2_time/search_time*100, 2), "% )")
-	print("Phase 3:", phase_3_time/1000., "ms (", round(phase_3_time/search_time*100, 2), "% )")
-	print("Others:", others_time/1000., "ms (", round(others_time/search_time*100, 2), "% )")
-	print("Total Search:", search_time/1000., "ms")
+	print("Phase 1:", phase_1_time/1000000., "ms (", round(phase_1_time/search_time*100, 2), "% )")
+	print("Phase 2:", phase_2_time/1000000., "ms (", round(phase_2_time/search_time*100, 2), "% )")
+	print("Phase 3:", phase_3_time/1000000., "ms (", round(phase_3_time/search_time*100, 2), "% )")
+	print("Others:", others_time/1000000., "ms (", round(others_time/search_time*100, 2), "% )")
+	print("Total Search:", search_time/1000000., "ms")
 
 	os.remove("./profile.out")
 

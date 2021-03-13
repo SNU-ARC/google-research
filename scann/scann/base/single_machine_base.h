@@ -283,10 +283,16 @@ class SingleMachineSearcherBase : public UntypedSingleMachineSearcherBase {
                               MutableSpan<NNResultsVector> results) const;
   Status FindNeighborsBatched(const TypedDataset<T>& queries,
                               ConstSpan<SearchParameters> params,
-                              MutableSpan<NNResultsVector> results) const;
+                              MutableSpan<NNResultsVector> results,
+                              double *phase_1_time = nullptr,
+                              double *phase_2_time = nullptr,
+                              double *phase_3_time = nullptr) const;
   Status FindNeighborsBatchedNoSortNoExactReorder(
       const TypedDataset<T>& queries, ConstSpan<SearchParameters> params,
-      MutableSpan<NNResultsVector> results) const;
+      MutableSpan<NNResultsVector> results,
+                              double *phase_1_time = nullptr,
+                              double *phase_2_time = nullptr,
+                              double *phase_3_time = nullptr) const;
 
   virtual StatusOr<
       unique_ptr<SearchParameters::UnlockedQueryPreprocessingResults>>
@@ -479,7 +485,10 @@ class SingleMachineSearcherBase : public UntypedSingleMachineSearcherBase {
 
   virtual Status FindNeighborsBatchedImpl(
       const TypedDataset<T>& queries, ConstSpan<SearchParameters> params,
-      MutableSpan<NNResultsVector> results) const;
+      MutableSpan<NNResultsVector> results,
+                              double *phase_1_time = nullptr,
+                              double *phase_2_time = nullptr,
+                              double *phase_3_time = nullptr) const;
 
  private:
   Status PopulateDefaultParameters(const ScannConfig& config);

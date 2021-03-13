@@ -182,7 +182,7 @@ Status Searcher<T>::FindNeighborsImpl(const DatapointPtr<T>& query,
 template <typename T>
 Status Searcher<T>::FindNeighborsBatchedImpl(
     const TypedDataset<T>& queries, ConstSpan<SearchParameters> params,
-    MutableSpan<NNResultsVector> results) const {
+    MutableSpan<NNResultsVector> results, double *phase_1_time, double *phase_2_time, double *phase_3_time) const {
   bool crowding_enabled_for_any_query = false;
   for (const auto& p : params) {
     if (p.pre_reordering_crowding_enabled()) {
@@ -194,7 +194,7 @@ Status Searcher<T>::FindNeighborsBatchedImpl(
       crowding_enabled_for_any_query ||
       opts_.quantization_scheme() == AsymmetricHasherConfig::PRODUCT_AND_BIAS) {
     return SingleMachineSearcherBase<T>::FindNeighborsBatchedImpl(
-        queries, params, results);
+        queries, params, results, phase_1_time, phase_2_time, phase_3_time);
   }
   return FindNeighborsBatchedInternal<
       asymmetric_hashing_internal::IdentityPostprocessFunctor>(

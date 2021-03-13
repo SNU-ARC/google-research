@@ -336,10 +336,10 @@ Status SingleMachineSearcherBase<T>::FindNeighborsBatched(
 template <typename T>
 Status SingleMachineSearcherBase<T>::FindNeighborsBatched(
     const TypedDataset<T>& queries, ConstSpan<SearchParameters> params,
-    MutableSpan<NNResultsVector> results) const {
+    MutableSpan<NNResultsVector> results, double *phase_1_time, double *phase_2_time, double *phase_3_time) const {
   DCHECK_LE((compressed_reordering_enabled() + exact_reordering_enabled()), 1);
   SCANN_RETURN_IF_ERROR(
-      FindNeighborsBatchedNoSortNoExactReorder(queries, params, results));
+      FindNeighborsBatchedNoSortNoExactReorder(queries, params, results, phase_1_time, phase_2_time, phase_3_time));
 
   if (reordering_helper_) {
     for (DatapointIndex i = 0; i < queries.size(); ++i) {
@@ -357,7 +357,7 @@ Status SingleMachineSearcherBase<T>::FindNeighborsBatched(
 template <typename T>
 Status SingleMachineSearcherBase<T>::FindNeighborsBatchedNoSortNoExactReorder(
     const TypedDataset<T>& queries, ConstSpan<SearchParameters> params,
-    MutableSpan<NNResultsVector> results) const {
+    MutableSpan<NNResultsVector> results, double *phase_1_time, double *phase_2_time, double *phase_3_time) const {
   if (queries.size() != params.size()) {
     return InvalidArgumentError(
         "queries.size != params.size in FindNeighbors batched (%d vs. %d).",
@@ -396,8 +396,7 @@ Status SingleMachineSearcherBase<T>::FindNeighborsBatchedNoSortNoExactReorder(
         "Query dimensionality (%u) does not match database dimensionality (%u)",
         queries.dimensionality(), dataset()->dimensionality());
   }
-
-  return FindNeighborsBatchedImpl(queries, params, results);
+  return FindNeighborsBatchedImpl(queries, params, results, phase_1_time, phase_2_time, phase_3_time);
 }
 
 template <typename T>
@@ -472,7 +471,7 @@ void SingleMachineSearcherBase<T>::ReleaseDatasetAndDocids() {
 template <typename T>
 Status SingleMachineSearcherBase<T>::FindNeighborsBatchedImpl(
     const TypedDataset<T>& queries, ConstSpan<SearchParameters> params,
-    MutableSpan<NNResultsVector> results) const {
+    MutableSpan<NNResultsVector> results, double *phase_1_time, double *phase_2_time, double *phase_3_time) const {
   DCHECK_EQ(queries.size(), params.size());
   DCHECK_EQ(queries.size(), results.size());
   for (DatapointIndex i = 0; i < queries.size(); ++i) {

@@ -91,7 +91,7 @@ class TreeAHHybridResidual final : public SingleMachineSearcherBase<float> {
 
   Status FindNeighborsBatchedImpl(
       const TypedDataset<float>& queries, ConstSpan<SearchParameters> params,
-      MutableSpan<NNResultsVector> results) const final;
+      MutableSpan<NNResultsVector> results, double *phase_1_time = nullptr, double *phase_2_time = nullptr, double *phase_3_time = nullptr) const final;
 
   Status EnableCrowdingImpl(
       ConstSpan<int64_t> datapoint_index_to_crowding_attribute) final;

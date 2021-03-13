@@ -139,7 +139,7 @@ class Searcher final : public SingleMachineSearcherBase<T> {
 
   Status FindNeighborsBatchedImpl(
       const TypedDataset<T>& queries, ConstSpan<SearchParameters> params,
-      MutableSpan<NNResultsVector> results) const final;
+      MutableSpan<NNResultsVector> results, double *phase_1_time = nullptr, double *phase_2_time = nullptr, double *phase_3_time = nullptr) const final;
 
  private:
   bool impl_needs_dataset() const final { return false; }
