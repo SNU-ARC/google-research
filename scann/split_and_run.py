@@ -842,6 +842,12 @@ if args.eval_split or args.sweep:
 			print("The profile.out file does not exist")
 	elif args.program == "faiss":
 		run_faiss(D)
+		if args.profile:
+			run_profile()
+		if os.path.exists("./profile.out"):
+			os.remove("./profile.out")
+		else:
+			print("The profile.out file does not exist")
 	elif args.program == "annoy":
 		run_annoy(D)
 	else:
