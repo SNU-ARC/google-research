@@ -187,6 +187,7 @@ def split(filename, num_iter, N, D):
 	print("dataset_per_iter: ", dataset_per_iter, " / num_per_split: ", num_per_split)
 	num_split_list=[]
 	split = 0
+	sampling_rate = 0.1
 	for it in range(num_iter):
 		print("Iter: ", it)
 		if it==num_iter-1:
@@ -203,7 +204,7 @@ def split(filename, num_iter, N, D):
 				else:
 					split_size = dataset[count*num_per_split:].shape[0]
 					write_split_data(split_dataset_path + str(args.num_split) + "_" + str(split), dataset[count*num_per_split:])
-					trainset = np.random.choice(split_size, int(0.1*split_size), replace=False)
+					trainset = np.random.choice(split_size, int(sampling_rate*split_size), replace=False)
 					write_split_data(split_dataset_path + "learn" + str(args.num_split) + "_" + str(split), dataset[count*num_per_split:][trainset])
 					num_split_list.append(dataset[count*num_per_split:].shape[0])
 					split = split+1
@@ -211,7 +212,7 @@ def split(filename, num_iter, N, D):
 			elif split < args.num_split:
 				split_size = dataset[count*num_per_split:(count+1)*num_per_split].shape[0]
 				write_split_data(split_dataset_path + str(args.num_split) + "_" + str(split), dataset[count*num_per_split:(count+1)*num_per_split])
-				trainset = np.random.choice(split_size, int(0.1*split_size), replace=False)
+				trainset = np.random.choice(split_size, int(sampling_rate*split_size), replace=False)
 				write_split_data(split_dataset_path + "learn" + str(args.num_split) + "_" + str(split), dataset[count*num_per_split:(count+1)*num_per_split][trainset])
 				num_split_list.append(dataset[count*num_per_split:(count+1)*num_per_split].shape[0])
 				split = split+1
@@ -785,8 +786,9 @@ qN = -1
 
 if "sift1m" in args.dataset:
 	dataset_basedir = basedir + "SIFT1M/"
-	split_dataset_path =dataset_basedir+"split_data/sift1m_"
-	groundtruth_path = dataset_basedir + "sift1m_"+args.metric+"_gt"
+	split_dataset_path = dataset_basedir+"split_data/sift1m_"
+	if args.split==False:
+		groundtruth_path = dataset_basedir + "sift1m_"+args.metric+"_gt"
 	N=1000000
 	D=128
 	num_iter = 1
@@ -795,7 +797,8 @@ if "sift1m" in args.dataset:
 elif "gist" in args.dataset:
 	dataset_basedir = basedir + "GIST/"
 	split_dataset_path =dataset_basedir+"split_data/gist_"
-	groundtruth_path = dataset_basedir + "gist_"+args.metric+"_gt"
+	if args.split==False:
+		groundtruth_path = dataset_basedir + "gist_"+args.metric+"_gt"
 	N=1000000
 	D=960
 	num_iter = 1
@@ -803,7 +806,8 @@ elif "gist" in args.dataset:
 elif "sift1b" in args.dataset:
 	dataset_basedir = basedir + "SIFT1B/"
 	split_dataset_path = dataset_basedir+"split_data/sift1b_"
-	groundtruth_path = dataset_basedir +  'gnd/idx_1000M.ivecs' if args.metric=="squared_l2" else dataset_basedir + "sift1b_"+args.metric+"_gt"
+	if args.split==False:
+		groundtruth_path = dataset_basedir +  'gnd/idx_1000M.ivecs' if args.metric=="squared_l2" else dataset_basedir + "sift1b_"+args.metric+"_gt"
 	N=1000000000
 	D=128
 	num_iter = 4
@@ -812,7 +816,8 @@ elif "sift1b" in args.dataset:
 elif "glove" in args.dataset:
 	dataset_basedir = basedir + "GLOVE/"
 	split_dataset_path = dataset_basedir+"split_data/glove_"
-	groundtruth_path = dataset_basedir + "glove_"+args.metric+"_gt"
+	if args.split==False:
+		groundtruth_path = dataset_basedir + "glove_"+args.metric+"_gt"
 	N=1183514
 	D=100
 	num_iter = 10
