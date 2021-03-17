@@ -146,9 +146,9 @@ def collect_result(path, args):
                         if i==2:
                             build_key = temp_build_key
                             # search_key = temp_search_key
-                            continue                            
+                            continue
                         if len(acc)>0 and len(time)>0:
-                            res = sorted(zip(acc, time, sc), key = lambda x: x[0]) 
+                            res = sorted(zip(acc, time, sc), key = lambda x: x[0])
                             acc, time, sc = zip(*res)
                             collected_result.append({'acc': acc, 'time': time, 'algorithm': program, 'build_key': build_key, 'search_key': sc})
                             acc = []
@@ -173,7 +173,7 @@ def collect_result(path, args):
                 if max_time < float(result[8]):
                     max_time = float(result[8])
 
-    res = sorted(zip(acc, time, sc), key = lambda x: x[0]) 
+    res = sorted(zip(acc, time, sc), key = lambda x: x[0])
     acc, time, sc = zip(*res)
     # print("acc: ", acc)
     # print("time: ", time)
@@ -207,6 +207,10 @@ if __name__ == "__main__":
         metavar="TOPK",
         default=None)
     parser.add_argument(
+        '--reorder',
+        metavar="REORDER",
+        default=None)
+    parser.add_argument(
         '-o', '--output')
     parser.add_argument(
         '--build_config',
@@ -216,7 +220,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     if args.build_config:
-        assert args.program!=None and args.dataset!=None and args.metric!=None
+        assert args.program!=None and args.dataset!=None and args.metric!=None and args.reorder!=None
 
     def check_build_config(fn):
         return (args.metric in fn) and ("GPU" in fn if ("GPU" in args.program) else "GPU" not in fn)
@@ -226,7 +230,7 @@ if __name__ == "__main__":
         if "plot" in root:
             continue
         for fn in files:
-            if args.dataset in fn and (args.topk in fn) and (args.program in fn if args.program!=None else True) and (args.metric in fn) and (check_build_config(fn) if args.build_config==True else True): 
+            if args.dataset in fn and (args.topk in fn) and (args.program in fn if args.program!=None else True) and (args.metric in fn) and (args.reorder in fn) and (check_build_config(fn) if args.build_config==True else True):
                 res = collect_result(os.path.join(root, fn), args)
                 results+=res
     assert len(results) > 0
