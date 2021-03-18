@@ -287,19 +287,19 @@ Status SingleMachineSearcherBase<T>::FindNeighbors(
   DCHECK_LE((compressed_reordering_enabled() + exact_reordering_enabled()), 1);
   SCANN_RETURN_IF_ERROR(
       FindNeighborsNoSortNoExactReorder(query, params, result));
-  std::cout << "[YJ] FindNeighbors, after FindNeighborsNoSortNoExactReorder: " << result->size() << std::endl;
-  std::cout << "[YJ] FindNeighbors, after FindNeighborsNoSortNoExactReorder test: " << (*result)[0].first << " " << (*result)[0].second << std::endl;
+  std::cout << "[YJ][CANDIDATE] FindNeighbors, after FindNeighborsNoSortNoExactReorder: " << result->size() << std::endl;
+  std::cout << "[YJ][CANDIDATE] FindNeighbors, after FindNeighborsNoSortNoExactReorder test: " << (*result)[0].first << " " << (*result)[0].second << std::endl;
 
   if (reordering_helper_) {
     SCANN_RETURN_IF_ERROR(ReorderResults(query, params, result));
-    std::cout << "[YJ] FindNeighbors, after ReorderResults: " << result->size() << std::endl;
-    std::cout << "[YJ] FindNeighbors, after ReorderResults test: " << (*result)[0].first << " " << (*result)[0].second << std::endl;
+    std::cout << "[YJ][CANDIDATE] FindNeighbors, after ReorderResults: " << result->size() << std::endl;
+    std::cout << "[YJ][CANDIDATE] FindNeighbors, after ReorderResults test: " << (*result)[0].first << " " << (*result)[0].second << std::endl;
   }
 
   auto ret = SortAndDropResults(result, params);
-  std::cout << "[YJ] FindNeighbors, after SortAndDropResults result: " << result->size() << std::endl;
-  std::cout << "[YJ] FindNeighbors, after SortAndDropResults test: " << (*result)[0].first << " " << (*result)[0].second << std::endl;
-  std::cout << "[YJ] FindNeighbors, after SortAndDropResults test: " << (*result)[1].first << " " << (*result)[1].second << std::endl;
+  std::cout << "[YJ][CANDIDATE] FindNeighbors, after SortAndDropResults result: " << result->size() << std::endl;
+  std::cout << "[YJ][CANDIDATE] FindNeighbors, after SortAndDropResults test: " << (*result)[0].first << " " << (*result)[0].second << std::endl;
+  std::cout << "[YJ][CANDIDATE] FindNeighbors, after SortAndDropResults test: " << (*result)[1].first << " " << (*result)[1].second << std::endl;
   return ret;
 }
 

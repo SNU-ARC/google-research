@@ -605,6 +605,7 @@ Status TreeAHHybridResidual::FindNeighborsInternal1(
     leaf_params.set_searcher_specific_optional_parameters(leaf_specific_params);
     NNResultsVector unused_leaf_results;
     std::cout << "[YJ] internal2, CreateLookupTable, centers_to_search: " << centers_to_search.size() << std::endl;
+    size_t test_sum = 0;
     for (size_t i = 0; i < centers_to_search.size(); ++i) {
       const uint32_t token = centers_to_search[i].node->LeafId();
       const float distance_to_center = centers_to_search[i].distance_to_center;
@@ -613,15 +614,14 @@ Status TreeAHHybridResidual::FindNeighborsInternal1(
 
       TranslateGlobalToLeafLocalWhitelist(params, datapoints_by_token_[token],
                                           &leaf_params);
-      std::cout << "[YJ] datapoints_by_token[token]:" << datapoints_by_token_[token].size() << std::endl;
-      // for (auto i: datapoints_by_token_[token])
-      //   std::cout << i << " ";
-      // std::cout << std::endl;
+      std::cout << "[YJ][CANDIDATE] datapoints_by_token[" << token << "]:" << datapoints_by_token_[token].size() << std::endl;
+      test_sum += datapoints_by_token_[token].size();
       SCANN_RETURN_IF_ERROR(
           leaf_searchers_[token]->FindNeighborsNoSortNoExactReorder(
               query, leaf_params, &unused_leaf_results)); // [YJ] returns noting to unused_leaf_results, instead to top_n
     }
-
+    std::cout << "[YJ][CANDIDATE] final datapoints_by_token_: " << test_sum << std::endl;
+    std::cout << "[YJ][CANDIDATE] final result size: " << result->size() << std::endl;
     AssignResults(&top_n, result);
 
     const uint32_t local_idx_mask = (1u << global_topn_shift_) - 1;

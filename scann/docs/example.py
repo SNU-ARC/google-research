@@ -66,13 +66,13 @@ normalized_dataset = dataset / np.linalg.norm(dataset, axis=1)[:, np.newaxis]
 # anisotropic quantization as described in the paper; see README
 
 # use scann.scann_ops.build() to instead create a TensorFlow-compatible searcher
-searcher = scann.scann_ops_pybind.builder(normalized_dataset, 10, "squared_l2").tree(
-    num_leaves=2000, num_leaves_to_search=100, training_sample_size=250000).score_ah(
-    2, anisotropic_quantization_threshold=0.2).reorder(100).build()
-
 # searcher = scann.scann_ops_pybind.builder(normalized_dataset, 10, "dot_product").tree(
 #     num_leaves=2000, num_leaves_to_search=100, training_sample_size=250000).score_ah(
-#     2, anisotropic_quantization_threshold=0.2).build()
+#     2, anisotropic_quantization_threshold=0.2).reorder(100).build()
+
+searcher = scann.scann_ops_pybind.builder(normalized_dataset, 10, "dot_product").tree(
+    num_leaves=2000, num_leaves_to_search=100, training_sample_size=250000).score_ah(
+    2, anisotropic_quantization_threshold=0.2).build()
 
 
 # searcher = scann.scann_ops_pybind.builder(normalized_dataset, 10, "dot_product").score_brute_force(True).tree(
@@ -125,6 +125,7 @@ def compute_recall(neighbors, true_neighbors):
 # we have been exclusively calling batch search so far; the single-query call has the same API
 print("[YJ] PY,,,query : ", queries[0])
 start = time.time()
+# neighbors, distances = searcher.search(queries[0], final_num_neighbors=17, pre_reorder_num_neighbors=3)
 neighbors, distances = searcher.search(queries[0], final_num_neighbors=17)
 end = time.time()
 
