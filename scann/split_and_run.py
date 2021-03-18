@@ -136,6 +136,10 @@ def read_data(dataset_path, offset_=None, shape_=None, base=True):
 	elif "sift1b" in args.dataset:
 		file = dataset_path+"bigann_base.bvecs" if base else dataset_path
 		return bvecs_mmap(file, offset_=offset_, shape_=shape_)
+	elif "deep1b" in args.dataset:
+		file = dataset_path+"base.fvecs" if base else dataset_path
+		return mmap_fvecs(file)
+
 	elif "glove" in args.dataset:
 		file = dataset_path+"glove-100-angular.hdf5" if base else dataset_path
 		if base:
@@ -765,6 +769,8 @@ def get_queries():
 		return bvecs_read(dataset_basedir+'bigann_query.bvecs')
 	elif "glove" in args.dataset:
 		return np.array(h5py.File(dataset_basedir+"glove-100-angular.hdf5", "r")['test'], dtype='float32')
+	elif "deep1b" in args.dataset:
+		return mmap_fvecs(dataset_basedi + 'deep1B_queries.fvecs')
 	else:
 		assert False
 
@@ -822,7 +828,15 @@ elif "glove" in args.dataset:
 	D=100
 	num_iter = 10
 	qN = 10000
-
+elif "deep1b" in args.dataset:
+	dataset_basedir = basedir + "DEEP1B/"
+	split_dataset_path = dataset_basedir+"split_data/deep1b_"
+	if args.split==False:
+		groundtruth_path = dataset_basedir + "deep1B_groundtruth.ivecs" if args.metric=="squared_l2" else dataset_basedir + "deep1b_"+args.metric+"_gt"
+	N=1000000000
+	D=96
+	num_iter = 10
+	qN = 10000
 
 # main
 if args.split:
