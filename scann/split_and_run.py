@@ -201,8 +201,6 @@ def split(filename, num_iter, N, D):
 		else:
 			dataset = np.append(dataset, read_data(dataset_basedir, offset_=it*dataset_per_iter, shape_=dataset_per_iter), axis=0)
 		print("Reading dataset done")
-		print("TEST: ", dataset[0])
-		exit(1)
 		count=0
 		while split<args.num_split:
 			if (split+1)*num_per_split > dataset_per_iter*(it+1):
