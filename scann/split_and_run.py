@@ -113,11 +113,14 @@ def bvecs_read(fname):
 	d = b[:4].view('int32')[0]
 	return b.reshape(-1, d+4)[:, 4:].copy()
 
-def mmap_fvecs(fname):
-	x = np.memmap(fname, dtype='int32', mode='r')
+def mmap_fvecs(fname, offset_=None, shape_=None):
+	if offset_!=None and shape_!=None:
+		x = np.memmap(fname, dtype='int32', mode='r', offset=offset_*(D+1), shape=(shape_*(D+1)))
+	else:
+		x = np.memmap(fname, dtype='int32', mode='r')
 	d = x[0]
 	return x.reshape(-1, d + 1)[:, 1:].copy().view('float32')
-
+	
 def fvecs_write(fname, m):
 	m = m.astype('float32')
 	n, d = m.shape
@@ -129,17 +132,16 @@ def fvecs_write(fname, m):
 def read_data(dataset_path, offset_=None, shape_=None, base=True):
 	if "sift1m" in args.dataset:
 		file = dataset_path + "sift_base.fvecs" if base else dataset_path
-		return mmap_fvecs(file)
+		return mmap_fvecs(file, offset_=offset_, shape_=shape_)
 	elif "gist" in args.dataset:
 		file = dataset_path + "gist_base.fvecs" if base else dataset_path
-		return mmap_fvecs(file)
+		return mmap_fvecs(file, offset_=offset_, shape_=shape_)
 	elif "sift1b" in args.dataset:
 		file = dataset_path+"bigann_base.bvecs" if base else dataset_path
 		return bvecs_mmap(file, offset_=offset_, shape_=shape_)
 	elif "deep1b" in args.dataset:
-		file = dataset_path+"base.fvecs" if base else dataset_path
-		return mmap_fvecs(file)
-
+		file = dataset_path+"base" if base else dataset_path
+		return mmap_fvecs(file, offset_=offset_, shape_=shape_)
 	elif "glove" in args.dataset:
 		file = dataset_path+"glove-100-angular.hdf5" if base else dataset_path
 		if base:
@@ -199,6 +201,8 @@ def split(filename, num_iter, N, D):
 		else:
 			dataset = np.append(dataset, read_data(dataset_basedir, offset_=it*dataset_per_iter, shape_=dataset_per_iter), axis=0)
 		print("Reading dataset done")
+		print("TEST: ", dataset[0])
+		exit(1)
 		count=0
 		while split<args.num_split:
 			if (split+1)*num_per_split > dataset_per_iter*(it+1):
@@ -835,7 +839,7 @@ elif "deep1b" in args.dataset:
 		groundtruth_path = dataset_basedir + "deep1B_groundtruth.ivecs" if args.metric=="squared_l2" else dataset_basedir + "deep1b_"+args.metric+"_gt"
 	N=1000000000
 	D=96
-	num_iter = 10
+	num_iter = 16
 	qN = 10000
 
 # main
