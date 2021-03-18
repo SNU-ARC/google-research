@@ -70,6 +70,10 @@ searcher = scann.scann_ops_pybind.builder(normalized_dataset, 10, "squared_l2").
     num_leaves=2000, num_leaves_to_search=100, training_sample_size=250000).score_ah(
     2, anisotropic_quantization_threshold=0.2).reorder(100).build()
 
+# searcher = scann.scann_ops_pybind.builder(normalized_dataset, 10, "dot_product").tree(
+#     num_leaves=2000, num_leaves_to_search=100, training_sample_size=250000).score_ah(
+#     2, anisotropic_quantization_threshold=0.2).build()
+
 
 # searcher = scann.scann_ops_pybind.builder(normalized_dataset, 10, "dot_product").score_brute_force(True).tree(
 #     num_leaves=2000, num_leaves_to_search=100, training_sample_size=251240).reorder(97).build()
@@ -122,9 +126,7 @@ def compute_recall(neighbors, true_neighbors):
 print("[YJ] PY,,,query : ", queries[0])
 start = time.time()
 neighbors, distances = searcher.search(queries[0], final_num_neighbors=17)
-# #neighbors, distances = searcher.search(queries[0])
 end = time.time()
 
-print(neighbors)
-print(distances)
+print("Recall:", compute_recall(neighbors, glove_h5py['neighbors'][0, :17]))
 print("Latency (ms):", 1000*(end - start))
