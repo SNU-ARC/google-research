@@ -535,7 +535,7 @@ def run_faiss(D):
 
 		f = open(sweep_result_path, "w")
 		f.write("Program: " + args.program + ("GPU" if args.is_gpu else "") + " Topk: " + str(args.topk) + " Num_split: " + str(args.num_split)+ " Batch: "+str(args.batch)+"\n")
-		f.write("L\tm\tk_star\t|\tw\tMetric\n")
+		f.write("L\tm\tk_star\t|\tw\tReorder\tMetric\n")
 	else:
 		assert D% args.m == 0
 		build_config = [[args.L, args.m, int(math.log(args.k_star,2)), args.metric]]

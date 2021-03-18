@@ -1,5 +1,5 @@
 Program: faissGPU Topk: 1000 Num_split: 1 Batch: 128
-L	m	k_star	|	w	Metric
+L	m	k_star	|	w	Reorder	Metric
 800	1	256	|	1	-1	squared_l2
 0.0033 %	0.01381 %	0.04424 %	0.0879214 %	642.5666809082031
 800	1	256	|	2	-1	squared_l2

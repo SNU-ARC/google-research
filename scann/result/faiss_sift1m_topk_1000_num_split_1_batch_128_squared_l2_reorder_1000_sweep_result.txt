@@ -1,5 +1,5 @@
 Program: faiss Topk: 1000 Num_split: 1 Batch: 128
-L	m	k_star	|	w	Metric
+L	m	k_star	|	w	Reorder	Metric
 1000	4	16	|	1	1000	squared_l2
 0.4274 %	0.37148 %	0.289338 %	0.289338 %	1336.5087509155273
 1000	4	16	|	2	1000	squared_l2

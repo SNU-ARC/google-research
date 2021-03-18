@@ -1,5 +1,5 @@
 Program: faiss Topk: 1000 Num_split: 1 Batch: 128
-L	m	k_star	|	w	Metric
+L	m	k_star	|	w	Reorder	Metric
 1000	25	16	|	1	1000	dot_product
 0.2392 %	0.19524 %	0.144041 %	0.0793426 %	1320.6849098205566
 1000	25	16	|	2	1000	dot_product
