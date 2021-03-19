@@ -57,8 +57,9 @@ if args.groundtruth:
 
 if args.program=='scann':
 	import scann
+	assert args.is_gpu = False and (args.topk <= args.reorder if args.reorder!=-1 else True)
 	if args.sweep == False:
-		assert args.L!=-1 and args.w!=-1 and args.topk!=-1 and args.k_star == -1 and args.m!=-1 and (args.topk <= args.reorder if args.reorder!=-1 else True) and args.is_gpu==False
+		assert args.L!=-1 and args.w!=-1 and args.topk!=-1 and args.k_star == -1 and args.m!=-1
 	assert args.topk!=-1
 elif args.program == "faiss":
 	#if os.environ.get('LD_PRELOAD') == None:
