@@ -772,7 +772,7 @@ def get_queries():
 	elif "glove" in args.dataset:
 		return np.array(h5py.File(dataset_basedir+"glove-100-angular.hdf5", "r")['test'], dtype='float32')
 	elif "deep1b" in args.dataset:
-		return mmap_fvecs(dataset_basedi + 'deep1B_queries.fvecs')
+		return mmap_fvecs(dataset_basedir + 'deep1B_queries.fvecs')
 	else:
 		assert False
 
