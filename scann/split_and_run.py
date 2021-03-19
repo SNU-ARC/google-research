@@ -835,6 +835,8 @@ elif "deep1b" in args.dataset:
 	D=96
 	num_iter = 16
 	qN = 10000
+	
+os.makedirs(dataset_basedir+"split_data/", exist_ok=True)
 
 # main
 if args.split:
