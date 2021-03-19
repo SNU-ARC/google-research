@@ -737,6 +737,8 @@ def get_groundtruth():
 		run_groundtruth()
 	if "glove" in args.dataset:
 		return read_data(groundtruth_path, base=False)
+	elif "deep1b" in args.dataset:
+		return np.load(groundtruth_path)
 	else:
 		return ivecs_read(groundtruth_path)
 
@@ -831,7 +833,7 @@ elif "deep1b" in args.dataset:
 	dataset_basedir = basedir + "DEEP1B/"
 	split_dataset_path = dataset_basedir+"split_data/deep1b_"
 	if args.split==False:
-		groundtruth_path = dataset_basedir + "deep1B_groundtruth.ivecs" if args.metric=="squared_l2" else dataset_basedir + "deep1b_"+args.metric+"_gt"
+		groundtruth_path = dataset_basedir + "deep1b_"+args.metric+"_gt"
 	N=1000000000
 	D=96
 	num_iter = 16
