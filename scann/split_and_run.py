@@ -162,7 +162,7 @@ def read_data(dataset_path, offset_=None, shape_=None, base=True):
 def write_split_data(split_data_path, split_data):
 	if "sift1b" in args.dataset:
 		bvecs_write(split_data_path, split_data)
-	elif "sift1m" in args.dataset or "gist" in args.dataset:
+	elif "sift1m" in args.dataset or "gist" in args.dataset or "deep1b" in args.dataset:
 		fvecs_write(split_data_path, split_data)
 	elif "glove" in args.dataset:
 		hf = h5py.File(split_data_path, 'w')
@@ -170,20 +170,12 @@ def write_split_data(split_data_path, split_data):
 	print("Wrote to ", split_data_path, ", shape ", split_data.shape)
 
 def write_gt_data(gt_data):
-	if "sift1b" in args.dataset or "sift1m" in args.dataset or "gist" in args.dataset:
+	if "sift1b" in args.dataset or "sift1m" in args.dataset or "gist" in args.dataset or "deep1b" in args.dataset:
 		ivecs_write(groundtruth_path, gt_data)
 	elif "glove" in args.dataset:
 		hf = h5py.File(groundtruth_path, 'w')
 		hf.create_dataset('dataset', data=gt_data)
 	print("Wrote to ", groundtruth_path, ", shape ", gt_data.shape)
-
-def write_split_gt_data(split_gt_path, gt_data):
-	if "sift1b" in args.dataset or "sift1m" in args.dataset or "gist" in args.dataset:
-		ivecs_write(split_gt_path, gt_data)
-	elif "glove" in args.dataset:
-		hf = h5py.File(split_gt_path, 'w')
-		hf.create_dataset('dataset', data=gt_data)
-	print("Wrote to ", split_gt_path, ", shape ", gt_data.shape)
 
 def split(filename, num_iter, N, D):
 	num_per_split = int(N/args.num_split)
@@ -261,8 +253,8 @@ def run_groundtruth():
 			libc = ctypes.CDLL('./groundtruth.so')
 			libc.compute_groundtruth.restype=None
 			libc.compute_groundtruth(num, num_per_split, D, qN, xpp, ypp, gpp, gspp, True if args.metric=="dot_product" else False)
-		split_gt_path = groundtruth_path
-		write_split_gt_data(split_gt_path, groundtruth)
+		# split_gt_path = groundtruth_path
+		write_gt_data(groundtruth)
 
 def sort_neighbors(distances, neighbors):
 	if "dot_product" == args.metric or "angular" == args.metric:
@@ -275,6 +267,7 @@ def sort_neighbors(distances, neighbors):
 def prepare_eval():
 	gt = get_groundtruth()
 	queries = get_queries()
+	print("gt shape: ", gt.shape)
 	assert gt.shape[1] == 1000
 	return gt, queries
 
@@ -721,6 +714,9 @@ def run_annoy(D):
 def get_train(split=-1, total=-1):
 	if "sift1m" in args.dataset:
 		filename = dataset_basedir + 'sift_learn.fvecs' if split<0 else dataset_basedir + 'split_data/sift1m_learn%d_%d' % (total, split)
+		return mmap_fvecs(filename)
+	if "deep1b" in args.dataset:
+		filename = dataset_basedir + 'split_data/deep1b_learn%d_%d' % (total, split)
 		return mmap_fvecs(filename)
 	elif "gist" in args.dataset:
 		filename = dataset_basedir + 'gist_learn.fvecs' if split<0 else dataset_basedir + 'split_data/gist_learn%d_%d' % (total, split)
