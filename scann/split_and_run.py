@@ -29,6 +29,7 @@ parser.add_argument('--reorder', type=int, default=-1, help='reorder size')
 ## Faiss parameters
 parser.add_argument('--k_star', type=int, default=-1, help='# of a single finegrained codewords')
 parser.add_argument('--is_gpu', action='store_true')
+parser.add_argument('--opq', type=int, default=-1, help='new desired dimension after applying OPQ')
 
 ## Annoy parameters
 parser.add_argument('--n_trees', type=int, default=-1, help='# of trees')
@@ -112,11 +113,14 @@ def bvecs_read(fname):
 	d = b[:4].view('int32')[0]
 	return b.reshape(-1, d+4)[:, 4:].copy()
 
-def mmap_fvecs(fname):
-	x = np.memmap(fname, dtype='int32', mode='r')
+def mmap_fvecs(fname, offset_=None, shape_=None):
+	if offset_!=None and shape_!=None:
+		x = np.memmap(fname, dtype='int32', mode='r', offset=offset_*(D+1), shape=(shape_*(D+1)))
+	else:
+		x = np.memmap(fname, dtype='int32', mode='r')
 	d = x[0]
 	return x.reshape(-1, d + 1)[:, 1:].copy().view('float32')
-
+	
 def fvecs_write(fname, m):
 	m = m.astype('float32')
 	n, d = m.shape
@@ -128,10 +132,16 @@ def fvecs_write(fname, m):
 def read_data(dataset_path, offset_=None, shape_=None, base=True):
 	if "sift1m" in args.dataset:
 		file = dataset_path + "sift_base.fvecs" if base else dataset_path
-		return mmap_fvecs(file)
+		return mmap_fvecs(file, offset_=offset_, shape_=shape_)
+	elif "gist" in args.dataset:
+		file = dataset_path + "gist_base.fvecs" if base else dataset_path
+		return mmap_fvecs(file, offset_=offset_, shape_=shape_)
 	elif "sift1b" in args.dataset:
 		file = dataset_path+"bigann_base.bvecs" if base else dataset_path
 		return bvecs_mmap(file, offset_=offset_, shape_=shape_)
+	elif "deep1b" in args.dataset:
+		file = dataset_path+"base" if base else dataset_path
+		return mmap_fvecs(file, offset_=offset_, shape_=shape_)
 	elif "glove" in args.dataset:
 		file = dataset_path+"glove-100-angular.hdf5" if base else dataset_path
 		if base:
@@ -152,7 +162,7 @@ def read_data(dataset_path, offset_=None, shape_=None, base=True):
 def write_split_data(split_data_path, split_data):
 	if "sift1b" in args.dataset:
 		bvecs_write(split_data_path, split_data)
-	elif "sift1m" in args.dataset:
+	elif "sift1m" in args.dataset or "gist" in args.dataset:
 		fvecs_write(split_data_path, split_data)
 	elif "glove" in args.dataset:
 		hf = h5py.File(split_data_path, 'w')
@@ -160,7 +170,7 @@ def write_split_data(split_data_path, split_data):
 	print("Wrote to ", split_data_path, ", shape ", split_data.shape)
 
 def write_gt_data(gt_data):
-	if "sift1b" in args.dataset or "sift1m" in args.dataset:
+	if "sift1b" in args.dataset or "sift1m" in args.dataset or "gist" in args.dataset:
 		ivecs_write(groundtruth_path, gt_data)
 	elif "glove" in args.dataset:
 		hf = h5py.File(groundtruth_path, 'w')
@@ -168,7 +178,7 @@ def write_gt_data(gt_data):
 	print("Wrote to ", groundtruth_path, ", shape ", gt_data.shape)
 
 def write_split_gt_data(split_gt_path, gt_data):
-	if "sift1b" in args.dataset or "sift1m" in args.dataset:
+	if "sift1b" in args.dataset or "sift1m" in args.dataset or "gist" in args.dataset:
 		ivecs_write(split_gt_path, gt_data)
 	elif "glove" in args.dataset:
 		hf = h5py.File(split_gt_path, 'w')
@@ -183,6 +193,7 @@ def split(filename, num_iter, N, D):
 	print("dataset_per_iter: ", dataset_per_iter, " / num_per_split: ", num_per_split)
 	num_split_list=[]
 	split = 0
+	sampling_rate = 0.1
 	for it in range(num_iter):
 		print("Iter: ", it)
 		if it==num_iter-1:
@@ -199,7 +210,7 @@ def split(filename, num_iter, N, D):
 				else:
 					split_size = dataset[count*num_per_split:].shape[0]
 					write_split_data(split_dataset_path + str(args.num_split) + "_" + str(split), dataset[count*num_per_split:])
-					trainset = np.random.choice(split_size, int(0.1*split_size), replace=False)
+					trainset = np.random.choice(split_size, int(sampling_rate*split_size), replace=False)
 					write_split_data(split_dataset_path + "learn" + str(args.num_split) + "_" + str(split), dataset[count*num_per_split:][trainset])
 					num_split_list.append(dataset[count*num_per_split:].shape[0])
 					split = split+1
@@ -207,7 +218,7 @@ def split(filename, num_iter, N, D):
 			elif split < args.num_split:
 				split_size = dataset[count*num_per_split:(count+1)*num_per_split].shape[0]
 				write_split_data(split_dataset_path + str(args.num_split) + "_" + str(split), dataset[count*num_per_split:(count+1)*num_per_split])
-				trainset = np.random.choice(split_size, int(0.1*split_size), replace=False)
+				trainset = np.random.choice(split_size, int(sampling_rate*split_size), replace=False)
 				write_split_data(split_dataset_path + "learn" + str(args.num_split) + "_" + str(split), dataset[count*num_per_split:(count+1)*num_per_split][trainset])
 				num_split_list.append(dataset[count*num_per_split:(count+1)*num_per_split].shape[0])
 				split = split+1
@@ -293,7 +304,7 @@ def check_available_search_config(program, bc, search_config):
 		num_leaves, threshold, dims, metric = bc
 		for idx, sc in enumerate(search_config):
 			leaves_to_search = sc[0]
-			if leaves_to_search > num_leaves or (D%dims!=0 and args.sweep==True):
+			if leaves_to_search > num_leaves or (D%dims!=0 and args.sweep==True) or (metric == 'squared_l2' and (4**(D/dims) < N)):
 				continue
 			else:
 				sc_list.append(idx)
@@ -301,7 +312,7 @@ def check_available_search_config(program, bc, search_config):
 		L, m, log2kstar, metric = bc
 		for idx, sc in enumerate(search_config):
 			nprobe, args.reorder = sc[0], sc[1]
-			if nprobe > L or (nprobe > 2048 and args.is_gpu) or (D%m!=0 and args.sweep==True) or (m > 96 and args.is_gpu) or (not args.is_gpu and log2kstar>8) or (args.is_gpu and log2kstar != 8):
+			if nprobe > L or (nprobe > 2048 and args.is_gpu) or (D%m!=0 and args.sweep==True) or (m > 96 and args.is_gpu) or (not args.is_gpu and log2kstar>8) or (args.is_gpu and log2kstar != 8) or (metric == 'dot_product' and (log2kstar**m < N)):
 				continue
 			else:
 				sc_list.append(idx)
@@ -315,8 +326,7 @@ def run_scann():
 	if args.sweep:
 		if "sift1b" in args.dataset:
 			# For sift 1b
-			# build_config = [[7000, 0.55, 2, args.metric], [7000, 0.2, 4, args.metric], [7000, 0.2, 2, args.metric], [7000, 0.2, 1, args.metric], \
-			build_config = [[7000, 0.2, 4, args.metric], [7000, 0.2, 1, args.metric], \
+			build_config = [[7000, 0.55, 2, args.metric], [7000, 0.2, 4, args.metric], [7000, 0.2, 2, args.metric], [7000, 0.2, 1, args.metric], \
 							[8000, 0.55, 2, args.metric], [8000, 0.2, 4, args.metric], [8000, 0.2, 2, args.metric], [8000, 0.2, 1, args.metric], \
 							[6000, 0.55, 2, args.metric], [6000, 0.2, 4 , args.metric], [6000, 0.2, 2, args.metric], [6000, 0.2, 1, args.metric]]
 			search_config = [[1, args.reorder], [16, args.reorder], [32, args.reorder], [64, args.reorder], [128, args.reorder], \
@@ -370,10 +380,7 @@ def run_scann():
 		base_idx = 0
 		if len(sc_list) > 0:
 			for split in range(args.num_split):
-				# arcm::temporary modification for vtune profiler
-				#if split > 0:
-				#	print("arcm::exiting..")
-				#	exit()
+
 				num_per_split = int(N/args.num_split) if split < args.num_split-1 else N-base_idx
 				searcher_dir, searcher_path = get_searcher_path(split)
 				print("Split ", split)
@@ -513,16 +520,19 @@ def run_faiss(D):
 							[4000, int(D/64), log2kstar_, args.metric], [4000, int(D/50), log2kstar_, args.metric], [4000, int(D/32), log2kstar_, args.metric], [4000, int(D/25), log2kstar_, args.metric], [4000, int(D/16), log2kstar_, args.metric], [4000, int(D/10), log2kstar_, args.metric], [4000, int(D/8), log2kstar_, args.metric], [4000, int(D/5), log2kstar_, args.metric], [4000, int(D/4), log2kstar_, args.metric], [4000, int(D/3), log2kstar_, args.metric], [4000, int(D/2), log2kstar_, args.metric], [4000, D, log2kstar_, args.metric]]
 
 		else:
-			build_config = [[1000, int(D/32), 4, args.metric], [1000, int(D/16), 4, args.metric], [1000, int(D/8), 4, args.metric], [1000, int(D/4), 4, args.metric], [1000, int(D/3), 4, args.metric], [1000, int(D/2), 4, args.metric], [1000, D, 4, args.metric], \
-							[1000, int(D/32), 6, args.metric], [1000, int(D/16), 6, args.metric], [1000, int(D/8), 6, args.metric], [1000, int(D/4), 6, args.metric], [1000, int(D/3), 6, args.metric], [1000, int(D/2), 6, args.metric], [1000, D, 6, args.metric], \
-							[1000, int(D/32), 8, args.metric], [1000, int(D/16), 8, args.metric], [1000, int(D/8), 8, args.metric], [1000, int(D/4), 8, args.metric], [1000, int(D/3), 8, args.metric], [1000, int(D/2), 8, args.metric], [1000, D, 8, args.metric], \
-							[2000, int(D/32), 4, args.metric], [2000, int(D/16), 4, args.metric], [2000, int(D/8), 4, args.metric], [2000, int(D/4), 4, args.metric], [2000, int(D/3), 4, args.metric], [2000, int(D/2), 4, args.metric], [2000, D, 4, args.metric], \
-							[2000, int(D/32), 6, args.metric], [2000, int(D/16), 6, args.metric], [2000, int(D/8), 6, args.metric], [2000, int(D/4), 6, args.metric], [2000, int(D/3), 6, args.metric], [2000, int(D/2), 6, args.metric], [2000, D, 6, args.metric], \
-							[2000, int(D/32), 8, args.metric], [2000, int(D/16), 8, args.metric], [2000, int(D/8), 8, args.metric], [2000, int(D/4), 8, args.metric], [2000, int(D/3), 8, args.metric], [2000, int(D/2), 8, args.metric], [2000, D, 8, args.metric], \
-							[800, int(D/32), 4, args.metric], [800, int(D/16), 4, args.metric], [800, int(D/8), 4, args.metric], [800, int(D/4), 4, args.metric], [800, int(D/3), 4, args.metric], [800, int(D/2), 4, args.metric], [800, D, 4, args.metric], \
-							[800, int(D/32), 6, args.metric], [800, int(D/16), 6, args.metric], [800, int(D/8), 6, args.metric], [800, int(D/4), 6, args.metric], [800, int(D/3), 6, args.metric], [800, int(D/2), 6, args.metric], [800, D, 6, args.metric], \
-							[800, int(D/32), 8, args.metric], [800, int(D/16), 8, args.metric], [800, int(D/8), 8, args.metric], [800, int(D/4), 8, args.metric], [800, int(D/3), 8, args.metric], [800, int(D/2), 8, args.metric], [800, D, 8, args.metric], \
-							]	# L, m, log2(k*), metric
+			if "gist" in args.dataset:
+				build_config = [[1000, int(D/2), 8, args.metric], [1000, int(D/3), 8, args.metric], [1000, int(D/4), 8, args.metric]]	# L, m, log2(k*), metric
+			else:
+				build_config = [[1000, int(D/32), 4, args.metric], [1000, int(D/16), 4, args.metric], [1000, int(D/8), 4, args.metric], [1000, int(D/4), 4, args.metric], [1000, int(D/3), 4, args.metric], [1000, int(D/2), 4, args.metric], [1000, D, 4, args.metric], \
+								[1000, int(D/32), 6, args.metric], [1000, int(D/16), 6, args.metric], [1000, int(D/8), 6, args.metric], [1000, int(D/4), 6, args.metric], [1000, int(D/3), 6, args.metric], [1000, int(D/2), 6, args.metric], [1000, D, 6, args.metric], \
+								[1000, int(D/32), 8, args.metric], [1000, int(D/16), 8, args.metric], [1000, int(D/8), 8, args.metric], [1000, int(D/4), 8, args.metric], [1000, int(D/3), 8, args.metric], [1000, int(D/2), 8, args.metric], [1000, D, 8, args.metric], \
+								[2000, int(D/32), 4, args.metric], [2000, int(D/16), 4, args.metric], [2000, int(D/8), 4, args.metric], [2000, int(D/4), 4, args.metric], [2000, int(D/3), 4, args.metric], [2000, int(D/2), 4, args.metric], [2000, D, 4, args.metric], \
+								[2000, int(D/32), 6, args.metric], [2000, int(D/16), 6, args.metric], [2000, int(D/8), 6, args.metric], [2000, int(D/4), 6, args.metric], [2000, int(D/3), 6, args.metric], [2000, int(D/2), 6, args.metric], [2000, D, 6, args.metric], \
+								[2000, int(D/32), 8, args.metric], [2000, int(D/16), 8, args.metric], [2000, int(D/8), 8, args.metric], [2000, int(D/4), 8, args.metric], [2000, int(D/3), 8, args.metric], [2000, int(D/2), 8, args.metric], [2000, D, 8, args.metric], \
+								[800, int(D/32), 4, args.metric], [800, int(D/16), 4, args.metric], [800, int(D/8), 4, args.metric], [800, int(D/4), 4, args.metric], [800, int(D/3), 4, args.metric], [800, int(D/2), 4, args.metric], [800, D, 4, args.metric], \
+								[800, int(D/32), 6, args.metric], [800, int(D/16), 6, args.metric], [800, int(D/8), 6, args.metric], [800, int(D/4), 6, args.metric], [800, int(D/3), 6, args.metric], [800, int(D/2), 6, args.metric], [800, D, 6, args.metric], \
+								[800, int(D/32), 8, args.metric], [800, int(D/16), 8, args.metric], [800, int(D/8), 8, args.metric], [800, int(D/4), 8, args.metric], [800, int(D/3), 8, args.metric], [800, int(D/2), 8, args.metric], [800, D, 8, args.metric], \
+								]	# L, m, log2(k*), metric
 
 		search_config = [[1, args.reorder], [2, args.reorder], [4, args.reorder], [8, args.reorder], [16, args.reorder], [25, args.reorder], [30, args.reorder], [35, args.reorder], [40, args.reorder], \
 						 [45, args.reorder], [50, args.reorder], [55, args.reorder], [60, args.reorder], [65, args.reorder], [75, args.reorder], [90, args.reorder], [110, args.reorder], [130, args.reorder], [150, args.reorder], \
@@ -531,7 +541,7 @@ def run_faiss(D):
 
 		f = open(sweep_result_path, "w")
 		f.write("Program: " + args.program + ("GPU" if args.is_gpu else "") + " Topk: " + str(args.topk) + " Num_split: " + str(args.num_split)+ " Batch: "+str(args.batch)+"\n")
-		f.write("L\tm\tk_star\t|\tw\tMetric\n")
+		f.write("L\tm\tk_star\t|\tw\tReorder\tMetric\n")
 	else:
 		assert D% args.m == 0
 		build_config = [[args.L, args.m, int(math.log(args.k_star,2)), args.metric]]
@@ -556,7 +566,16 @@ def run_faiss(D):
 				dataset = read_data(split_dataset_path + str(args.num_split) + "_" + str(split) if args.num_split>1 else dataset_basedir, base=False if args.num_split>1 else True, offset_=None if args.num_split>1 else 0, shape_=None)
 				padded_D, faiss_m, padded_dataset, padded_train_dataset, padded_queries = faiss_pad_dataset(dataset, train_dataset, queries, m)
 				# local_neighbors, local_distances, total_latency = run_local_faiss(args, searcher_dir, split, padded_D, "IVF"+str(L)+",PQ"+str(faiss_m)+"x"+str(log2kstar), padded_train_dataset, padded_dataset, padded_queries)
-				index, preproc = build_faiss(args, searcher_dir, split, padded_D, "IVF"+str(L)+",PQ"+str(faiss_m)+"x"+str(log2kstar), padded_train_dataset, padded_dataset, padded_queries)
+				args.m = faiss_m
+				# index_key = OPQ\M_\D,IVF\K,PQ\Mx4fsr # arcm::if memory is quite important # D is different from above
+				# index_key = OPQ\M_\D,IVF\K,PQ\M # arcm::if memory is very important # D is different from above
+				#index_key = "OPQ16_64,IVF4096,PQ16"
+				index_key_manual = None
+				if args.opq == -1:
+					index_key_manual = "IVF"+str(L)+",PQ"+str(faiss_m)+"x"+str(log2kstar)
+				else:
+					index_key_manual = "OPQ"+str(faiss_m)+"_"+str(args.opq)+",IVF"+str(L)+",PQ"+str(faiss_m)+"x"+str(log2kstar)
+				index, preproc = build_faiss(args, searcher_dir, split, padded_D, index_key_manual, padded_train_dataset, padded_dataset, padded_queries)
 
 				n = list()
 				d = list()
@@ -703,6 +722,9 @@ def get_train(split=-1, total=-1):
 	if "sift1m" in args.dataset:
 		filename = dataset_basedir + 'sift_learn.fvecs' if split<0 else dataset_basedir + 'split_data/sift1m_learn%d_%d' % (total, split)
 		return mmap_fvecs(filename)
+	elif "gist" in args.dataset:
+		filename = dataset_basedir + 'gist_learn.fvecs' if split<0 else dataset_basedir + 'split_data/gist_learn%d_%d' % (total, split)
+		return mmap_fvecs(filename)
 	elif "sift1b" in args.dataset:
 		filename = dataset_basedir + 'bigann_learn.bvecs' if split<0 else dataset_basedir + 'split_data/sift1b_learn%d_%d' % (total, split)
 		return bvecs_read(filename)
@@ -743,10 +765,14 @@ def get_groundtruth():
 def get_queries():
 	if "sift1m" in args.dataset:
 		return mmap_fvecs(dataset_basedir + 'sift_query.fvecs')
+	elif "gist" in args.dataset:
+		return mmap_fvecs(dataset_basedir + 'gist_query.fvecs')
 	elif "sift1b" in args.dataset:
 		return bvecs_read(dataset_basedir+'bigann_query.bvecs')
 	elif "glove" in args.dataset:
 		return np.array(h5py.File(dataset_basedir+"glove-100-angular.hdf5", "r")['test'], dtype='float32')
+	elif "deep1b" in args.dataset:
+		return mmap_fvecs(dataset_basedi + 'deep1B_queries.fvecs')
 	else:
 		assert False
 
@@ -759,7 +785,7 @@ else:
 os.makedirs("./result", exist_ok=True)
 split_dataset_path = None
 if args.sweep:
-	sweep_result_path = "./result/"+args.program+("GPU_" if args.is_gpu else "_")+args.dataset+"_topk_"+str(args.topk)+"_num_split_"+str(args.num_split)+"_batch_"+str(args.batch)+"_"+args.metric+"_sweep_result.txt"
+	sweep_result_path = "./result/"+args.program+("GPU_" if args.is_gpu else "_")+args.dataset+"_topk_"+str(args.topk)+"_num_split_"+str(args.num_split)+"_batch_"+str(args.batch)+"_"+args.metric+"_reorder_"+str(args.reorder)+"_sweep_result.txt"
 index_key = None
 N = -1
 D = -1
@@ -768,17 +794,28 @@ qN = -1
 
 if "sift1m" in args.dataset:
 	dataset_basedir = basedir + "SIFT1M/"
-	split_dataset_path =dataset_basedir+"split_data/sift1m_"
-	groundtruth_path = dataset_basedir + "sift1m_"+args.metric+"_gt"
+	split_dataset_path = dataset_basedir+"split_data/sift1m_"
+	if args.split==False:
+		groundtruth_path = dataset_basedir + "sift1m_"+args.metric+"_gt"
 	N=1000000
 	D=128
 	num_iter = 1
 	qN = 10000
 	index_key = "IVF4096,PQ64"
+elif "gist" in args.dataset:
+	dataset_basedir = basedir + "GIST/"
+	split_dataset_path =dataset_basedir+"split_data/gist_"
+	if args.split==False:
+		groundtruth_path = dataset_basedir + "gist_"+args.metric+"_gt"
+	N=1000000
+	D=960
+	num_iter = 1
+	qN = 1000
 elif "sift1b" in args.dataset:
 	dataset_basedir = basedir + "SIFT1B/"
 	split_dataset_path = dataset_basedir+"split_data/sift1b_"
-	groundtruth_path = dataset_basedir +  'gnd/idx_1000M.ivecs' if args.metric=="squared_l2" else dataset_basedir + "sift1b_"+args.metric+"_gt"
+	if args.split==False:
+		groundtruth_path = dataset_basedir +  'gnd/idx_1000M.ivecs' if args.metric=="squared_l2" else dataset_basedir + "sift1b_"+args.metric+"_gt"
 	N=1000000000
 	D=128
 	num_iter = 4
@@ -787,12 +824,21 @@ elif "sift1b" in args.dataset:
 elif "glove" in args.dataset:
 	dataset_basedir = basedir + "GLOVE/"
 	split_dataset_path = dataset_basedir+"split_data/glove_"
-	groundtruth_path = dataset_basedir + "glove_"+args.metric+"_gt"
+	if args.split==False:
+		groundtruth_path = dataset_basedir + "glove_"+args.metric+"_gt"
 	N=1183514
 	D=100
 	num_iter = 10
 	qN = 10000
-
+elif "deep1b" in args.dataset:
+	dataset_basedir = basedir + "DEEP1B/"
+	split_dataset_path = dataset_basedir+"split_data/deep1b_"
+	if args.split==False:
+		groundtruth_path = dataset_basedir + "deep1B_groundtruth.ivecs" if args.metric=="squared_l2" else dataset_basedir + "deep1b_"+args.metric+"_gt"
+	N=1000000000
+	D=96
+	num_iter = 16
+	qN = 10000
 
 # main
 if args.split:
