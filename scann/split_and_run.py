@@ -57,8 +57,9 @@ if args.groundtruth:
 
 if args.program=='scann':
 	import scann
+	assert args.is_gpu == False and (args.topk <= args.reorder if args.reorder!=-1 else True)
 	if args.sweep == False:
-		assert args.L!=-1 and args.w!=-1 and args.topk!=-1 and args.k_star == -1 and args.m!=-1 and (args.topk <= args.reorder if args.reorder!=-1 else True) and args.is_gpu==False
+		assert args.L!=-1 and args.w!=-1 and args.topk!=-1 and args.k_star == -1 and args.m!=-1
 	assert args.topk!=-1
 elif args.program == "faiss":
 	#if os.environ.get('LD_PRELOAD') == None:
@@ -113,8 +114,11 @@ def bvecs_read(fname):
 	d = b[:4].view('int32')[0]
 	return b.reshape(-1, d+4)[:, 4:].copy()
 
-def mmap_fvecs(fname):
-	x = np.memmap(fname, dtype='int32', mode='r')
+def mmap_fvecs(fname, offset_=None, shape_=None):
+	if offset_!=None and shape_!=None:
+		x = np.memmap(fname, dtype='int32', mode='r', offset=offset_*(D+1), shape=(shape_*(D+1)))
+	else:
+		x = np.memmap(fname, dtype='int32', mode='r')
 	d = x[0]
 	return x.reshape(-1, d + 1)[:, 1:].copy().view('float32')
 
@@ -129,13 +133,16 @@ def fvecs_write(fname, m):
 def read_data(dataset_path, offset_=None, shape_=None, base=True):
 	if "sift1m" in args.dataset:
 		file = dataset_path + "sift_base.fvecs" if base else dataset_path
-		return mmap_fvecs(file)
+		return mmap_fvecs(file, offset_=offset_, shape_=shape_)
 	elif "gist" in args.dataset:
 		file = dataset_path + "gist_base.fvecs" if base else dataset_path
-		return mmap_fvecs(file)
+		return mmap_fvecs(file, offset_=offset_, shape_=shape_)
 	elif "sift1b" in args.dataset:
 		file = dataset_path+"bigann_base.bvecs" if base else dataset_path
 		return bvecs_mmap(file, offset_=offset_, shape_=shape_)
+	elif "deep1b" in args.dataset:
+		file = dataset_path+"base" if base else dataset_path
+		return mmap_fvecs(file, offset_=offset_, shape_=shape_)
 	elif "glove" in args.dataset:
 		file = dataset_path+"glove-100-angular.hdf5" if base else dataset_path
 		if base:
@@ -156,28 +163,22 @@ def read_data(dataset_path, offset_=None, shape_=None, base=True):
 def write_split_data(split_data_path, split_data):
 	if "sift1b" in args.dataset:
 		bvecs_write(split_data_path, split_data)
-	elif "sift1m" in args.dataset or "gist" in args.dataset:
+	elif "sift1m" in args.dataset or "gist" in args.dataset or "deep1b" in args.dataset:
 		fvecs_write(split_data_path, split_data)
 	elif "glove" in args.dataset:
 		hf = h5py.File(split_data_path, 'w')
 		hf.create_dataset('dataset', data=split_data)
 	print("Wrote to ", split_data_path, ", shape ", split_data.shape)
+	print("arcm::write_split_data done\n");
 
 def write_gt_data(gt_data):
-	if "sift1b" in args.dataset or "sift1m" in args.dataset or "gist" in args.dataset:
+	if "sift1b" in args.dataset or "sift1m" in args.dataset or "gist" in args.dataset or "deep1b" in args.dataset:
 		ivecs_write(groundtruth_path, gt_data)
 	elif "glove" in args.dataset:
 		hf = h5py.File(groundtruth_path, 'w')
 		hf.create_dataset('dataset', data=gt_data)
 	print("Wrote to ", groundtruth_path, ", shape ", gt_data.shape)
-
-def write_split_gt_data(split_gt_path, gt_data):
-	if "sift1b" in args.dataset or "sift1m" in args.dataset or "gist" in args.dataset:
-		ivecs_write(split_gt_path, gt_data)
-	elif "glove" in args.dataset:
-		hf = h5py.File(split_gt_path, 'w')
-		hf.create_dataset('dataset', data=gt_data)
-	print("Wrote to ", split_gt_path, ", shape ", gt_data.shape)
+	print("arcm::write_gt_data done\n");
 
 def split(filename, num_iter, N, D):
 	num_per_split = int(N/args.num_split)
@@ -218,6 +219,7 @@ def split(filename, num_iter, N, D):
 				split = split+1
 			count = count+1
 	print("num_split_lists: ", num_split_list)
+	print("arcm::split done\n");
 
 def run_groundtruth():
 	print("Making groudtruth file")
@@ -255,8 +257,8 @@ def run_groundtruth():
 			libc = ctypes.CDLL('./groundtruth.so')
 			libc.compute_groundtruth.restype=None
 			libc.compute_groundtruth(num, num_per_split, D, qN, xpp, ypp, gpp, gspp, True if args.metric=="dot_product" else False)
-		split_gt_path = groundtruth_path
-		write_split_gt_data(split_gt_path, groundtruth)
+		# split_gt_path = groundtruth_path
+		write_gt_data(groundtruth)
 
 def sort_neighbors(distances, neighbors):
 	if "dot_product" == args.metric or "angular" == args.metric:
@@ -269,6 +271,7 @@ def sort_neighbors(distances, neighbors):
 def prepare_eval():
 	gt = get_groundtruth()
 	queries = get_queries()
+	print("gt shape: ", gt.shape)
 	assert gt.shape[1] == 1000
 	return gt, queries
 
@@ -318,7 +321,7 @@ def check_available_search_config(program, bc, search_config):
 def run_scann():
 	gt, queries = prepare_eval()
 	if args.sweep:
-		if "sift1b" in args.dataset:
+		if "sift1b" in args.dataset or "deep1b" in args.dataset:
 			# For sift 1b
 			build_config = [[7000, 0.55, 2, args.metric], [7000, 0.2, 4, args.metric], [7000, 0.2, 2, args.metric], [7000, 0.2, 1, args.metric], \
 							[8000, 0.55, 2, args.metric], [8000, 0.2, 4, args.metric], [8000, 0.2, 2, args.metric], [8000, 0.2, 1, args.metric], \
@@ -405,14 +408,16 @@ def run_scann():
 				n = list()
 				d = list()
 				for idx in range(len(sc_list)):
+					# if idx < len(sc_list)-2:
+					# 	continue
 					leaves_to_search, reorder = search_config[sc_list[idx]]
 					assert D%dims == 0
 
 					if args.reorder!=-1:
 						assert args.topk <= reorder
-					else:
-						if args.sweep:
-							assert False, "Do you want reordering or not?"
+					# else:
+					# 	if args.sweep:
+					# 		assert False, "Do you want reordering or not?"
 
 					print(str(num_leaves)+"\t"+str(threshold)+"\t"+str(int(D/dims))+"\t|\t"+str(leaves_to_search)+"\t"+str(reorder)+"\t"+str(metric)+"\n")
 					if args.batch > 1:
@@ -455,6 +460,7 @@ def run_scann():
 				print(str(num_leaves)+"\t"+str(threshold)+"\t"+str(int(D/dims))+"\t|\t"+str(leaves_to_search)+"\t"+str(reorder)+"\t"+str(metric)+"\n")
 				top1, top10, top100, top1000 = print_recall(final_neighbors[idx], gt)
 				print("Top ", args.topk, " Total latency (ms): ", total_latency[idx])
+				print("arcm::Latency written. End of File.\n");
 				if args.sweep:
 					f.write(str(top1)+" %\t"+str(top10)+" %\t"+str(top100)+" %\t"+str(top1000)+" %\t"+str(total_latency[idx])+"\n")
 	if args.sweep:
@@ -603,6 +609,7 @@ def run_faiss(D):
 
 				top1, top10, top100, top1000 = print_recall(final_neighbors[idx], gt)
 				print("Top ", args.topk, " Total latency (ms): ", total_latency[idx])
+				print("arcm::Latency written. End of File.\n");
 				if args.sweep:
 					f.write(str(top1)+" %\t"+str(top10)+" %\t"+str(top100)+" %\t"+str(top1000)+" %\t"+str(total_latency[idx])+"\n")
 
@@ -705,6 +712,7 @@ def run_annoy(D):
 		for idx in range(len(search_config)):
 			top1, top10, top100, top1000 = print_recall(final_neighbors[idx], gt)
 			print("Top ", args.topk, " Total latency (ms): ", total_latency[idx])
+			print("arcm::Latency written. End of File.\n");
 			if args.sweep:
 				f.write(str(n_trees)+"\t|\t"+str(search_config[idx])+"\t-1\t"+str(annoy_metric)+"\n")
 				f.write(str(top1)+" %\t"+str(top10)+" %\t"+str(top100)+" %\t"+str(top1000)+" %\t"+str(total_latency[idx])+"\n")
@@ -715,6 +723,9 @@ def run_annoy(D):
 def get_train(split=-1, total=-1):
 	if "sift1m" in args.dataset:
 		filename = dataset_basedir + 'sift_learn.fvecs' if split<0 else dataset_basedir + 'split_data/sift1m_learn%d_%d' % (total, split)
+		return mmap_fvecs(filename)
+	if "deep1b" in args.dataset:
+		filename = dataset_basedir + 'split_data/deep1b_learn%d_%d' % (total, split)
 		return mmap_fvecs(filename)
 	elif "gist" in args.dataset:
 		filename = dataset_basedir + 'gist_learn.fvecs' if split<0 else dataset_basedir + 'split_data/gist_learn%d_%d' % (total, split)
@@ -734,6 +745,8 @@ def get_groundtruth():
 		run_groundtruth()
 	if "glove" in args.dataset:
 		return read_data(groundtruth_path, base=False)
+	elif "deep1b" in args.dataset or "sift1b" in args.dataset:
+		return np.load(groundtruth_path)
 	else:
 		return ivecs_read(groundtruth_path)
 
@@ -765,6 +778,8 @@ def get_queries():
 		return bvecs_read(dataset_basedir+'bigann_query.bvecs')
 	elif "glove" in args.dataset:
 		return np.array(h5py.File(dataset_basedir+"glove-100-angular.hdf5", "r")['test'], dtype='float32')
+	elif "deep1b" in args.dataset:
+		return mmap_fvecs(dataset_basedir + 'deep1B_queries.fvecs')
 	else:
 		assert False
 
@@ -822,7 +837,17 @@ elif "glove" in args.dataset:
 	D=100
 	num_iter = 10
 	qN = 10000
-
+elif "deep1b" in args.dataset:
+	dataset_basedir = basedir + "DEEP1B/"
+	split_dataset_path = dataset_basedir+"split_data/deep1b_"
+	if args.split==False:
+		groundtruth_path = dataset_basedir + "deep1b_"+args.metric+"_gt"
+	N=1000000000
+	D=96
+	num_iter = 16
+	qN = 10000
+	
+os.makedirs(dataset_basedir+"split_data/", exist_ok=True)
 
 # main
 if args.split:
