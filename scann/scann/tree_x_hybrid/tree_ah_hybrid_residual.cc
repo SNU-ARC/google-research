@@ -620,9 +620,9 @@ Status TreeAHHybridResidual::FindNeighborsInternal1(
           leaf_searchers_[token]->FindNeighborsNoSortNoExactReorder(
               query, leaf_params, &unused_leaf_results)); // [YJ] returns noting to unused_leaf_results, instead to top_n
     }
+    AssignResults(&top_n, result);
     std::cout << "[YJ][CANDIDATE] final datapoints_by_token_: " << test_sum << std::endl;
     std::cout << "[YJ][CANDIDATE] final result size: " << result->size() << std::endl;
-    AssignResults(&top_n, result);
 
     const uint32_t local_idx_mask = (1u << global_topn_shift_) - 1;
     for (pair<DatapointIndex, float>& idx_dis : *result) {

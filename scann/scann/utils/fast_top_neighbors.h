@@ -115,7 +115,7 @@ class FastTopNeighbors {
     ConstSpan<DistT> dists;
     std::tie(idxs, dists) = FinishUnsorted();
     DCHECK_EQ(idxs.size(), dists.size());
-
+    std::cout << "[YJ][CANDIDATE] result->size() " << results->size() << std::endl;
     results->resize(idxs.size());
     auto* rr = results->data();
     for (size_t j : Seq(idxs.size())) {
