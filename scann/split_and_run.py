@@ -408,14 +408,16 @@ def run_scann():
 				n = list()
 				d = list()
 				for idx in range(len(sc_list)):
+					# if idx < len(sc_list)-2:
+					# 	continue
 					leaves_to_search, reorder = search_config[sc_list[idx]]
 					assert D%dims == 0
 
 					if args.reorder!=-1:
 						assert args.topk <= reorder
-					else:
-						if args.sweep:
-							assert False, "Do you want reordering or not?"
+					# else:
+					# 	if args.sweep:
+					# 		assert False, "Do you want reordering or not?"
 
 					print(str(num_leaves)+"\t"+str(threshold)+"\t"+str(int(D/dims))+"\t|\t"+str(leaves_to_search)+"\t"+str(reorder)+"\t"+str(metric)+"\n")
 					if args.batch > 1:
@@ -743,7 +745,7 @@ def get_groundtruth():
 		run_groundtruth()
 	if "glove" in args.dataset:
 		return read_data(groundtruth_path, base=False)
-	elif "deep1b" in args.dataset:
+	elif "deep1b" in args.dataset or "sift1b" in args.dataset:
 		return np.load(groundtruth_path)
 	else:
 		return ivecs_read(groundtruth_path)
