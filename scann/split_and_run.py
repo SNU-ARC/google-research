@@ -318,7 +318,7 @@ def check_available_search_config(program, bc, search_config):
 def run_scann():
 	gt, queries = prepare_eval()
 	if args.sweep:
-		if "sift1b" in args.dataset:
+		if "sift1b" in args.dataset or "deep1b" in args.dataset:
 			# For sift 1b
 			build_config = [[7000, 0.55, 2, args.metric], [7000, 0.2, 4, args.metric], [7000, 0.2, 2, args.metric], [7000, 0.2, 1, args.metric], \
 							[8000, 0.55, 2, args.metric], [8000, 0.2, 4, args.metric], [8000, 0.2, 2, args.metric], [8000, 0.2, 1, args.metric], \
