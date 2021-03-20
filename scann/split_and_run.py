@@ -288,7 +288,7 @@ def print_recall(final_neighbors, gt):
 	return top1, top10, top100, top1000
 
 def get_searcher_path(split):
-	searcher_dir = basedir + args.program + ("GPU_" if args.is_gpu else "_") + 'searcher_' + args.metric + '/' + args.dataset + '/Split_' + str(args.num_split) + '/'
+	searcher_dir = basedir + args.program + '_searcher_' + args.metric + '/' + args.dataset + '/Split_' + str(args.num_split) + '/'
 	searcher_path = searcher_dir + args.dataset + '_searcher_' + str(args.num_split)+'_'+str(split)
 	return searcher_dir, searcher_path
 
