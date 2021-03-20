@@ -169,6 +169,7 @@ def write_split_data(split_data_path, split_data):
 		hf = h5py.File(split_data_path, 'w')
 		hf.create_dataset('dataset', data=split_data)
 	print("Wrote to ", split_data_path, ", shape ", split_data.shape)
+	print("arcm::write_split_data done\n");
 
 def write_gt_data(gt_data):
 	if "sift1b" in args.dataset or "sift1m" in args.dataset or "gist" in args.dataset or "deep1b" in args.dataset:
@@ -177,6 +178,7 @@ def write_gt_data(gt_data):
 		hf = h5py.File(groundtruth_path, 'w')
 		hf.create_dataset('dataset', data=gt_data)
 	print("Wrote to ", groundtruth_path, ", shape ", gt_data.shape)
+	print("arcm::write_gt_data done\n");
 
 def split(filename, num_iter, N, D):
 	num_per_split = int(N/args.num_split)
@@ -217,6 +219,7 @@ def split(filename, num_iter, N, D):
 				split = split+1
 			count = count+1
 	print("num_split_lists: ", num_split_list)
+	print("arcm::split done\n");
 
 def run_groundtruth():
 	print("Making groudtruth file")
@@ -455,6 +458,7 @@ def run_scann():
 				print(str(num_leaves)+"\t"+str(threshold)+"\t"+str(int(D/dims))+"\t|\t"+str(leaves_to_search)+"\t"+str(reorder)+"\t"+str(metric)+"\n")
 				top1, top10, top100, top1000 = print_recall(final_neighbors[idx], gt)
 				print("Top ", args.topk, " Total latency (ms): ", total_latency[idx])
+				print("arcm::Latency written. End of File.\n");
 				if args.sweep:
 					f.write(str(top1)+" %\t"+str(top10)+" %\t"+str(top100)+" %\t"+str(top1000)+" %\t"+str(total_latency[idx])+"\n")
 	if args.sweep:
@@ -603,6 +607,7 @@ def run_faiss(D):
 
 				top1, top10, top100, top1000 = print_recall(final_neighbors[idx], gt)
 				print("Top ", args.topk, " Total latency (ms): ", total_latency[idx])
+				print("arcm::Latency written. End of File.\n");
 				if args.sweep:
 					f.write(str(top1)+" %\t"+str(top10)+" %\t"+str(top100)+" %\t"+str(top1000)+" %\t"+str(total_latency[idx])+"\n")
 
@@ -705,6 +710,7 @@ def run_annoy(D):
 		for idx in range(len(search_config)):
 			top1, top10, top100, top1000 = print_recall(final_neighbors[idx], gt)
 			print("Top ", args.topk, " Total latency (ms): ", total_latency[idx])
+			print("arcm::Latency written. End of File.\n");
 			if args.sweep:
 				f.write(str(n_trees)+"\t|\t"+str(search_config[idx])+"\t-1\t"+str(annoy_metric)+"\n")
 				f.write(str(top1)+" %\t"+str(top10)+" %\t"+str(top100)+" %\t"+str(top1000)+" %\t"+str(total_latency[idx])+"\n")
