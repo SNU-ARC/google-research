@@ -760,7 +760,7 @@ def get_groundtruth():
 		run_groundtruth()
 	if "glove" in args.dataset:
 		return read_data(groundtruth_path, base=False)
-	elif "deep1b" in args.dataset or "sift1b" in args.dataset:
+	elif "deep1b" in args.dataset or ("sift1b" in args.dataset and args.metric != "squared_l2"):
 		return np.load(groundtruth_path)
 	else:
 		return ivecs_read(groundtruth_path)
