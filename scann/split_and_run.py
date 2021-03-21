@@ -543,7 +543,10 @@ def run_faiss(D):
 		f.write("Program: " + args.program + ("GPU" if args.is_gpu else "") + " Topk: " + str(args.topk) + " Num_split: " + str(args.num_split)+ " Batch: "+str(args.batch)+"\n")
 		f.write("L\tm\tk_star\t|\tw\tReorder\tMetric\n")
 	else:
-		assert D% args.m == 0
+		if args.opq != -1:
+			assert args.opq % args.m == 0
+		else:
+			assert D% args.m == 0
 		build_config = [[args.L, args.m, int(math.log(args.k_star,2)), args.metric]]
 		search_config = [[args.w, args.reorder]]
 	for bc in build_config:
