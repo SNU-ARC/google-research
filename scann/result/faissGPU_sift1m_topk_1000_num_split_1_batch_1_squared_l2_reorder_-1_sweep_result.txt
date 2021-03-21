@@ -1,2 +1,0 @@
-Program: faissGPU Topk: 1000 Num_split: 1 Batch: 1
-L	m	k_star	|	w	Metric
