@@ -267,7 +267,8 @@ def build_faiss(args, cacheroot, split, D, index_key, train, base, query_):
     query = query_
     # set default arguments
     usePrecomputed = False
-    useFloat16 = True if args.m >= 56 else False
+    # useFloat16 = True if args.m >= 56 else False
+    useFloat16 = True
     print("usefloat16? ", useFloat16)
     replicas = 1
     addBatchSize = 32768

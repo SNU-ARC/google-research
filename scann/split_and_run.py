@@ -141,7 +141,7 @@ def read_data(dataset_path, offset_=None, shape_=None, base=True):
 		file = dataset_path+"bigann_base.bvecs" if base else dataset_path
 		return bvecs_mmap(file, offset_=offset_, shape_=shape_)
 	elif "deep1b" in args.dataset:
-		file = dataset_path+"base" if base else dataset_path
+		file = dataset_path+"deep1B_base.fvecs" if base else dataset_path
 		return mmap_fvecs(file, offset_=offset_, shape_=shape_)
 	elif "glove" in args.dataset:
 		file = dataset_path+"glove-100-angular.hdf5" if base else dataset_path
