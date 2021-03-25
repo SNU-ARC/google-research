@@ -399,8 +399,8 @@ def run_scann():
 					# Create ScaNN searcher
 					print("Entering ScaNN builder, will be created to ", searcher_path)
 					dataset = read_data(split_dataset_path + str(args.num_split) + "_" + str(split) if args.num_split>1 else dataset_basedir, base=False if args.num_split>1 else True, offset_=None if args.num_split>1 else 0, shape_=None)
-					print(dataset[111])
-					exit(1)
+					# print(dataset[111])
+					# exit(1)
 					if args.reorder!=-1:
 						searcher = scann.scann_ops_pybind.builder(dataset, 10, metric).tree(
 							num_leaves=num_leaves, num_leaves_to_search=num_leaves, training_sample_size=args.coarse_training_size).score_ah(
