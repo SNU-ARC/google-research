@@ -270,14 +270,20 @@ def sort_neighbors(distances, neighbors):
 
 def prepare_eval():
 	gt = get_groundtruth()
+	# gt = np.load("/home/arcuser/hyunji/ss_faiss/benchs/sift1b_squared_l2_gt.npy")
+	# gt = np.load("/home/arcuser/hyunji/ss_faiss/benchs/sift1m_squared_l2_gt.npy")
 	queries = get_queries()
-	print("gt shape: ", gt.shape)
+	# print("gt shape: ", gt.shape)
+	# print("gt: ", gt[0])
 	assert gt.shape[1] == 1000
 	return gt, queries
 
 def print_recall(final_neighbors, gt):
 	print("final_neighbors :", final_neighbors.shape)
 	print("gt :", gt.shape)
+	# print("final_neighbors :", final_neighbors[44])
+	# print("gt :", gt[44])
+
 	top1 = compute_recall(final_neighbors[:,:1], gt[:, :1])
 	top10 = compute_recall(final_neighbors[:,:10], gt[:, :10])
 	top100 = compute_recall(final_neighbors[:,:100], gt[:, :100])
@@ -393,6 +399,8 @@ def run_scann():
 					# Create ScaNN searcher
 					print("Entering ScaNN builder, will be created to ", searcher_path)
 					dataset = read_data(split_dataset_path + str(args.num_split) + "_" + str(split) if args.num_split>1 else dataset_basedir, base=False if args.num_split>1 else True, offset_=None if args.num_split>1 else 0, shape_=None)
+					print(dataset[111])
+					exit(1)
 					if args.reorder!=-1:
 						searcher = scann.scann_ops_pybind.builder(dataset, 10, metric).tree(
 							num_leaves=num_leaves, num_leaves_to_search=num_leaves, training_sample_size=args.coarse_training_size).score_ah(
@@ -745,7 +753,7 @@ def get_groundtruth():
 		run_groundtruth()
 	if "glove" in args.dataset:
 		return read_data(groundtruth_path, base=False)
-	elif "deep1b" in args.dataset or "sift1b" in args.dataset:
+	elif "deep1b" in args.dataset or ("sift1b" in args.dataset and args.metric == "dot_product"):
 		return np.load(groundtruth_path)
 	else:
 		return ivecs_read(groundtruth_path)

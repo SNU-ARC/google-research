@@ -267,7 +267,8 @@ def build_faiss(args, cacheroot, split, D, index_key, train, base, query_):
     query = query_
     # set default arguments
     usePrecomputed = False
-    useFloat16 = True if args.m >= 56 else False
+    # useFloat16 = True if args.m >= 56 else False
+    useFloat16 = True
     print("usefloat16? ", useFloat16)
     replicas = 1
     addBatchSize = 32768
@@ -288,8 +289,8 @@ def build_faiss(args, cacheroot, split, D, index_key, train, base, query_):
 
     print("cachefiles:")
     if preproc_str:
-        preproc_cachefile = '%spreproc_%s_%s.vectrans' % (
-            cacheroot, dbname, preproc_str[:-1])
+        preproc_cachefile = '%s%s_preproc_%s_%s_%s_%s.vectrans' % (
+            cacheroot, args.metric, dbname, split, args.num_split, preproc_str[:-1])
         print(preproc_cachefile)
     else:
         preproc_str = ''
