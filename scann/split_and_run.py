@@ -30,6 +30,7 @@ parser.add_argument('--reorder', type=int, default=-1, help='reorder size')
 parser.add_argument('--k_star', type=int, default=-1, help='# of a single finegrained codewords')
 parser.add_argument('--is_gpu', action='store_true')
 parser.add_argument('--opq', type=int, default=-1, help='new desired dimension after applying OPQ')
+parser.add_argument('--sq', type=int, default=-1, help='desired amount of bits per component after SQ')
 
 ## Annoy parameters
 parser.add_argument('--n_trees', type=int, default=-1, help='# of trees')
@@ -519,7 +520,7 @@ def run_faiss(D):
 	if args.sweep:
 		if args.is_gpu:
 			log2kstar_ = 8
-			if "sift1b" in args.dataset or "deep1b" in args.dataset:			
+			if "sift1b" in args.dataset or "deep1b" in args.dataset:
 				build_config = [[7000, int(D/2), log2kstar_, args.metric], [7000, int(D/4), log2kstar_, args.metric], [7000, int(D/8), log2kstar_, args.metric], [7000, int(D/32), log2kstar_, args.metric], \
 								[8000, int(D/2), log2kstar_, args.metric], [8000, int(D/4), log2kstar_, args.metric], [8000, int(D/8), log2kstar_, args.metric], [8000, int(D/32), log2kstar_, args.metric], \
 								[6000, int(D/2), log2kstar_, args.metric], [6000, int(D/4), log2kstar_, args.metric], [6000, int(D/8), log2kstar_, args.metric], [6000, int(D/32), log2kstar_, args.metric]]
@@ -563,6 +564,8 @@ def run_faiss(D):
 	else:
 		if args.opq != -1:
 			assert args.opq % args.m == 0
+		elif args.sq != -1:
+			assert args.sq == 4 or args.sq == 6 or args.sq == 8 or args.sq == 16
 		else:
 			assert D% args.m == 0
 		build_config = [[args.L, args.m, int(math.log(args.k_star,2)), args.metric]]
@@ -588,14 +591,16 @@ def run_faiss(D):
 				padded_D, faiss_m, padded_dataset, padded_train_dataset, padded_queries = faiss_pad_dataset(dataset, train_dataset, queries, m)
 				# local_neighbors, local_distances, total_latency = run_local_faiss(args, searcher_dir, split, padded_D, "IVF"+str(L)+",PQ"+str(faiss_m)+"x"+str(log2kstar), padded_train_dataset, padded_dataset, padded_queries)
 				args.m = faiss_m
+				index_key_manual = None
 				# index_key = OPQ\M_\D,IVF\K,PQ\Mx4fsr # arcm::if memory is quite important # D is different from above
 				# index_key = OPQ\M_\D,IVF\K,PQ\M # arcm::if memory is very important # D is different from above
-				#index_key = "OPQ16_64,IVF4096,PQ16"
-				index_key_manual = None
-				if args.opq == -1:
-					index_key_manual = "IVF"+str(L)+",PQ"+str(faiss_m)+"x"+str(log2kstar)
-				else:
+				# index_key = "OPQ16_64,IVF4096,PQ16"
+				if args.opq != -1:
 					index_key_manual = "OPQ"+str(faiss_m)+"_"+str(args.opq)+",IVF"+str(L)+",PQ"+str(faiss_m)+"x"+str(log2kstar)
+				elif args.sq != -1:
+					index_key_manual = "IVF"+str(L)+",SQ"+str(args.sq)
+				else:
+					index_key_manual = "IVF"+str(L)+",PQ"+str(faiss_m)+"x"+str(log2kstar)
 				index, preproc = build_faiss(args, searcher_dir, split, padded_D, index_key_manual, padded_train_dataset, padded_dataset, padded_queries)
 
 				n = list()
@@ -867,7 +872,7 @@ elif "deep1b" in args.dataset:
 	D=96
 	num_iter = 16
 	qN = 10000
-	
+
 os.makedirs(dataset_basedir+"split_data/", exist_ok=True)
 
 # main
