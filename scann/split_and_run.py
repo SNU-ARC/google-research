@@ -30,6 +30,7 @@ parser.add_argument('--reorder', type=int, default=-1, help='reorder size')
 parser.add_argument('--k_star', type=int, default=-1, help='# of a single finegrained codewords')
 parser.add_argument('--is_gpu', action='store_true')
 parser.add_argument('--opq', type=int, default=-1, help='new desired dimension after applying OPQ')
+parser.add_argument('--sq', type=int, default=-1, help='desired amount of bits per component after SQ')
 
 ## Annoy parameters
 parser.add_argument('--n_trees', type=int, default=-1, help='# of trees')
@@ -65,7 +66,7 @@ elif args.program == "faiss":
 	#if os.environ.get('LD_PRELOAD') == None:
 	#	assert False, "Please set LD_PRELOAD environment path and retry"
 	# export LD_PRELOAD=/opt/intel/mkl/lib/intel64/libmkl_def.so:/opt/intel/mkl/lib/intel64/libmkl_avx2.so:/opt/intel/mkl/lib/intel64/libmkl_core.so:/opt/intel/mkl/lib/intel64/libmkl_intel_lp64.so:/opt/intel/mkl/lib/intel64/libmkl_intel_thread.so:/opt/intel/lib/intel64_lin/libiomp5.so
-	from runfaiss import build_faiss, faiss_search
+	from runfaiss import build_faiss, faiss_search, check_cached
 	import math
 	if args.sweep == False:
 		assert args.L!=-1 and args.k_star!=-1 and args.w!=-1 and args.m!=-1
@@ -141,7 +142,7 @@ def read_data(dataset_path, offset_=None, shape_=None, base=True):
 		file = dataset_path+"bigann_base.bvecs" if base else dataset_path
 		return bvecs_mmap(file, offset_=offset_, shape_=shape_)
 	elif "deep1b" in args.dataset:
-		file = dataset_path+"base" if base else dataset_path
+		file = dataset_path+"deep1B_base.fvecs" if base else dataset_path
 		return mmap_fvecs(file, offset_=offset_, shape_=shape_)
 	elif "glove" in args.dataset:
 		file = dataset_path+"glove-100-angular.hdf5" if base else dataset_path
@@ -270,14 +271,20 @@ def sort_neighbors(distances, neighbors):
 
 def prepare_eval():
 	gt = get_groundtruth()
+	# gt = np.load("/home/arcuser/hyunji/ss_faiss/benchs/sift1b_squared_l2_gt.npy")
+	# gt = np.load("/home/arcuser/hyunji/ss_faiss/benchs/sift1m_squared_l2_gt.npy")
 	queries = get_queries()
-	print("gt shape: ", gt.shape)
+	# print("gt shape: ", gt.shape)
+	# print("gt: ", gt[0])
 	assert gt.shape[1] == 1000
 	return gt, queries
 
 def print_recall(final_neighbors, gt):
 	print("final_neighbors :", final_neighbors.shape)
 	print("gt :", gt.shape)
+	# print("final_neighbors :", final_neighbors[44])
+	# print("gt :", gt[44])
+
 	top1 = compute_recall(final_neighbors[:,:1], gt[:, :1])
 	top10 = compute_recall(final_neighbors[:,:10], gt[:, :10])
 	top100 = compute_recall(final_neighbors[:,:100], gt[:, :100])
@@ -309,7 +316,7 @@ def check_available_search_config(program, bc, search_config):
 		L, m, log2kstar, metric = bc
 		for idx, sc in enumerate(search_config):
 			nprobe, args.reorder = sc[0], sc[1]
-			if nprobe > L or (nprobe > 2048 and args.is_gpu) or (D%m!=0 and args.sweep==True) or (m > 96 and args.is_gpu) or (not args.is_gpu and log2kstar>8) or (args.is_gpu and log2kstar != 8) or (metric == 'dot_product' and (log2kstar**m < N)):
+			if nprobe > L or (nprobe > 2048 and args.is_gpu) or (D%m!=0 and args.sweep==True) or (m > 96 and args.is_gpu) or (not args.is_gpu and log2kstar>8) or (args.is_gpu and log2kstar != 8) or (metric == 'dot_product' and (log2kstar**m < N)) or (args.opq != -1 and args.opq%m != 0):
 				continue
 			else:
 				sc_list.append(idx)
@@ -467,10 +474,21 @@ def run_scann():
 		f.close()
 
 
-def faiss_pad_dataset(dataset, train_dataset, queries, m):
-	D = dataset.shape[1]
-	if (args.is_gpu and (m==1 or m==2 or m==3 or m==4 or m==8 or m==12 or m==16 or m==20 or m==24 or m==28 or m==32 or m==40 or m==48 or m==56 or m==64 or m==96)) or (not args.is_gpu):
-		return D, m, dataset, train_dataset, queries
+def faiss_pad_dataset(padded_D, dataset, train_dataset):
+	plus_dim = padded_D-D
+	dataset=np.concatenate((dataset, np.full((dataset.shape[0], plus_dim), 0, dtype='float32')), axis=-1)
+	train_dataset=np.concatenate((train_dataset, np.full((train_dataset.shape[0], plus_dim), 0)), axis=-1)
+	print("Dataset dimension is padded from ", D, " to ", dataset.shape[1])
+	return dataset, train_dataset, queries
+
+def faiss_pad_queries(padded_D, queries):
+	plus_dim = padded_D-D
+	queries=np.concatenate((queries, np.full((queries.shape[0], plus_dim), 0)), axis=-1)
+	return queries
+
+def get_padded_info(m):
+	if (args.is_gpu and (m==1 or m==2 or m==3 or m==4 or m==8 or m==12 or m==16 or m==20 or m==24 or m==28 or m==32 or m==40 or m==48 or m==56 or m==64 or m==96)) or (not args.is_gpu) or (args.opq != -1):
+		return D, m, False
 	else:
 		dim_per_block = int(D/m)
 		if m<8:		# 4<m<8
@@ -500,24 +518,32 @@ def faiss_pad_dataset(dataset, train_dataset, queries, m):
 		else:
 			assert False, "somethings wrong.."
 		padded_D = dim_per_block * faiss_m
-		plus_dim = padded_D-D
-		dataset=np.concatenate((dataset, np.full((dataset.shape[0], plus_dim), 0, dtype='float32')), axis=-1)
-		train_dataset=np.concatenate((train_dataset, np.full((train_dataset.shape[0], plus_dim), 0)), axis=-1)
-		queries=np.concatenate((queries, np.full((queries.shape[0], plus_dim), 0)), axis=-1)
-		print("Dataset dimension is padded from ", D, " to ", dataset.shape[1])
 
-		return padded_D, faiss_m, dataset, train_dataset, queries
+		return padded_D, faiss_m, True
+
 
 def run_faiss(D):
 	gt, queries = prepare_eval()
 	if args.sweep:
 		if args.is_gpu:
 			log2kstar_ = 8
-			build_config = [[800, int(D/64), log2kstar_, args.metric], [800, int(D/50), log2kstar_, args.metric], [800, int(D/32), log2kstar_, args.metric], [800, int(D/25), log2kstar_, args.metric], [800, int(D/16), log2kstar_, args.metric], [800, int(D/10), log2kstar_, args.metric], [800, int(D/8), log2kstar_, args.metric], [800, int(D/5), log2kstar_, args.metric], [800, int(D/4), log2kstar_, args.metric], [800, int(D/3), log2kstar_, args.metric], [800, int(D/2), log2kstar_, args.metric], [800, D, log2kstar_, args.metric], \
-							[1000, int(D/64), log2kstar_, args.metric], [1000, int(D/50), log2kstar_, args.metric], [1000, int(D/32), log2kstar_, args.metric], [1000, int(D/25), log2kstar_, args.metric], [1000, int(D/16), log2kstar_, args.metric], [1000, int(D/10), log2kstar_, args.metric], [1000, int(D/8), log2kstar_, args.metric], [1000, int(D/5), log2kstar_, args.metric], [1000, int(D/4), log2kstar_, args.metric], [1000, int(D/3), log2kstar_, args.metric], [1000, int(D/2), log2kstar_, args.metric], [1000, D, log2kstar_, args.metric], \
-							[1500, int(D/64), log2kstar_, args.metric], [1500, int(D/50), log2kstar_, args.metric], [1500, int(D/32), log2kstar_, args.metric], [1500, int(D/25), log2kstar_, args.metric], [1500, int(D/16), log2kstar_, args.metric], [1500, int(D/10), log2kstar_, args.metric], [1500, int(D/8), log2kstar_, args.metric], [1500, int(D/5), log2kstar_, args.metric], [1500, int(D/4), log2kstar_, args.metric], [1500, int(D/3), log2kstar_, args.metric], [1500, int(D/2), log2kstar_, args.metric], [1500, D, log2kstar_, args.metric], \
-							[2000, int(D/64), log2kstar_, args.metric], [2000, int(D/50), log2kstar_, args.metric], [2000, int(D/32), log2kstar_, args.metric], [2000, int(D/25), log2kstar_, args.metric], [2000, int(D/16), log2kstar_, args.metric], [2000, int(D/10), log2kstar_, args.metric], [2000, int(D/8), log2kstar_, args.metric], [2000, int(D/5), log2kstar_, args.metric], [2000, int(D/4), log2kstar_, args.metric], [2000, int(D/3), log2kstar_, args.metric], [2000, int(D/2), log2kstar_, args.metric], [2000, D, log2kstar_, args.metric], \
-							[4000, int(D/64), log2kstar_, args.metric], [4000, int(D/50), log2kstar_, args.metric], [4000, int(D/32), log2kstar_, args.metric], [4000, int(D/25), log2kstar_, args.metric], [4000, int(D/16), log2kstar_, args.metric], [4000, int(D/10), log2kstar_, args.metric], [4000, int(D/8), log2kstar_, args.metric], [4000, int(D/5), log2kstar_, args.metric], [4000, int(D/4), log2kstar_, args.metric], [4000, int(D/3), log2kstar_, args.metric], [4000, int(D/2), log2kstar_, args.metric], [4000, D, log2kstar_, args.metric]]
+			if "sift1b" in args.dataset or "deep1b" in args.dataset:
+				build_config = [[7000, int(D/2), log2kstar_, args.metric], [7000, int(D/4), log2kstar_, args.metric], [7000, int(D/8), log2kstar_, args.metric], [7000, int(D/32), log2kstar_, args.metric], \
+								[8000, int(D/2), log2kstar_, args.metric], [8000, int(D/4), log2kstar_, args.metric], [8000, int(D/8), log2kstar_, args.metric], [8000, int(D/32), log2kstar_, args.metric], \
+								[6000, int(D/2), log2kstar_, args.metric], [6000, int(D/4), log2kstar_, args.metric], [6000, int(D/8), log2kstar_, args.metric], [6000, int(D/32), log2kstar_, args.metric]]
+			else:
+				build_config = [[800, int(D/64), log2kstar_, args.metric], [800, int(D/50), log2kstar_, args.metric], [800, int(D/32), log2kstar_, args.metric], [800, int(D/25), log2kstar_, args.metric], [800, int(D/16), log2kstar_, args.metric], [800, int(D/10), log2kstar_, args.metric], [800, int(D/8), log2kstar_, args.metric], [800, int(D/5), log2kstar_, args.metric], [800, int(D/4), log2kstar_, args.metric], [800, int(D/3), log2kstar_, args.metric], [800, int(D/2), log2kstar_, args.metric], [800, D, log2kstar_, args.metric], \
+								[1000, int(D/64), log2kstar_, args.metric], [1000, int(D/50), log2kstar_, args.metric], [1000, int(D/32), log2kstar_, args.metric], [1000, int(D/25), log2kstar_, args.metric], [1000, int(D/16), log2kstar_, args.metric], [1000, int(D/10), log2kstar_, args.metric], [1000, int(D/8), log2kstar_, args.metric], [1000, int(D/5), log2kstar_, args.metric], [1000, int(D/4), log2kstar_, args.metric], [1000, int(D/3), log2kstar_, args.metric], [1000, int(D/2), log2kstar_, args.metric], [1000, D, log2kstar_, args.metric], \
+								[1500, int(D/64), log2kstar_, args.metric], [1500, int(D/50), log2kstar_, args.metric], [1500, int(D/32), log2kstar_, args.metric], [1500, int(D/25), log2kstar_, args.metric], [1500, int(D/16), log2kstar_, args.metric], [1500, int(D/10), log2kstar_, args.metric], [1500, int(D/8), log2kstar_, args.metric], [1500, int(D/5), log2kstar_, args.metric], [1500, int(D/4), log2kstar_, args.metric], [1500, int(D/3), log2kstar_, args.metric], [1500, int(D/2), log2kstar_, args.metric], [1500, D, log2kstar_, args.metric], \
+								[2000, int(D/64), log2kstar_, args.metric], [2000, int(D/50), log2kstar_, args.metric], [2000, int(D/32), log2kstar_, args.metric], [2000, int(D/25), log2kstar_, args.metric], [2000, int(D/16), log2kstar_, args.metric], [2000, int(D/10), log2kstar_, args.metric], [2000, int(D/8), log2kstar_, args.metric], [2000, int(D/5), log2kstar_, args.metric], [2000, int(D/4), log2kstar_, args.metric], [2000, int(D/3), log2kstar_, args.metric], [2000, int(D/2), log2kstar_, args.metric], [2000, D, log2kstar_, args.metric], \
+								[4000, int(D/64), log2kstar_, args.metric], [4000, int(D/50), log2kstar_, args.metric], [4000, int(D/32), log2kstar_, args.metric], [4000, int(D/25), log2kstar_, args.metric], [4000, int(D/16), log2kstar_, args.metric], [4000, int(D/10), log2kstar_, args.metric], [4000, int(D/8), log2kstar_, args.metric], [4000, int(D/5), log2kstar_, args.metric], [4000, int(D/4), log2kstar_, args.metric], [4000, int(D/3), log2kstar_, args.metric], [4000, int(D/2), log2kstar_, args.metric], [4000, D, log2kstar_, args.metric]]
+
+			search_config = [[1, args.reorder], [16, args.reorder], [32, args.reorder], [64, args.reorder], [128, args.reorder], \
+							 [256, args.reorder], [320, args.reorder], [384, args.reorder], [448, args.reorder], [512, args.reorder], [576, args.reorder], [640, args.reorder], [704, args.reorder], [768, args.reorder], \
+							 [1024, args.reorder], [1280, args.reorder], [1536, args.reorder], [2048, args.reorder], [2560, args.reorder], [3072, args.reorder], [4096, args.reorder], [4608, args.reorder], \
+							 [5120, args.reorder], [5632, args.reorder], [6144, args.reorder], [6656, args.reorder], [7168, args.reorder], [7680, args.reorder], \
+							 [8192, args.reorder], [16384, args.reorder]]
+
 
 		else:
 			if "gist" in args.dataset:
@@ -543,7 +569,12 @@ def run_faiss(D):
 		f.write("Program: " + args.program + ("GPU" if args.is_gpu else "") + " Topk: " + str(args.topk) + " Num_split: " + str(args.num_split)+ " Batch: "+str(args.batch)+"\n")
 		f.write("L\tm\tk_star\t|\tw\tReorder\tMetric\n")
 	else:
-		assert D% args.m == 0
+		if args.opq != -1:
+			assert args.opq % args.m == 0
+		elif args.sq != -1:
+			assert args.sq == 4 or args.sq == 6 or args.sq == 8 or args.sq == 16
+		else:
+			assert D% args.m == 0
 		build_config = [[args.L, args.m, int(math.log(args.k_star,2)), args.metric]]
 		search_config = [[args.w, args.reorder]]
 	for bc in build_config:
@@ -562,20 +593,30 @@ def run_faiss(D):
 				searcher_dir, searcher_path = get_searcher_path(split)
 				args.batch = min(args.batch, queries.shape[0])
 				# Load splitted dataset
-				train_dataset = get_train(split, args.num_split)
-				dataset = read_data(split_dataset_path + str(args.num_split) + "_" + str(split) if args.num_split>1 else dataset_basedir, base=False if args.num_split>1 else True, offset_=None if args.num_split>1 else 0, shape_=None)
-				padded_D, faiss_m, padded_dataset, padded_train_dataset, padded_queries = faiss_pad_dataset(dataset, train_dataset, queries, m)
-				# local_neighbors, local_distances, total_latency = run_local_faiss(args, searcher_dir, split, padded_D, "IVF"+str(L)+",PQ"+str(faiss_m)+"x"+str(log2kstar), padded_train_dataset, padded_dataset, padded_queries)
-				args.m = faiss_m
-				# index_key = OPQ\M_\D,IVF\K,PQ\Mx4fsr # arcm::if memory is quite important # D is different from above
-				# index_key = OPQ\M_\D,IVF\K,PQ\M # arcm::if memory is very important # D is different from above
-				#index_key = "OPQ16_64,IVF4096,PQ16"
-				index_key_manual = None
+				padded_D, faiss_m, is_padding = get_padded_info(m)
+				if is_padding:
+					padded_queries = faiss_pad_dataset(padded_D, queries)
+				else:
+					padded_queries = queries
+
 				if args.opq == -1:
 					index_key_manual = "IVF"+str(L)+",PQ"+str(faiss_m)+"x"+str(log2kstar)
 				else:
 					index_key_manual = "OPQ"+str(faiss_m)+"_"+str(args.opq)+",IVF"+str(L)+",PQ"+str(faiss_m)+"x"+str(log2kstar)
-				index, preproc = build_faiss(args, searcher_dir, split, padded_D, index_key_manual, padded_train_dataset, padded_dataset, padded_queries)
+
+				is_cached = check_cached(searcher_dir, args, args.dataset, split, index_key_manual)
+				args.m = faiss_m
+
+				if is_cached:
+					index, preproc = build_faiss(args, searcher_dir, split, N, padded_D, index_key_manual, None, None, padded_queries)
+				else:
+					train_dataset = get_train(split, args.num_split)
+					dataset = read_data(split_dataset_path + str(args.num_split) + "_" + str(split) if args.num_split>1 else dataset_basedir, base=False if args.num_split>1 else True, offset_=None if args.num_split>1 else 0, shape_=None)
+					if is_padding:
+						padded_dataset, padded_train_dataset = faiss_pad_dataset(padded_D, dataset, train_dataset)
+					else:
+						padded_dataset, padded_train_dataset = dataset, train_dataset
+					index, preproc = build_faiss(args, searcher_dir, split, N, padded_D, index_key_manual, padded_train_dataset, padded_dataset, padded_queries)
 
 				n = list()
 				d = list()
@@ -583,17 +624,12 @@ def run_faiss(D):
 					w, reorder = search_config[sc_list[idx]]
 					assert reorder == args.reorder
 					# Build Faiss index
-					# args.w = nprobe
-
-
-					# if args.sweep:
-					# 	f.write(str(L)+"\t"+str(m)+"\t"+str(2**log2kstar)+"\t|\t"+str(nprobe)+"\t"+str(args.reorder)+"\t"+str(metric)+"\n")		# faiss-gpu has no reorder
 					print(str(L)+"\t"+str(m)+"\t"+str(2**log2kstar)+"\t|\t"+str(w)+"\t"+str(reorder)+"\t"+str(metric)+"\n")		# faiss-gpu has no reorder
 					# Faiss search
 					local_neighbors, local_distances, total_latency[idx] = faiss_search(index, preproc, args, reorder, w)
 					n.append((local_neighbors+base_idx).astype(np.int32))
 					d.append(local_distances.astype(np.float32))
-
+				del index
 				base_idx = base_idx + num_per_split
 				neighbors = np.append(neighbors, np.array(n, dtype=np.int32), axis=-1)
 				distances = np.append(distances, np.array(d, dtype=np.float32), axis=-1)
@@ -745,7 +781,7 @@ def get_groundtruth():
 		run_groundtruth()
 	if "glove" in args.dataset:
 		return read_data(groundtruth_path, base=False)
-	elif "deep1b" in args.dataset or "sift1b" in args.dataset:
+	elif "deep1b" in args.dataset or ("sift1b" in args.dataset and args.metric == "dot_product"):
 		return np.load(groundtruth_path)
 	else:
 		return ivecs_read(groundtruth_path)
@@ -846,7 +882,7 @@ elif "deep1b" in args.dataset:
 	D=96
 	num_iter = 16
 	qN = 10000
-	
+
 os.makedirs(dataset_basedir+"split_data/", exist_ok=True)
 
 # main

@@ -111,12 +111,25 @@ def prepare_coarse_quantizer(preproc, cent_cachefile, ncent, is_gpu):
     return coarse_quantizer
 
 
-def prepare_trained_index(preproc, coarse_quantizer, ncent, pqflat_str):
+def prepare_trained_index(preproc, coarse_quantizer, ncent, pqflat_str, nprobe):
 
     d = preproc.d_out
     if pqflat_str == 'Flat':
         print("making an IVFFlat index")
         idx_model = faiss.IndexIVFFlat(coarse_quantizer, d, ncent, fmetric)
+    elif 'SQ' in pqflat_str:
+        print("making a SQ index")
+        quantizer = faiss.IndexFlatL2(d)
+        if fmetric == faiss.METRIC_L2:
+            quantizer = faiss.IndexFlatL2(d)
+        elif fmetric == faiss.METRIC_INNER_PRODUCT:
+            quantizer = faiss.IndexFlatIP(d)
+        name = "QT_" + str(pqflat_str.split("SQ")[1]) + "bit"
+        if pqflat_str.split("SQ")[1] == "16":
+            name = "QT_fp16"
+        qtype = getattr(faiss.ScalarQuantizer, name)
+        idx_model = faiss.IndexIVFScalarQuantizer(quantizer, d, ncent, qtype, fmetric)
+        idx_model.nprobe = nprobe
     else:
         key = pqflat_str[2:].split("x")
         assert len(key) == 2, "use format PQ(m)x(log2kstar)"
@@ -164,7 +177,7 @@ def add_vectors(index_cpu, preproc, is_gpu, addBatchSize):
         print("Aggregate indexes to CPU")
         t0 = time.time()
         if hasattr(index, 'at'):
-            
+
             # it is a sharded index
             for i in range(ngpu):
                 index_src = faiss.index_gpu_to_cpu(index.at(i))
@@ -190,7 +203,7 @@ def copyToGpu(index_cpu):
     co.usePrecomputed = usePrecomputed
     co.indicesOptions = faiss.INDICES_CPU
     co.verbose = True
-    co.reserveVecs = xb.shape[0]
+    co.reserveVecs = N
     co.shard = True
     assert co.shard_type in (0, 1, 2)
     vres, vdev = make_vres_vdev()
@@ -201,9 +214,15 @@ def copyToGpu(index_cpu):
 
 
 def process_index_key(index_key):
-    pattern = re.compile('(OPQ[0-9]+(_[0-9]+)?,|PCAR[0-9]+,)?' +
-                     '(IVF[0-9]+),' +
-                     '(PQ[0-9]+(x[0-9]+)?|Flat)')
+    pattern = None
+    if "SQ" in index_key:
+        pattern = re.compile('(OPQ[0-9]+(_[0-9]+)?,|PCAR[0-9]+,)?' +
+                         '(IVF[0-9]+),' +
+                         '(SQ[0-9]+)')
+    else:
+        pattern = re.compile('(OPQ[0-9]+(_[0-9]+)?,|PCAR[0-9]+,)?' +
+                         '(IVF[0-9]+),' +
+                         '(PQ[0-9]+(x[0-9]+)?|Flat)')
 
     matchobject = pattern.match(index_key)
     assert matchobject, 'could not parse ' + index_key
@@ -241,7 +260,7 @@ def dataset_iterator(x, preproc, bs):
     return rate_limited_imap(prepare_block, block_ranges)
 
 
-def build_faiss(args, cacheroot, split, D, index_key, train, base, query_):
+def build_faiss(args, cacheroot, split, N_, D, index_key, train, base, query_):
 
     # set global variables
     name1_to_metric = {
@@ -263,11 +282,14 @@ def build_faiss(args, cacheroot, split, D, index_key, train, base, query_):
     global usePrecomputed
     global useFloat16
     global query
+    global N
+    N = N_
 
     query = query_
     # set default arguments
     usePrecomputed = False
-    useFloat16 = True if args.m >= 56 else False
+    # useFloat16 = True if args.m >= 56 else False
+    useFloat16 = True
     print("usefloat16? ", useFloat16)
     replicas = 1
     addBatchSize = 32768
@@ -288,8 +310,8 @@ def build_faiss(args, cacheroot, split, D, index_key, train, base, query_):
 
     print("cachefiles:")
     if preproc_str:
-        preproc_cachefile = '%spreproc_%s_%s.vectrans' % (
-            cacheroot, dbname, preproc_str[:-1])
+        preproc_cachefile = '%s%s_preproc_%s_%s_%s_%s.vectrans' % (
+            cacheroot, args.metric, dbname, split, args.num_split, preproc_str[:-1])
         print(preproc_cachefile)
     else:
         preproc_str = ''
@@ -301,7 +323,7 @@ def build_faiss(args, cacheroot, split, D, index_key, train, base, query_):
 
     index_cachefile = '%s%s_%s_%s_%s_%s%s,%s.index' % (
         cacheroot, args.metric, dbname, split, args.num_split, preproc_str, ivf_str, pqflat_str)
-    print(index_cachefile)  
+    print(index_cachefile)
 
     # GPU resources
     if args.is_gpu:
@@ -310,31 +332,41 @@ def build_faiss(args, cacheroot, split, D, index_key, train, base, query_):
             res = faiss.StandardGpuResources()
             if tempmem >= 0:
                 res.setTempMemory(tempmem)
-            gpu_resources.append(res) 
+            gpu_resources.append(res)
 
     # pre-processing
     preproc = get_preprocessor(preproc_str, preproc_cachefile)
 
     # build index
     if not index_cachefile or not os.path.exists(index_cachefile):
-
         # train index
         coarse_quantizer = prepare_coarse_quantizer(preproc, cent_cachefile, ncentroid, args.is_gpu)
-        index_trained = prepare_trained_index(preproc, coarse_quantizer, ncentroid, pqflat_str)
-        index_all, index_gpu = add_vectors(index_trained, preproc, args.is_gpu, addBatchSize)
+        index_trained = prepare_trained_index(preproc, coarse_quantizer, ncentroid, pqflat_str, args.w)
+        if args.sq != -1:
+            index_all = index_trained
+            index_all.add(xb)
+        else:
+            index_all, index_gpu = add_vectors(index_trained, preproc, args.is_gpu, addBatchSize)
 
         if index_cachefile:
             print("store", index_cachefile)
             faiss.write_index(index_all, index_cachefile)
 
-        if args.is_gpu:
-            index = index_gpu
+        if args.sq == -1:
+            if args.is_gpu:
+                index = index_gpu
+            else:
+                index = index_all
         else:
-            index = index_all
+            if args.is_gpu:
+                # arcm::FIXME::handle gpu case for sq
+                index = index_all
+            else:
+                index = index_all
     else:
         print("load", index_cachefile)
         index_load = faiss.read_index(index_cachefile)
-    
+
         # move to GPU
         if args.is_gpu:
             index = copyToGpu(index_load)
@@ -342,6 +374,17 @@ def build_faiss(args, cacheroot, split, D, index_key, train, base, query_):
         else:
             index = index_load
     return index, preproc
+
+def check_cached(cacheroot, args, dbname, split, index_key):
+    preproc_str, ivf_str, pqflat_str = process_index_key(index_key)
+    index_cachefile = '%s%s_%s_%s_%s_%s%s,%s.index' % (
+        cacheroot, args.metric, dbname, split, args.num_split, preproc_str, ivf_str, pqflat_str)
+    if not index_cachefile or not os.path.exists(index_cachefile):
+        print("Cache file does not exits..")  
+        return False
+    else:
+        print("Cache file exits!")  
+        return True
 
 def faiss_search(index, preproc, args, reorder, w):
     # search environment
@@ -361,7 +404,7 @@ def faiss_search(index, preproc, args, reorder, w):
         index_ready = index_refine
     else:
         index_ready = index
-    
+
     # search
     print("Batch size: ", args.batch)
     nq = query.shape[0]
