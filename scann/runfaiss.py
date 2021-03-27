@@ -190,7 +190,7 @@ def copyToGpu(index_cpu):
     co.usePrecomputed = usePrecomputed
     co.indicesOptions = faiss.INDICES_CPU
     co.verbose = True
-    co.reserveVecs = xb.shape[0]
+    co.reserveVecs = N
     co.shard = True
     assert co.shard_type in (0, 1, 2)
     vres, vdev = make_vres_vdev()
@@ -241,7 +241,7 @@ def dataset_iterator(x, preproc, bs):
     return rate_limited_imap(prepare_block, block_ranges)
 
 
-def build_faiss(args, cacheroot, split, D, index_key, train, base, query_):
+def build_faiss(args, cacheroot, split, N_, D, index_key, train, base, query_):
 
     # set global variables
     name1_to_metric = {
@@ -263,6 +263,8 @@ def build_faiss(args, cacheroot, split, D, index_key, train, base, query_):
     global usePrecomputed
     global useFloat16
     global query
+    global N
+    N = N_
 
     query = query_
     # set default arguments
@@ -343,6 +345,17 @@ def build_faiss(args, cacheroot, split, D, index_key, train, base, query_):
         else:
             index = index_load
     return index, preproc
+
+def check_cached(cacheroot, args, dbname, split, index_key):
+    preproc_str, ivf_str, pqflat_str = process_index_key(index_key)
+    index_cachefile = '%s%s_%s_%s_%s_%s%s,%s.index' % (
+        cacheroot, args.metric, dbname, split, args.num_split, preproc_str, ivf_str, pqflat_str)
+    if not index_cachefile or not os.path.exists(index_cachefile):
+        print("Cache file does not exits..")  
+        return False
+    else:
+        print("Cache file exits!")  
+        return True
 
 def faiss_search(index, preproc, args, reorder, w):
     # search environment
