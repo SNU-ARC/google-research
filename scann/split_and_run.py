@@ -570,9 +570,9 @@ def run_faiss(D):
 		f.write("L\tm\tk_star\t|\tw\tReorder\tMetric\n")
 	else:
 		if args.opq != -1:
-			assert args.opq % args.m == 0
+			assert args.opq % args.m == 0 and args.sq == -1
 		elif args.sq != -1:
-			assert args.sq == 4 or args.sq == 6 or args.sq == 8 or args.sq == 16
+			assert (args.sq == 4 or args.sq == 6 or args.sq == 8 or args.sq == 16) and args.opq == -1
 		else:
 			assert D% args.m == 0
 		build_config = [[args.L, args.m, int(math.log(args.k_star,2)), args.metric]]
@@ -599,8 +599,10 @@ def run_faiss(D):
 				else:
 					padded_queries = queries
 
-				if args.opq == -1:
+				if args.opq == -1 and args.sq == -1:
 					index_key_manual = "IVF"+str(L)+",PQ"+str(faiss_m)+"x"+str(log2kstar)
+				elif args.sq != -1:
+ 					index_key_manual = "IVF"+str(L)+",SQ"+str(args.sq)
 				else:
 					index_key_manual = "OPQ"+str(faiss_m)+"_"+str(args.opq)+",IVF"+str(L)+",PQ"+str(faiss_m)+"x"+str(log2kstar)
 
