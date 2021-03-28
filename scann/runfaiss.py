@@ -380,10 +380,10 @@ def check_cached(cacheroot, args, dbname, split, index_key):
     index_cachefile = '%s%s_%s_%s_%s_%s%s,%s.index' % (
         cacheroot, args.metric, dbname, split, args.num_split, preproc_str, ivf_str, pqflat_str)
     if not index_cachefile or not os.path.exists(index_cachefile):
-        print("Cache file does not exits..")  
+        print("Cache file does not exist..")
         return False
     else:
-        print("Cache file exits!")  
+        print("Cache file exists!")
         return True
 
 def faiss_search(index, preproc, args, reorder, w):
