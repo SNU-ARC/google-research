@@ -78,6 +78,7 @@ elif args.program == "annoy":
 
 def compute_recall(neighbors, true_neighbors):
 	total = 0
+	print("[YJ] true_neighbors.size: ", true_neighbors.size)
 	for gt_row, row in zip(true_neighbors, neighbors):
 		total += np.intersect1d(gt_row, row).shape[0]
 	return total / true_neighbors.size
@@ -85,7 +86,7 @@ def compute_recall(neighbors, true_neighbors):
 def ivecs_read(fname):
 	a = np.fromfile(fname, dtype='int32')
 	d = a[0]
-	return a.reshape(-1, d + 1)[:, 1:].copy()
+	return a.reshape(-1, d + 1)[:, 1:]
 
 def ivecs_write(fname, m):
 	n, d = m.shape
@@ -113,7 +114,7 @@ def bvecs_write(fname, m):
 def bvecs_read(fname):
 	b = np.fromfile(fname, dtype=np.uint8)
 	d = b[:4].view('int32')[0]
-	return b.reshape(-1, d+4)[:, 4:].copy()
+	return b.reshape(-1, d+4)[:, 4:]
 
 def mmap_fvecs(fname, offset_=None, shape_=None):
 	if offset_!=None and shape_!=None:
@@ -121,7 +122,7 @@ def mmap_fvecs(fname, offset_=None, shape_=None):
 	else:
 		x = np.memmap(fname, dtype='int32', mode='r')
 	d = x[0]
-	return x.reshape(-1, d + 1)[:, 1:].copy().view('float32')
+	return x.reshape(-1, d + 1)[:, 1:].view('float32')
 
 def fvecs_write(fname, m):
 	m = m.astype('float32')
@@ -274,7 +275,7 @@ def prepare_eval():
 	# gt = np.load("/home/arcuser/hyunji/ss_faiss/benchs/sift1b_squared_l2_gt.npy")
 	# gt = np.load("/home/arcuser/hyunji/ss_faiss/benchs/sift1m_squared_l2_gt.npy")
 	queries = get_queries()
-	# print("gt shape: ", gt.shape)
+	print("gt shape: ", gt.shape)
 	# print("gt: ", gt[0])
 	assert gt.shape[1] == 1000
 	return gt, queries
@@ -610,12 +611,15 @@ def run_faiss(D):
 				if is_cached:
 					index, preproc = build_faiss(args, searcher_dir, split, N, padded_D, index_key_manual, None, None, padded_queries)
 				else:
+					print("[YJ] get train")
 					train_dataset = get_train(split, args.num_split)
+					print("[YJ] read data")
 					dataset = read_data(split_dataset_path + str(args.num_split) + "_" + str(split) if args.num_split>1 else dataset_basedir, base=False if args.num_split>1 else True, offset_=None if args.num_split>1 else 0, shape_=None)
 					if is_padding:
 						padded_dataset, padded_train_dataset = faiss_pad_dataset(padded_D, dataset, train_dataset)
 					else:
 						padded_dataset, padded_train_dataset = dataset, train_dataset
+					print("[YJ] reading done")
 					index, preproc = build_faiss(args, searcher_dir, split, N, padded_D, index_key_manual, padded_train_dataset, padded_dataset, padded_queries)
 
 				n = list()
@@ -638,6 +642,8 @@ def run_faiss(D):
 				print("distances: ", distances.shape)
 
 			final_neighbors, _ = sort_neighbors(distances, neighbors)
+			print(final_neighbors[0][3])
+			print(gt[3])
 			for idx in range(len(sc_list)):
 				if args.sweep:
 					w, reorder = search_config[sc_list[idx]]
@@ -762,7 +768,9 @@ def get_train(split=-1, total=-1):
 		return mmap_fvecs(filename)
 	if "deep1b" in args.dataset:
 		filename = dataset_basedir + 'split_data/deep1b_learn%d_%d' % (total, split)
-		return mmap_fvecs(filename)
+		xt = mmap_fvecs(filename)
+		xt = xt[:1000 * 1000]
+		return xt
 	elif "gist" in args.dataset:
 		filename = dataset_basedir + 'gist_learn.fvecs' if split<0 else dataset_basedir + 'split_data/gist_learn%d_%d' % (total, split)
 		return mmap_fvecs(filename)
@@ -878,6 +886,7 @@ elif "deep1b" in args.dataset:
 	split_dataset_path = dataset_basedir+"split_data/deep1b_"
 	if args.split==False:
 		groundtruth_path = dataset_basedir + "deep1b_"+args.metric+"_gt"
+		# groundtruth_path = "/home/arcuser/hyunji/ss_faiss/benchs/data/DEEP1B/deep1B_groundtruth.ivecs"
 	N=1000000000
 	D=96
 	num_iter = 16
