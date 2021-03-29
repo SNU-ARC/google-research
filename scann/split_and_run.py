@@ -298,9 +298,12 @@ def print_recall(final_neighbors, gt):
 	return top1, top10, top100, top1000
 
 def get_searcher_path(split):
+	coarse_dir = basedir + args.program + '_searcher_' + args.metric + '/' + args.dataset + '/coarse_dir/'
 	searcher_dir = basedir + args.program + '_searcher_' + args.metric + '/' + args.dataset + '/Split_' + str(args.num_split) + '/'
+	os.makedirs(coarse_dir, exist_ok=True)
+	os.makedirs(searcher_dir, exist_ok=True)
 	searcher_path = searcher_dir + args.dataset + '_searcher_' + str(args.num_split)+'_'+str(split)
-	return searcher_dir, searcher_path
+	return coarse_dir, searcher_dir, searcher_path
 
 def check_available_search_config(program, bc, search_config):
 	sc_list = list()
@@ -383,7 +386,7 @@ def run_scann():
 			for split in range(args.num_split):
 
 				num_per_split = int(N/args.num_split) if split < args.num_split-1 else N-base_idx
-				searcher_dir, searcher_path = get_searcher_path(split)
+				coarse_dir, searcher_dir, searcher_path = get_searcher_path(split)
 				print("Split ", split)
 				# Load splitted dataset
 				batch_size = min(args.batch, queries.shape[0])
@@ -471,17 +474,18 @@ def run_scann():
 		f.close()
 
 
-def faiss_pad_dataset(padded_D, dataset, train_dataset):
+def faiss_pad_dataset(padded_D, dataset):
 	plus_dim = padded_D-D
 	dataset=np.concatenate((dataset, np.full((dataset.shape[0], plus_dim), 0, dtype='float32')), axis=-1)
-	train_dataset=np.concatenate((train_dataset, np.full((train_dataset.shape[0], plus_dim), 0)), axis=-1)
 	print("Dataset dimension is padded from ", D, " to ", dataset.shape[1])
-	return dataset, train_dataset
+	return dataset
 
-def faiss_pad_queries(padded_D, queries):
+def faiss_pad_trains_queries(padded_D, queries, train_dataset):
 	plus_dim = padded_D-D
-	queries=np.concatenate((queries, np.full((queries.shape[0], plus_dim), 0)), axis=-1)
-	return queries
+	queries = np.concatenate((queries, np.full((queries.shape[0], plus_dim), 0)), axis=-1)
+	train_dataset = np.concatenate((train_dataset, np.full((train_dataset.shape[0], plus_dim), 0)), axis=-1)
+	print("Query and Train Dataset dimension is padded from ", D, " to ", dataset.shape[1])
+	return queries, train_dataset
 
 def get_padded_info(m):
 	if (args.is_gpu and (m==1 or m==2 or m==3 or m==4 or m==8 or m==12 or m==16 or m==20 or m==24 or m==28 or m==32 or m==40 or m==48 or m==56 or m==64 or m==96)) or (not args.is_gpu) or (args.opq != -1):
@@ -521,6 +525,7 @@ def get_padded_info(m):
 
 def run_faiss(D):
 	gt, queries = prepare_eval()
+	train_dataset = get_train()
 	if args.sweep:
 		if args.is_gpu:
 			log2kstar_ = 8
@@ -584,48 +589,48 @@ def run_faiss(D):
 		L, m, log2kstar, metric = bc
 		# assert (not args.is_gpu and log2kstar<=8) or (log2kstar == 8)
 		sc_list = check_available_search_config(args.program, bc, search_config)
+		print(bc)
+		print(sc_list)
 		neighbors=np.empty((len(sc_list), queries.shape[0],0), dtype=np.int32)
 		distances=np.empty((len(sc_list), queries.shape[0],0), dtype=np.float32)
 		base_idx = 0
 		total_latency = np.zeros(len(sc_list))
-		print(bc)
-		print(sc_list)
+
+		args.batch = min(args.batch, queries.shape[0])
+		padded_D, faiss_m, is_padding = get_padded_info(m)
+		if is_padding:
+			padded_queries, padded_train_dataset = faiss_pad_trains_queries(padded_D, queries, train_dataset)
+		else:
+			padded_queries, padded_train_dataset = queries, train_dataset
+
+		if args.opq == -1 and args.sq == -1:
+			index_key_manual = "IVF"+str(L)+",PQ"+str(faiss_m)+"x"+str(log2kstar)
+		elif args.sq != -1:
+				index_key_manual = "IVF"+str(L)+",SQ"+str(args.sq)
+		else:
+			index_key_manual = "OPQ"+str(faiss_m)+"_"+str(args.opq)+",IVF"+str(L)+",PQ"+str(faiss_m)+"x"+str(log2kstar)
+
 		if len(sc_list) > 0:
 			for split in range(args.num_split):
 				print("Split ", split)
 				num_per_split = int(N/args.num_split) if split < args.num_split-1 else N-base_idx
-				searcher_dir, searcher_path = get_searcher_path(split)
-				args.batch = min(args.batch, queries.shape[0])
-				# Load splitted dataset
-				padded_D, faiss_m, is_padding = get_padded_info(m)
-				if is_padding:
-					padded_queries = faiss_pad_queries(padded_D, queries)
-				else:
-					padded_queries = queries
-
-				if args.opq == -1 and args.sq == -1:
-					index_key_manual = "IVF"+str(L)+",PQ"+str(faiss_m)+"x"+str(log2kstar)
-				elif args.sq != -1:
- 					index_key_manual = "IVF"+str(L)+",SQ"+str(args.sq)
-				else:
-					index_key_manual = "OPQ"+str(faiss_m)+"_"+str(args.opq)+",IVF"+str(L)+",PQ"+str(faiss_m)+"x"+str(log2kstar)
+				coarse_dir, searcher_dir, searcher_path = get_searcher_path(split)
 
 				is_cached = check_cached(searcher_dir, args, args.dataset, split, index_key_manual)
 				args.m = faiss_m
 
 				if is_cached:
-					index, preproc = build_faiss(args, searcher_dir, split, N, padded_D, index_key_manual, None, None, padded_queries)
+					index, preproc = build_faiss(args, searcher_dir, coarse_dir, split, N, padded_D, index_key_manual, None, None, padded_queries)
 				else:
 					print("[YJ] get train")
-					train_dataset = get_train(split, args.num_split)
 					print("[YJ] read data")
 					dataset = read_data(split_dataset_path + str(args.num_split) + "_" + str(split) if args.num_split>1 else dataset_basedir, base=False if args.num_split>1 else True, offset_=None if args.num_split>1 else 0, shape_=None)
 					if is_padding:
-						padded_dataset, padded_train_dataset = faiss_pad_dataset(padded_D, dataset, train_dataset)
+						padded_dataset = faiss_pad_dataset(padded_D, dataset)
 					else:
-						padded_dataset, padded_train_dataset = dataset, train_dataset
+						padded_dataset = dataset
 					print("[YJ] reading done")
-					index, preproc = build_faiss(args, searcher_dir, split, N, padded_D, index_key_manual, padded_train_dataset, padded_dataset, padded_queries)
+					index, preproc = build_faiss(args, searcher_dir, coarse_dir, split, N, padded_D, index_key_manual, padded_train_dataset, padded_dataset, padded_queries)
 
 				n = list()
 				d = list()
@@ -645,7 +650,9 @@ def run_faiss(D):
 				neighbors, distances = sort_neighbors(distances, neighbors)
 				print("neighbors: ", neighbors.shape)
 				print("distances: ", distances.shape)
-
+				# print("neighbors: ", neighbors[0][3])
+				# print("distances: ", distances[0][3])
+				# print("gt: ", gt[3])
 			final_neighbors, _ = sort_neighbors(distances, neighbors)
 			for idx in range(len(sc_list)):
 				if args.sweep:
@@ -688,7 +695,7 @@ def run_annoy(D):
 		base_idx = 0
 		for split in range(args.num_split):
 			num_per_split = int(N/args.num_split) if split < args.num_split-1 else N-base_idx
-			searcher_dir, searcher_path = get_searcher_path(split)
+			_, searcher_dir, searcher_path = get_searcher_path(split)
 			searcher_path = searcher_path + '_' + str(n_trees) + '_' + metric
 			print("Split ", split)
 
@@ -765,23 +772,23 @@ def run_annoy(D):
 		f.close()
 
 # only for faiss
-def get_train(split=-1, total=-1):
+def get_train():
 	if "sift1m" in args.dataset:
-		filename = dataset_basedir + 'sift_learn.fvecs' if split<0 else dataset_basedir + 'split_data/sift1m_learn%d_%d' % (total, split)
+		filename = dataset_basedir + 'sift_learn.fvecs'
 		return mmap_fvecs(filename)
 	if "deep1b" in args.dataset:
-		filename = dataset_basedir + 'split_data/deep1b_learn%d_%d' % (total, split)
+		filename = dataset_basedir + 'deep1b_learn.fvecs'
 		xt = mmap_fvecs(filename)
 		xt = xt[:1000 * 1000]
 		return xt
 	elif "gist" in args.dataset:
-		filename = dataset_basedir + 'gist_learn.fvecs' if split<0 else dataset_basedir + 'split_data/gist_learn%d_%d' % (total, split)
+		filename = dataset_basedir + 'gist_learn.fvecs'
 		return mmap_fvecs(filename)
 	elif "sift1b" in args.dataset:
-		filename = dataset_basedir + 'bigann_learn.bvecs' if split<0 else dataset_basedir + 'split_data/sift1b_learn%d_%d' % (total, split)
+		filename = dataset_basedir + 'bigann_learn.bvecs'
 		return bvecs_read(filename)
 	elif "glove" in args.dataset:
-		filename = dataset_basedir + 'split_data/glove_learn%d_%d' % (total, split)
+		filename = dataset_basedir + 'split_data/glove_learn1_0'
 		return read_data(filename, base=False)
 	else:
 		assert False
