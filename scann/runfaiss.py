@@ -224,7 +224,7 @@ def rate_limited_imap(f, l):
             yield res.get()
         res = res_next
     yield res.get()
-
+    pool.terminate()
 
 def dataset_iterator(x, preproc, bs):
     """ iterate over the lines of x in blocks of size bs"""
