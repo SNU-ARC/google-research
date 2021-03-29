@@ -85,7 +85,7 @@ def compute_recall(neighbors, true_neighbors):
 def ivecs_read(fname):
 	a = np.fromfile(fname, dtype='int32')
 	d = a[0]
-	return a.reshape(-1, d + 1)[:, 1:].copy()
+	return a.reshape(-1, d + 1)[:, 1:]
 
 def ivecs_write(fname, m):
 	n, d = m.shape
@@ -113,7 +113,7 @@ def bvecs_write(fname, m):
 def bvecs_read(fname):
 	b = np.fromfile(fname, dtype=np.uint8)
 	d = b[:4].view('int32')[0]
-	return b.reshape(-1, d+4)[:, 4:].copy()
+	return b.reshape(-1, d+4)[:, 4:]
 
 def mmap_fvecs(fname, offset_=None, shape_=None):
 	if offset_!=None and shape_!=None:
@@ -121,7 +121,7 @@ def mmap_fvecs(fname, offset_=None, shape_=None):
 	else:
 		x = np.memmap(fname, dtype='int32', mode='r')
 	d = x[0]
-	return x.reshape(-1, d + 1)[:, 1:].copy().view('float32')
+	return x.reshape(-1, d + 1)[:, 1:].view('float32')
 
 def fvecs_write(fname, m):
 	m = m.astype('float32')
@@ -274,7 +274,7 @@ def prepare_eval():
 	# gt = np.load("/home/arcuser/hyunji/ss_faiss/benchs/sift1b_squared_l2_gt.npy")
 	# gt = np.load("/home/arcuser/hyunji/ss_faiss/benchs/sift1m_squared_l2_gt.npy")
 	queries = get_queries()
-	# print("gt shape: ", gt.shape)
+	print("gt shape: ", gt.shape)
 	# print("gt: ", gt[0])
 	assert gt.shape[1] == 1000
 	return gt, queries
@@ -479,7 +479,7 @@ def faiss_pad_dataset(padded_D, dataset, train_dataset):
 	dataset=np.concatenate((dataset, np.full((dataset.shape[0], plus_dim), 0, dtype='float32')), axis=-1)
 	train_dataset=np.concatenate((train_dataset, np.full((train_dataset.shape[0], plus_dim), 0)), axis=-1)
 	print("Dataset dimension is padded from ", D, " to ", dataset.shape[1])
-	return dataset, train_dataset, queries
+	return dataset, train_dataset
 
 def faiss_pad_queries(padded_D, queries):
 	plus_dim = padded_D-D
@@ -570,9 +570,9 @@ def run_faiss(D):
 		f.write("L\tm\tk_star\t|\tw\tReorder\tMetric\n")
 	else:
 		if args.opq != -1:
-			assert args.opq % args.m == 0
+			assert args.opq % args.m == 0 and args.sq == -1
 		elif args.sq != -1:
-			assert args.sq == 4 or args.sq == 6 or args.sq == 8 or args.sq == 16
+			assert (args.sq == 4 or args.sq == 6 or args.sq == 8 or args.sq == 16) and args.opq == -1
 		else:
 			assert D% args.m == 0
 		build_config = [[args.L, args.m, int(math.log(args.k_star,2)), args.metric]]
@@ -585,6 +585,7 @@ def run_faiss(D):
 		distances=np.empty((len(sc_list), queries.shape[0],0), dtype=np.float32)
 		base_idx = 0
 		total_latency = np.zeros(len(sc_list))
+		print(bc)
 		print(sc_list)
 		if len(sc_list) > 0:
 			for split in range(args.num_split):
@@ -595,12 +596,14 @@ def run_faiss(D):
 				# Load splitted dataset
 				padded_D, faiss_m, is_padding = get_padded_info(m)
 				if is_padding:
-					padded_queries = faiss_pad_dataset(padded_D, queries)
+					padded_queries = faiss_pad_queries(padded_D, queries)
 				else:
 					padded_queries = queries
 
-				if args.opq == -1:
+				if args.opq == -1 and args.sq == -1:
 					index_key_manual = "IVF"+str(L)+",PQ"+str(faiss_m)+"x"+str(log2kstar)
+				elif args.sq != -1:
+ 					index_key_manual = "IVF"+str(L)+",SQ"+str(args.sq)
 				else:
 					index_key_manual = "OPQ"+str(faiss_m)+"_"+str(args.opq)+",IVF"+str(L)+",PQ"+str(faiss_m)+"x"+str(log2kstar)
 
@@ -610,12 +613,15 @@ def run_faiss(D):
 				if is_cached:
 					index, preproc = build_faiss(args, searcher_dir, split, N, padded_D, index_key_manual, None, None, padded_queries)
 				else:
+					print("[YJ] get train")
 					train_dataset = get_train(split, args.num_split)
+					print("[YJ] read data")
 					dataset = read_data(split_dataset_path + str(args.num_split) + "_" + str(split) if args.num_split>1 else dataset_basedir, base=False if args.num_split>1 else True, offset_=None if args.num_split>1 else 0, shape_=None)
 					if is_padding:
 						padded_dataset, padded_train_dataset = faiss_pad_dataset(padded_D, dataset, train_dataset)
 					else:
 						padded_dataset, padded_train_dataset = dataset, train_dataset
+					print("[YJ] reading done")
 					index, preproc = build_faiss(args, searcher_dir, split, N, padded_D, index_key_manual, padded_train_dataset, padded_dataset, padded_queries)
 
 				n = list()
@@ -762,7 +768,9 @@ def get_train(split=-1, total=-1):
 		return mmap_fvecs(filename)
 	if "deep1b" in args.dataset:
 		filename = dataset_basedir + 'split_data/deep1b_learn%d_%d' % (total, split)
-		return mmap_fvecs(filename)
+		xt = mmap_fvecs(filename)
+		xt = xt[:1000 * 1000]
+		return xt
 	elif "gist" in args.dataset:
 		filename = dataset_basedir + 'gist_learn.fvecs' if split<0 else dataset_basedir + 'split_data/gist_learn%d_%d' % (total, split)
 		return mmap_fvecs(filename)
@@ -878,6 +886,7 @@ elif "deep1b" in args.dataset:
 	split_dataset_path = dataset_basedir+"split_data/deep1b_"
 	if args.split==False:
 		groundtruth_path = dataset_basedir + "deep1b_"+args.metric+"_gt"
+		# groundtruth_path = "/home/arcuser/hyunji/ss_faiss/benchs/data/DEEP1B/deep1B_groundtruth.ivecs"
 	N=1000000000
 	D=96
 	num_iter = 16

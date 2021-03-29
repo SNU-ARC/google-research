@@ -15,7 +15,6 @@
 # sudo python3 split_and_run.py --dataset glove --metric squared_l2 --num_split 1 --is_gpu --program faiss --sweep --topk 1000 --batch 128
 # sudo python3 split_and_run.py --dataset sift1m --metric squared_l2 --num_split 1 --is_gpu --program faiss --sweep --topk 1000 --batch 128
 
-
 # ScaNN
 # python3 split_and_run.py --dataset sift1m --program scann --sweep --num_split 1 --metric squared_l2 --topk 1000 --reorder 1000 --batch 128
 # python3 split_and_run.py --dataset glove --program scann --sweep --num_split 1 --metric squared_l2 --topk 1000 --reorder 1000 --batch 128
