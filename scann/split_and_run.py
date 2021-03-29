@@ -644,8 +644,6 @@ def run_faiss(D):
 				print("distances: ", distances.shape)
 
 			final_neighbors, _ = sort_neighbors(distances, neighbors)
-			print(final_neighbors[0][3])
-			print(gt[3])
 			for idx in range(len(sc_list)):
 				if args.sweep:
 					w, reorder = search_config[sc_list[idx]]
