@@ -319,7 +319,7 @@ def check_available_search_config(program, bc, search_config):
 		L, m, log2kstar, metric = bc
 		for idx, sc in enumerate(search_config):
 			nprobe, args.reorder = sc[0], sc[1]
-			if nprobe > L or (nprobe > 2048 and args.is_gpu) or (D%m!=0 and args.sweep==True) or (m > 96 and args.is_gpu) or (not args.is_gpu and log2kstar>8) or (args.is_gpu and log2kstar != 8) or (metric == 'dot_product' and (kstar**m < N)) or (args.opq != -1 and args.opq%m != 0):
+			if nprobe > L or (nprobe > 2048 and args.is_gpu) or (D%m!=0 and args.sweep==True) or (m > 96 and args.is_gpu) or (not args.is_gpu and log2kstar>8) or (args.is_gpu and log2kstar != 8) or (metric == 'dot_product' and ((2**log2kstar)**m < N)) or (args.opq != -1 and args.opq%m != 0):
 				continue
 			else:
 				sc_list.append(idx)
