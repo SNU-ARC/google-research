@@ -11,9 +11,9 @@
 
 # Faiss gpu
 sudo python3 split_and_run.py --dataset glove --metric dot_product --num_split 1 --is_gpu --program faiss --sweep --topk 1000 --batch 128
-sudo python3 split_and_run.py --dataset sift1m --metric dot_product --num_split 1 --is_gpu --program faiss --sweep --topk 1000 --batch 128
-sudo python3 split_and_run.py --dataset glove --metric squared_l2 --num_split 1 --is_gpu --program faiss --sweep --topk 1000 --batch 128
 sudo python3 split_and_run.py --dataset sift1m --metric squared_l2 --num_split 1 --is_gpu --program faiss --sweep --topk 1000 --batch 128
+sudo python3 split_and_run.py --dataset glove --metric squared_l2 --num_split 1 --is_gpu --program faiss --sweep --topk 1000 --batch 128
+sudo python3 split_and_run.py --dataset sift1m --metric dot_product --num_split 1 --is_gpu --program faiss --sweep --topk 1000 --batch 128
 
 
 # ScaNN

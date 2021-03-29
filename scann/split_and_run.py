@@ -78,7 +78,6 @@ elif args.program == "annoy":
 
 def compute_recall(neighbors, true_neighbors):
 	total = 0
-	print("[YJ] true_neighbors.size: ", true_neighbors.size)
 	for gt_row, row in zip(true_neighbors, neighbors):
 		total += np.intersect1d(gt_row, row).shape[0]
 	return total / true_neighbors.size
@@ -480,7 +479,7 @@ def faiss_pad_dataset(padded_D, dataset, train_dataset):
 	dataset=np.concatenate((dataset, np.full((dataset.shape[0], plus_dim), 0, dtype='float32')), axis=-1)
 	train_dataset=np.concatenate((train_dataset, np.full((train_dataset.shape[0], plus_dim), 0)), axis=-1)
 	print("Dataset dimension is padded from ", D, " to ", dataset.shape[1])
-	return dataset, train_dataset, queries
+	return dataset, train_dataset
 
 def faiss_pad_queries(padded_D, queries):
 	plus_dim = padded_D-D
@@ -586,6 +585,7 @@ def run_faiss(D):
 		distances=np.empty((len(sc_list), queries.shape[0],0), dtype=np.float32)
 		base_idx = 0
 		total_latency = np.zeros(len(sc_list))
+		print(bc)
 		print(sc_list)
 		if len(sc_list) > 0:
 			for split in range(args.num_split):
@@ -596,7 +596,7 @@ def run_faiss(D):
 				# Load splitted dataset
 				padded_D, faiss_m, is_padding = get_padded_info(m)
 				if is_padding:
-					padded_queries = faiss_pad_dataset(padded_D, queries)
+					padded_queries = faiss_pad_queries(padded_D, queries)
 				else:
 					padded_queries = queries
 
