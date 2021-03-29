@@ -270,9 +270,9 @@ def build_faiss(args, cacheroot, split, N_, D, index_key, train, base, query_):
     global fmetric
     fmetric = name1_to_metric[args.metric]
     global xt
-    xt = train
+    xt = sanitize(train)
     global xb
-    xb = base
+    xb = sanitize(base)
     global dbname
     dbname = args.dataset
     global dim
@@ -285,7 +285,7 @@ def build_faiss(args, cacheroot, split, N_, D, index_key, train, base, query_):
     global N
     N = N_
 
-    query = query_
+    query = sanitize(query_)
     # set default arguments
     usePrecomputed = False
     # useFloat16 = True if args.m >= 56 else False

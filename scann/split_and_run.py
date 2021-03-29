@@ -78,7 +78,6 @@ elif args.program == "annoy":
 
 def compute_recall(neighbors, true_neighbors):
 	total = 0
-	print("[YJ] true_neighbors.size: ", true_neighbors.size)
 	for gt_row, row in zip(true_neighbors, neighbors):
 		total += np.intersect1d(gt_row, row).shape[0]
 	return total / true_neighbors.size
@@ -355,14 +354,11 @@ def run_scann():
 							[2000, 0.55, 1, args.metric], [2000, 0.55, 2, args.metric], [2000, 0.55, 3, args.metric], [2000, 0.55, 4, args.metric], [2000, 0.55, 5, args.metric], [2000, 0.55, 8, args.metric], [2000, 0.55, 10, args.metric], [2000, 0.55, 16, args.metric], [2000, 0.55, 25, args.metric], [2000, 0.55, 32, args.metric], [2000, 0.55, 50, args.metric], [2000, 0.55, 64, args.metric], \
 							[4000, 0.2, 1, args.metric],[4000, 0.2, 2, args.metric], [4000, 0.2, 3, args.metric], [4000, 0.2, 4, args.metric], [4000, 0.2, 5, args.metric], [4000, 0.2, 8, args.metric], [4000, 0.2, 10, args.metric], [4000, 0.2, 16, args.metric], [4000, 0.2, 25, args.metric], [4000, 0.2, 32, args.metric], [4000, 0.2, 50, args.metric], [4000, 0.2, 64, args.metric], \
 							[4000, 0.4, 1, args.metric], [4000, 0.4, 2, args.metric], [4000, 0.4, 3, args.metric], [4000, 0.4, 4, args.metric], [4000, 0.4, 5, args.metric], [4000, 0.4, 8, args.metric], [4000, 0.4, 10, args.metric], [4000, 0.4, 16, args.metric], [4000, 0.4, 25, args.metric], [4000, 0.4, 32, args.metric], [4000, 0.4, 50, args.metric], [4000, 0.4, 64, args.metric], \
-							[4000, 0.55, 1, args.metric], [4000, 0.55, 2, args.metric], [4000, 0.55, 3, args.metric], [4000, 0.55, 4, args.metric], [4000, 0.55, 5, args.metric], [4000, 0.55, 8, args.metric], [4000, 0.55, 10, args.metric], [4000, 0.55, 16, args.metric], [4000, 0.55, 25, args.metric], [4000, 0.55, 32, args.metric], [4000, 0.55, 50, args.metric], [4000, 0.55, 64, args.metric]]
+							[4000, 0.55, 1, args.metric], [4000, 0.55, 2, args.metric], [4000, 0.55, 3, args.metric], [4000, 0.55, 4, args.metric], [4000, 0.55, 5, args.metric], [4000, 0.55, 8, args.metric], [4000, 0.55, 10, args.metric], [4000, 0.55, 16, args.metric], [4000, 0.55, 25, args.metric], [4000, 0.55, 32, args.metric], [4000, 0.55, 50, args.metric], [4000, 0.55, 64, args.metric], \
+							[400, 0.2, 1, args.metric], [400, 0.2, 2, args.metric], [400, 0.2, 4, args.metric], \
+							[500, 0.2, 1, args.metric], [500, 0.2, 2, args.metric], [500, 0.2, 4, args.metric], \
+							[600, 0.2, 1, args.metric], [600, 0.2, 2, args.metric], [600, 0.2, 4, args.metric]]
 
-
-			# build_config = [[2000, 0.2, 2, args.metric], [2000, 0.2, 1, args.metric], [1500, 0.55, 2, args.metric], [1500, 0.55, 1, args.metric], [1000, 0.55, 2, args.metric], [1000, 0.55, 1, args.metric], \
-			#  				  [1000, 0.2, 2, args.metric], [1000, 0.2, 1, args.metric], [1400, 0.15, 1, args.metric], [1400, 0.15, 2, args.metric], [1400, 0.15, 3, args.metric], \
-			#  				  [800, 0.15, 2, args.metric], [800, 0.15, 1, args.metric]]
-			# build_config = [[1400, 0.15, 3, args.metric], \
-			#  				  [800, 0.15, 2, args.metric], [800, 0.15, 1, args.metric]]
 			search_config = [[1, args.reorder], [2, args.reorder], [4, args.reorder], [8, args.reorder], [16, args.reorder], [25, args.reorder], [30, args.reorder], [35, args.reorder], [40, args.reorder], \
 							 [45, args.reorder], [50, args.reorder], [55, args.reorder], [60, args.reorder], [65, args.reorder], [75, args.reorder], [90, args.reorder], [110, args.reorder], [130, args.reorder], [150, args.reorder], \
 							 [170, args.reorder], [200, args.reorder], [220, args.reorder], [250, args.reorder], [310, args.reorder], [400, args.reorder], [500, args.reorder], [800, args.reorder], [1000, args.reorder], \
@@ -480,7 +476,7 @@ def faiss_pad_dataset(padded_D, dataset, train_dataset):
 	dataset=np.concatenate((dataset, np.full((dataset.shape[0], plus_dim), 0, dtype='float32')), axis=-1)
 	train_dataset=np.concatenate((train_dataset, np.full((train_dataset.shape[0], plus_dim), 0)), axis=-1)
 	print("Dataset dimension is padded from ", D, " to ", dataset.shape[1])
-	return dataset, train_dataset, queries
+	return dataset, train_dataset
 
 def faiss_pad_queries(padded_D, queries):
 	plus_dim = padded_D-D
@@ -592,6 +588,7 @@ def run_faiss(D):
 		distances=np.empty((len(sc_list), queries.shape[0],0), dtype=np.float32)
 		base_idx = 0
 		total_latency = np.zeros(len(sc_list))
+		print(bc)
 		print(sc_list)
 		if len(sc_list) > 0:
 			for split in range(args.num_split):
@@ -602,7 +599,7 @@ def run_faiss(D):
 				# Load splitted dataset
 				padded_D, faiss_m, is_padding = get_padded_info(m)
 				if is_padding:
-					padded_queries = faiss_pad_dataset(padded_D, queries)
+					padded_queries = faiss_pad_queries(padded_D, queries)
 				else:
 					padded_queries = queries
 
@@ -650,8 +647,6 @@ def run_faiss(D):
 				print("distances: ", distances.shape)
 
 			final_neighbors, _ = sort_neighbors(distances, neighbors)
-			print(final_neighbors[0][3])
-			print(gt[3])
 			for idx in range(len(sc_list)):
 				if args.sweep:
 					w, reorder = search_config[sc_list[idx]]
