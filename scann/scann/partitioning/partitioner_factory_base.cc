@@ -40,34 +40,37 @@ float ComputeSamplingFraction(const PartitioningConfig& config,
 template <typename T>
 StatusOr<unique_ptr<Partitioner<T>>> PartitionerFactoryNoProjection(
     const TypedDataset<T>* dataset, const PartitioningConfig& config,
-    shared_ptr<ThreadPool> pool) {
+    shared_ptr<ThreadPool> pool, const TypedDataset<T>* train_set) {
   const TypedDataset<T>* sampled;
   unique_ptr<TypedDataset<T>> sampled_mutable;
 
-  const float sampling_fraction = ComputeSamplingFraction(config, dataset);
-  if (sampling_fraction < 1.0) {
-    sampled_mutable.reset(
-        (dataset->IsSparse())
-            ? absl::implicit_cast<TypedDataset<T>*>(new SparseDataset<T>)
-            : absl::implicit_cast<TypedDataset<T>*>(new DenseDataset<T>));
-    SCANN_RETURN_IF_ERROR(
-        sampled_mutable->NormalizeByTag(dataset->normalization()));
-    sampled = sampled_mutable.get();
-    MTRandom rng(kDeterministicSeed + 1);
-    vector<DatapointIndex> sample;
-    for (DatapointIndex i = 0; i < dataset->size(); ++i) {
-      if (absl::Uniform<float>(rng, 0, 1) < sampling_fraction) {
-        sample.push_back(i);
-      }
-    }
+  // const float sampling_fraction = ComputeSamplingFraction(config, dataset);
+  // if (sampling_fraction < 1.0) {
+  //   sampled_mutable.reset(
+  //       (dataset->IsSparse())
+  //           ? absl::implicit_cast<TypedDataset<T>*>(new SparseDataset<T>)
+  //           : absl::implicit_cast<TypedDataset<T>*>(new DenseDataset<T>));
+  //   SCANN_RETURN_IF_ERROR(
+  //       sampled_mutable->NormalizeByTag(dataset->normalization()));
+  //   sampled = sampled_mutable.get();
+  //   MTRandom rng(kDeterministicSeed + 1);
+  //   vector<DatapointIndex> sample;
+  //   for (DatapointIndex i = 0; i < dataset->size(); ++i) {
+  //     if (absl::Uniform<float>(rng, 0, 1) < sampling_fraction) {
+  //       sample.push_back(i);
+  //     }
+  //   }
 
-    sampled_mutable->Reserve(sample.size());
-    for (DatapointIndex i : sample) {
-      sampled_mutable->AppendOrDie(dataset->at(i), "");
-    }
-  } else {
-    sampled = dataset;
-  }
+  //   sampled_mutable->Reserve(sample.size());
+  //   for (DatapointIndex i : sample) {
+  //     sampled_mutable->AppendOrDie(dataset->at(i), "");
+  //   }
+  // } else {
+  //   sampled = dataset;
+  // }
+
+  sampled = train_set;
+
   LOG(INFO) << "Size of sampled dataset for training partition: "
             << sampled->size();
 
@@ -77,17 +80,23 @@ StatusOr<unique_ptr<Partitioner<T>>> PartitionerFactoryNoProjection(
 template <typename T>
 StatusOr<unique_ptr<Partitioner<T>>> PartitionerFactoryWithProjection(
     const TypedDataset<T>* dataset, const PartitioningConfig& config,
-    shared_ptr<ThreadPool> pool) {
+    shared_ptr<ThreadPool> pool, const TypedDataset<T>* train_set) {
   const TypedDataset<float>* sampled;
   unique_ptr<TypedDataset<float>> sampled_mutable;
   MTRandom rng(kDeterministicSeed + 1);
+  // vector<DatapointIndex> sample;
+  // const float sampling_fraction = ComputeSamplingFraction(config, dataset);
+  // for (DatapointIndex i = 0; i < dataset->size(); ++i) {
+  //   if (absl::Uniform<float>(rng, 0, 1) < sampling_fraction) {
+  //     sample.push_back(i);
+  //   }
+  // }
+
   vector<DatapointIndex> sample;
-  const float sampling_fraction = ComputeSamplingFraction(config, dataset);
-  for (DatapointIndex i = 0; i < dataset->size(); ++i) {
-    if (absl::Uniform<float>(rng, 0, 1) < sampling_fraction) {
-      sample.push_back(i);
-    }
+  for (DatapointIndex i = 0; i < train_set->size(); ++i) {
+    sample.push_back(i);
   }
+
 
   auto append_to_sampled = [&](const DatapointPtr<float>& dptr) -> Status {
     if (ABSL_PREDICT_FALSE(!sampled_mutable)) {
@@ -98,16 +107,16 @@ StatusOr<unique_ptr<Partitioner<T>>> PartitionerFactoryWithProjection(
       }
       sampled_mutable->Reserve(sample.size());
       SCANN_RETURN_IF_ERROR(
-          sampled_mutable->NormalizeByTag(dataset->normalization()));
+          sampled_mutable->NormalizeByTag(train_set->normalization()));
       sampled = sampled_mutable.get();
     }
     return sampled_mutable->Append(dptr, "");
   };
   TF_ASSIGN_OR_RETURN(unique_ptr<Projection<T>> projection,
-                      ProjectionFactory(config.projection(), dataset));
+                      ProjectionFactory(config.projection(), train_set));
   Datapoint<float> projected;
   for (DatapointIndex i : sample) {
-    SCANN_RETURN_IF_ERROR(projection->ProjectInput(dataset->at(i), &projected));
+    SCANN_RETURN_IF_ERROR(projection->ProjectInput(train_set->at(i), &projected));
     SCANN_RETURN_IF_ERROR(append_to_sampled(projected.ToPtr()));
   }
   LOG(INFO) << "Size of sampled dataset for training partition: "
@@ -123,10 +132,10 @@ StatusOr<unique_ptr<Partitioner<T>>> PartitionerFactoryWithProjection(
 template <typename T>
 StatusOr<unique_ptr<Partitioner<T>>> PartitionerFactory(
     const TypedDataset<T>* dataset, const PartitioningConfig& config,
-    shared_ptr<ThreadPool> pool) {
+    shared_ptr<ThreadPool> pool, const TypedDataset<T>* train_set) {
   auto fp = (config.has_projection()) ? (&PartitionerFactoryWithProjection<T>)
                                       : (&PartitionerFactoryNoProjection<T>);
-  return (*fp)(dataset, config, pool);
+  return (*fp)(dataset, config, pool, train_set);
 }
 
 template <typename T>

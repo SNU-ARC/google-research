@@ -32,7 +32,7 @@ namespace research_scann {
 template <typename T>
 StatusOr<unique_ptr<Partitioner<T>>> PartitionerFactory(
     const TypedDataset<T>* dataset, const PartitioningConfig& config,
-    shared_ptr<ThreadPool> pool = nullptr);
+    shared_ptr<ThreadPool> pool = nullptr, const TypedDataset<T>* train_set=nullptr);
 
 template <typename T>
 StatusOr<unique_ptr<Partitioner<T>>> PartitionerFactoryPreSampledAndProjected(
@@ -61,7 +61,7 @@ unique_ptr<Partitioner<T>> MakeProjectingDecorator(
   extern_or_nothing template StatusOr<unique_ptr<Partitioner<type>>>       \
   PartitionerFactory<type>(                                                \
       const TypedDataset<type>* dataset, const PartitioningConfig& config, \
-      shared_ptr<ThreadPool> training_parallelization_pool);               \
+      shared_ptr<ThreadPool> training_parallelization_pool, const TypedDataset<type>* train_set);               \
   extern_or_nothing template StatusOr<unique_ptr<Partitioner<type>>>       \
   PartitionerFactoryPreSampledAndProjected<type>(                          \
       const TypedDataset<type>* dataset, const PartitioningConfig& config, \

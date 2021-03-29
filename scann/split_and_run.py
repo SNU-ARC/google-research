@@ -298,12 +298,10 @@ def print_recall(final_neighbors, gt):
 	return top1, top10, top100, top1000
 
 def get_searcher_path(split):
-	coarse_dir = basedir + args.program + '_searcher_' + args.metric + '/' + args.dataset + '/coarse_dir/'
 	searcher_dir = basedir + args.program + '_searcher_' + args.metric + '/' + args.dataset + '/Split_' + str(args.num_split) + '/'
-	os.makedirs(coarse_dir, exist_ok=True)
 	os.makedirs(searcher_dir, exist_ok=True)
 	searcher_path = searcher_dir + args.dataset + '_searcher_' + str(args.num_split)+'_'+str(split)
-	return coarse_dir, searcher_dir, searcher_path
+	return searcher_dir, searcher_path
 
 def check_available_search_config(program, bc, search_config):
 	sc_list = list()
@@ -330,6 +328,8 @@ def check_available_search_config(program, bc, search_config):
 
 def run_scann():
 	gt, queries = prepare_eval()
+	train_dataset = get_train()
+	print("train set size: ", train_dataset.shape)
 	if args.sweep:
 		if "sift1b" in args.dataset or "deep1b" in args.dataset:
 			# For sift 1b
@@ -382,11 +382,14 @@ def run_scann():
 		distances=np.empty((len(sc_list), queries.shape[0],0), dtype=np.float32)
 		total_latency = np.zeros(len(sc_list))
 		base_idx = 0
+		coarse_dir = basedir + args.program + '_searcher_' + args.metric + '/' + args.dataset + '/coarse_dir/'
+		os.makedirs(coarse_dir, exist_ok=True)
+		coarse_path = coarse_dir+"coarse_codebook_L_"+str(num_leaves)+"_threshold_"+str(threshold)+"_dims_"+str(dims)+"_metric_"+metric
 		if len(sc_list) > 0:
 			for split in range(args.num_split):
 
 				num_per_split = int(N/args.num_split) if split < args.num_split-1 else N-base_idx
-				coarse_dir, searcher_dir, searcher_path = get_searcher_path(split)
+				searcher_dir, searcher_path = get_searcher_path(split)
 				print("Split ", split)
 				# Load splitted dataset
 				batch_size = min(args.batch, queries.shape[0])
@@ -395,22 +398,27 @@ def run_scann():
 
 				if os.path.isdir(searcher_path):
 					print("Loading searcher from ", searcher_path)
-					searcher = scann.scann_ops_pybind.load_searcher(searcher_path, num_per_split, D)
+					searcher = scann.scann_ops_pybind.load_searcher(searcher_path, num_per_split, D, coarse_path)
 				else:
 					# Create ScaNN searcher
 					print("Entering ScaNN builder, will be created to ", searcher_path)
+					if os.path.isfile(coarse_path):
+						load_coarse = True
+					else:
+						load_coarse = False
+					print("Load coarse: ", load_coarse)
 					dataset = read_data(split_dataset_path + str(args.num_split) + "_" + str(split) if args.num_split>1 else dataset_basedir, base=False if args.num_split>1 else True, offset_=None if args.num_split>1 else 0, shape_=None)
 					if args.reorder!=-1:
-						searcher = scann.scann_ops_pybind.builder(dataset, 10, metric).tree(
+						searcher = scann.scann_ops_pybind.builder(dataset, train_dataset, load_coarse, coarse_path, 10, metric).tree(
 							num_leaves=num_leaves, num_leaves_to_search=num_leaves, training_sample_size=args.coarse_training_size).score_ah(
 							dims, anisotropic_quantization_threshold=threshold, training_sample_size=args.fine_training_size).reorder(args.reorder).build()
 					else:
-						searcher = scann.scann_ops_pybind.builder(dataset, 10, metric).tree(
+						searcher = scann.scann_ops_pybind.builder(dataset, train_dataset, load_coarse, coarse_path, 10, metric).tree(
 								num_leaves=num_leaves, num_leaves_to_search=num_leaves, training_sample_size=args.coarse_training_size).score_ah(
 								dims, anisotropic_quantization_threshold=threshold, training_sample_size=args.fine_training_size).build()
 					print("Saving searcher to ", searcher_path)
 					os.makedirs(searcher_path, exist_ok=True)
-					searcher.serialize(searcher_path)
+					searcher.serialize(searcher_path, coarse_path, load_coarse)
 				print("sc_list: ", sc_list)
 				n = list()
 				d = list()
@@ -618,7 +626,7 @@ def run_faiss(D):
 			for split in range(args.num_split):
 				print("Split ", split)
 				num_per_split = int(N/args.num_split) if split < args.num_split-1 else N-base_idx
-				coarse_dir, searcher_dir, searcher_path = get_searcher_path(split)
+				searcher_dir, searcher_path = get_searcher_path(split)
 
 				is_cached = check_cached(searcher_dir, args, args.dataset, split, index_key_manual)
 				args.m = faiss_m
@@ -699,7 +707,7 @@ def run_annoy(D):
 		base_idx = 0
 		for split in range(args.num_split):
 			num_per_split = int(N/args.num_split) if split < args.num_split-1 else N-base_idx
-			_, searcher_dir, searcher_path = get_searcher_path(split)
+			searcher_dir, searcher_path = get_searcher_path(split)
 			searcher_path = searcher_path + '_' + str(n_trees) + '_' + metric
 			print("Split ", split)
 

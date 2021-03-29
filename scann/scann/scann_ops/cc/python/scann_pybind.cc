@@ -27,9 +27,10 @@ PYBIND11_MODULE(scann_pybind, py_module) {
            std::optional<const research_scann::np_row_major_arr<int8_t>>,
            std::optional<const research_scann::np_row_major_arr<float>>,
            std::optional<const research_scann::np_row_major_arr<float>>,
-           const std::string&>())
+           const std::string&, const std::string&>())
       .def(pybind11::init<const research_scann::np_row_major_arr<float>&,
-                          const std::string&, int>())
+                          const research_scann::np_row_major_arr<float>&,
+                          const std::string&, const bool&, const std::string&, int>())
       .def("search", &research_scann::ScannNumpy::Search)
       .def("search_batched", &research_scann::ScannNumpy::SearchBatched)
       .def("serialize", &research_scann::ScannNumpy::Serialize);
