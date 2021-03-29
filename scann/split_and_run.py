@@ -354,14 +354,11 @@ def run_scann():
 							[2000, 0.55, 1, args.metric], [2000, 0.55, 2, args.metric], [2000, 0.55, 3, args.metric], [2000, 0.55, 4, args.metric], [2000, 0.55, 5, args.metric], [2000, 0.55, 8, args.metric], [2000, 0.55, 10, args.metric], [2000, 0.55, 16, args.metric], [2000, 0.55, 25, args.metric], [2000, 0.55, 32, args.metric], [2000, 0.55, 50, args.metric], [2000, 0.55, 64, args.metric], \
 							[4000, 0.2, 1, args.metric],[4000, 0.2, 2, args.metric], [4000, 0.2, 3, args.metric], [4000, 0.2, 4, args.metric], [4000, 0.2, 5, args.metric], [4000, 0.2, 8, args.metric], [4000, 0.2, 10, args.metric], [4000, 0.2, 16, args.metric], [4000, 0.2, 25, args.metric], [4000, 0.2, 32, args.metric], [4000, 0.2, 50, args.metric], [4000, 0.2, 64, args.metric], \
 							[4000, 0.4, 1, args.metric], [4000, 0.4, 2, args.metric], [4000, 0.4, 3, args.metric], [4000, 0.4, 4, args.metric], [4000, 0.4, 5, args.metric], [4000, 0.4, 8, args.metric], [4000, 0.4, 10, args.metric], [4000, 0.4, 16, args.metric], [4000, 0.4, 25, args.metric], [4000, 0.4, 32, args.metric], [4000, 0.4, 50, args.metric], [4000, 0.4, 64, args.metric], \
-							[4000, 0.55, 1, args.metric], [4000, 0.55, 2, args.metric], [4000, 0.55, 3, args.metric], [4000, 0.55, 4, args.metric], [4000, 0.55, 5, args.metric], [4000, 0.55, 8, args.metric], [4000, 0.55, 10, args.metric], [4000, 0.55, 16, args.metric], [4000, 0.55, 25, args.metric], [4000, 0.55, 32, args.metric], [4000, 0.55, 50, args.metric], [4000, 0.55, 64, args.metric]]
+							[4000, 0.55, 1, args.metric], [4000, 0.55, 2, args.metric], [4000, 0.55, 3, args.metric], [4000, 0.55, 4, args.metric], [4000, 0.55, 5, args.metric], [4000, 0.55, 8, args.metric], [4000, 0.55, 10, args.metric], [4000, 0.55, 16, args.metric], [4000, 0.55, 25, args.metric], [4000, 0.55, 32, args.metric], [4000, 0.55, 50, args.metric], [4000, 0.55, 64, args.metric], \
+							[400, 0.2, 1, args.metric], [400, 0.2, 2, args.metric], [400, 0.2, 4, args.metric], \
+							[500, 0.2, 1, args.metric], [500, 0.2, 2, args.metric], [500, 0.2, 4, args.metric], \
+							[600, 0.2, 1, args.metric], [600, 0.2, 2, args.metric], [600, 0.2, 4, args.metric]]
 
-
-			# build_config = [[2000, 0.2, 2, args.metric], [2000, 0.2, 1, args.metric], [1500, 0.55, 2, args.metric], [1500, 0.55, 1, args.metric], [1000, 0.55, 2, args.metric], [1000, 0.55, 1, args.metric], \
-			#  				  [1000, 0.2, 2, args.metric], [1000, 0.2, 1, args.metric], [1400, 0.15, 1, args.metric], [1400, 0.15, 2, args.metric], [1400, 0.15, 3, args.metric], \
-			#  				  [800, 0.15, 2, args.metric], [800, 0.15, 1, args.metric]]
-			# build_config = [[1400, 0.15, 3, args.metric], \
-			#  				  [800, 0.15, 2, args.metric], [800, 0.15, 1, args.metric]]
 			search_config = [[1, args.reorder], [2, args.reorder], [4, args.reorder], [8, args.reorder], [16, args.reorder], [25, args.reorder], [30, args.reorder], [35, args.reorder], [40, args.reorder], \
 							 [45, args.reorder], [50, args.reorder], [55, args.reorder], [60, args.reorder], [65, args.reorder], [75, args.reorder], [90, args.reorder], [110, args.reorder], [130, args.reorder], [150, args.reorder], \
 							 [170, args.reorder], [200, args.reorder], [220, args.reorder], [250, args.reorder], [310, args.reorder], [400, args.reorder], [500, args.reorder], [800, args.reorder], [1000, args.reorder], \
