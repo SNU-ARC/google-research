@@ -378,13 +378,14 @@ def run_scann():
 	for bc in build_config:
 		num_leaves, threshold, dims, metric = bc
 		sc_list = check_available_search_config(args.program, bc, search_config)
-		neighbors=np.empty((len(sc_list), queries.shape[0],0), dtype=np.int32)
-		distances=np.empty((len(sc_list), queries.shape[0],0), dtype=np.float32)
-		total_latency = np.zeros(len(sc_list))
-		base_idx = 0
-		os.makedirs(coarse_dir, exist_ok=True)
-		coarse_path = coarse_dir+"coarse_codebook_L_"+str(num_leaves)+"_threshold_"+str(threshold)+"_dims_"+str(dims)+"_metric_"+metric
 		if len(sc_list) > 0:
+			neighbors=np.empty((len(sc_list), queries.shape[0],0), dtype=np.int32)
+			distances=np.empty((len(sc_list), queries.shape[0],0), dtype=np.float32)
+			total_latency = np.zeros(len(sc_list))
+			base_idx = 0
+			os.makedirs(coarse_dir, exist_ok=True)
+			coarse_path = coarse_dir+"coarse_codebook_L_"+str(num_leaves)+"_threshold_"+str(threshold)+"_dims_"+str(dims)+"_metric_"+metric
+
 			for split in range(args.num_split):
 
 				num_per_split = int(N/args.num_split) if split < args.num_split-1 else N-base_idx
@@ -602,26 +603,27 @@ def run_faiss(D):
 		sc_list = check_available_search_config(args.program, bc, search_config)
 		print(bc)
 		print(sc_list)
-		neighbors=np.empty((len(sc_list), queries.shape[0],0), dtype=np.int32)
-		distances=np.empty((len(sc_list), queries.shape[0],0), dtype=np.float32)
-		base_idx = 0
-		total_latency = np.zeros(len(sc_list))
-
-		args.batch = min(args.batch, queries.shape[0])
-		padded_D, faiss_m, is_padding = get_padded_info(m)
-		if is_padding:
-			padded_queries, padded_train_dataset = faiss_pad_trains_queries(padded_D, queries, train_dataset)
-		else:
-			padded_queries, padded_train_dataset = queries, train_dataset
-
-		if args.opq == -1 and args.sq == -1:
-			index_key_manual = "IVF"+str(L)+",PQ"+str(faiss_m)+"x"+str(log2kstar)
-		elif args.sq != -1:
-				index_key_manual = "IVF"+str(L)+",SQ"+str(args.sq)
-		else:
-			index_key_manual = "OPQ"+str(faiss_m)+"_"+str(args.opq)+",IVF"+str(L)+",PQ"+str(faiss_m)+"x"+str(log2kstar)
-
 		if len(sc_list) > 0:
+			neighbors=np.empty((len(sc_list), queries.shape[0],0), dtype=np.int32)
+			distances=np.empty((len(sc_list), queries.shape[0],0), dtype=np.float32)
+			base_idx = 0
+			total_latency = np.zeros(len(sc_list))
+
+			args.batch = min(args.batch, queries.shape[0])
+			padded_D, faiss_m, is_padding = get_padded_info(m)
+			if is_padding:
+				padded_queries, padded_train_dataset = faiss_pad_trains_queries(padded_D, queries, train_dataset)
+			else:
+				padded_queries, padded_train_dataset = queries, train_dataset
+
+			if args.opq == -1 and args.sq == -1:
+				index_key_manual = "IVF"+str(L)+",PQ"+str(faiss_m)+"x"+str(log2kstar)
+			elif args.sq != -1:
+					index_key_manual = "IVF"+str(L)+",SQ"+str(args.sq)
+			else:
+				index_key_manual = "OPQ"+str(faiss_m)+"_"+str(args.opq)+",IVF"+str(L)+",PQ"+str(faiss_m)+"x"+str(log2kstar)
+
+
 			for split in range(args.num_split):
 				print("Split ", split)
 				num_per_split = int(N/args.num_split) if split < args.num_split-1 else N-base_idx
