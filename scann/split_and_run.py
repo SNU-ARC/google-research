@@ -207,7 +207,10 @@ def split(filename, num_iter, N, D):
 					split_size = dataset[count*num_per_split:].shape[0]
 					write_split_data(split_dataset_path + str(args.num_split) + "_" + str(split), dataset[count*num_per_split:])
 					trainset = np.random.choice(split_size, int(sampling_rate*split_size), replace=False)
-					write_split_data(split_dataset_path + "learn" + str(args.num_split) + "_" + str(split), dataset[count*num_per_split:][trainset])
+					if "glove" in args.dataset:
+						write_split_data(split_dataset_path + args.metric + "_learn" + str(args.num_split) + "_" + str(split), dataset[count*num_per_split:][trainset])
+					else:
+						write_split_data(split_dataset_path + "learn" + str(args.num_split) + "_" + str(split), dataset[count*num_per_split:][trainset])
 					num_split_list.append(dataset[count*num_per_split:].shape[0])
 					split = split+1
 				break
@@ -215,7 +218,10 @@ def split(filename, num_iter, N, D):
 				split_size = dataset[count*num_per_split:(count+1)*num_per_split].shape[0]
 				write_split_data(split_dataset_path + str(args.num_split) + "_" + str(split), dataset[count*num_per_split:(count+1)*num_per_split])
 				trainset = np.random.choice(split_size, int(sampling_rate*split_size), replace=False)
-				write_split_data(split_dataset_path + "learn" + str(args.num_split) + "_" + str(split), dataset[count*num_per_split:(count+1)*num_per_split][trainset])
+				if "glove" in args.dataset:
+					write_split_data(split_dataset_path + args.metric + "_learn" + str(args.num_split) + "_" + str(split), dataset[count*num_per_split:(count+1)*num_per_split][trainset])
+				else:
+					write_split_data(split_dataset_path + "learn" + str(args.num_split) + "_" + str(split), dataset[count*num_per_split:(count+1)*num_per_split][trainset])
 				num_split_list.append(dataset[count*num_per_split:(count+1)*num_per_split].shape[0])
 				split = split+1
 			count = count+1
@@ -399,12 +405,15 @@ def run_scann():
 	for bc in build_config:
 		num_leaves, threshold, dims, metric = bc
 		sc_list = check_available_search_config(args.program, bc, search_config)
-		neighbors=np.empty((len(sc_list), queries.shape[0],0), dtype=np.int32)
-		distances=np.empty((len(sc_list), queries.shape[0],0), dtype=np.float32)
-		total_latency = np.zeros(len(sc_list))
-		base_idx = 0
-		coarse_path = coarse_dir+"coarse_codebook_L_"+str(num_leaves)+"_threshold_"+str(threshold)+"_dims_"+str(dims)+"_metric_"+metric
+
 		if len(sc_list) > 0:
+			neighbors=np.empty((len(sc_list), queries.shape[0],0), dtype=np.int32)
+			distances=np.empty((len(sc_list), queries.shape[0],0), dtype=np.float32)
+			total_latency = np.zeros(len(sc_list))
+			base_idx = 0
+			os.makedirs(coarse_dir, exist_ok=True)
+			coarse_path = coarse_dir+"coarse_codebook_L_"+str(num_leaves)+"_threshold_"+str(threshold)+"_dims_"+str(dims)+"_metric_"+metric
+
 			for split in range(args.num_split):
 
 				num_per_split = int(N/args.num_split) if split < args.num_split-1 else N-base_idx
@@ -511,7 +520,7 @@ def faiss_pad_trains_queries(padded_D, queries, train_dataset):
 	plus_dim = padded_D-D
 	queries = np.concatenate((queries, np.full((queries.shape[0], plus_dim), 0)), axis=-1)
 	train_dataset = np.concatenate((train_dataset, np.full((train_dataset.shape[0], plus_dim), 0)), axis=-1)
-	print("Query and Train Dataset dimension is padded from ", D, " to ", dataset.shape[1])
+	print("Query and Train Dataset dimension is padded from ", D, " to ", queries.shape[1])
 	return queries, train_dataset
 
 def get_padded_info(m):
@@ -626,26 +635,27 @@ def run_faiss(D):
 		sc_list = check_available_search_config(args.program, bc, search_config)
 		print(bc)
 		print(sc_list)
-		neighbors=np.empty((len(sc_list), queries.shape[0],0), dtype=np.int32)
-		distances=np.empty((len(sc_list), queries.shape[0],0), dtype=np.float32)
-		base_idx = 0
-		total_latency = np.zeros(len(sc_list))
-
-		args.batch = min(args.batch, queries.shape[0])
-		padded_D, faiss_m, is_padding = get_padded_info(m)
-		if is_padding:
-			padded_queries, padded_train_dataset = faiss_pad_trains_queries(padded_D, queries, train_dataset)
-		else:
-			padded_queries, padded_train_dataset = queries, train_dataset
-
-		if args.opq == -1 and args.sq == -1:
-			index_key_manual = "IVF"+str(L)+",PQ"+str(faiss_m)+"x"+str(log2kstar)
-		elif args.sq != -1:
-				index_key_manual = "IVF"+str(L)+",SQ"+str(args.sq)
-		else:
-			index_key_manual = "OPQ"+str(faiss_m)+"_"+str(args.opq)+",IVF"+str(L)+",PQ"+str(faiss_m)+"x"+str(log2kstar)
-
 		if len(sc_list) > 0:
+			neighbors=np.empty((len(sc_list), queries.shape[0],0), dtype=np.int32)
+			distances=np.empty((len(sc_list), queries.shape[0],0), dtype=np.float32)
+			base_idx = 0
+			total_latency = np.zeros(len(sc_list))
+
+			args.batch = min(args.batch, queries.shape[0])
+			padded_D, faiss_m, is_padding = get_padded_info(m)
+			if is_padding:
+				padded_queries, padded_train_dataset = faiss_pad_trains_queries(padded_D, queries, train_dataset)
+			else:
+				padded_queries, padded_train_dataset = queries, train_dataset
+
+			if args.opq == -1 and args.sq == -1:
+				index_key_manual = "IVF"+str(L)+",PQ"+str(faiss_m)+"x"+str(log2kstar)
+			elif args.sq != -1:
+					index_key_manual = "IVF"+str(L)+",SQ"+str(args.sq)
+			else:
+				index_key_manual = "OPQ"+str(faiss_m)+"_"+str(args.opq)+",IVF"+str(L)+",PQ"+str(faiss_m)+"x"+str(log2kstar)
+
+
 			for split in range(args.num_split):
 				print("Split ", split)
 				num_per_split = int(N/args.num_split) if split < args.num_split-1 else N-base_idx
@@ -825,7 +835,7 @@ def get_train():
 		filename = dataset_basedir + 'bigann_learn.bvecs'
 		return bvecs_read(filename)
 	elif "glove" in args.dataset:
-		filename = dataset_basedir + 'split_data/glove_learn1_0'
+		filename = dataset_basedir + 'split_data/glove_'+args.metric+'_learn1_0'
 		return read_data(filename, base=False)
 	else:
 		assert False
@@ -901,6 +911,7 @@ elif "sift1b" in args.dataset:
 	qN = 10000
 	index_key = "OPQ8_32,IVF262144,PQ8"
 elif "glove" in args.dataset:
+	assert args.metric != None
 	dataset_basedir = basedir + "GLOVE/"
 	split_dataset_path = dataset_basedir+"split_data/glove_"
 	if args.split==False:
@@ -920,8 +931,9 @@ elif "deep1b" in args.dataset:
 	num_iter = 16
 	qN = 10000
 
-coarse_dir = basedir + args.program + '_searcher_' + args.metric + '/' + args.dataset + '/coarse_dir/'
-os.makedirs(coarse_dir, exist_ok=True)
+if args.split == False:
+	coarse_dir = basedir + args.program + '_searcher_' + args.metric + '/' + args.dataset + '/coarse_dir/'
+	os.makedirs(coarse_dir, exist_ok=True)
 os.makedirs(dataset_basedir+"split_data/", exist_ok=True)
 
 # main
