@@ -207,7 +207,10 @@ def split(filename, num_iter, N, D):
 					split_size = dataset[count*num_per_split:].shape[0]
 					write_split_data(split_dataset_path + str(args.num_split) + "_" + str(split), dataset[count*num_per_split:])
 					trainset = np.random.choice(split_size, int(sampling_rate*split_size), replace=False)
-					write_split_data(split_dataset_path + "learn" + str(args.num_split) + "_" + str(split), dataset[count*num_per_split:][trainset])
+					if "glove" in args.dataset:
+						write_split_data(split_dataset_path + args.metric + "_learn" + str(args.num_split) + "_" + str(split), dataset[count*num_per_split:][trainset])
+					else:
+						write_split_data(split_dataset_path + "learn" + str(args.num_split) + "_" + str(split), dataset[count*num_per_split:][trainset])
 					num_split_list.append(dataset[count*num_per_split:].shape[0])
 					split = split+1
 				break
@@ -215,12 +218,39 @@ def split(filename, num_iter, N, D):
 				split_size = dataset[count*num_per_split:(count+1)*num_per_split].shape[0]
 				write_split_data(split_dataset_path + str(args.num_split) + "_" + str(split), dataset[count*num_per_split:(count+1)*num_per_split])
 				trainset = np.random.choice(split_size, int(sampling_rate*split_size), replace=False)
-				write_split_data(split_dataset_path + "learn" + str(args.num_split) + "_" + str(split), dataset[count*num_per_split:(count+1)*num_per_split][trainset])
+				if "glove" in args.dataset:
+					write_split_data(split_dataset_path + args.metric + "_learn" + str(args.num_split) + "_" + str(split), dataset[count*num_per_split:(count+1)*num_per_split][trainset])
+				else:
+					write_split_data(split_dataset_path + "learn" + str(args.num_split) + "_" + str(split), dataset[count*num_per_split:(count+1)*num_per_split][trainset])
 				num_split_list.append(dataset[count*num_per_split:(count+1)*num_per_split].shape[0])
 				split = split+1
 			count = count+1
 	print("num_split_lists: ", num_split_list)
 	print("arcm::split done\n");
+
+def random_split(filename, num_iter, N, D):
+	num_per_split = int(N/args.num_split)
+	dataset = np.empty((0, D), dtype=np.uint8 if 'sift1b' in args.dataset else np.float32)
+	dataset_per_iter = int(N/num_iter)
+	num_per_split = int(N/args.num_split)
+	print("dataset_per_iter: ", dataset_per_iter, " / num_per_split: ", num_per_split)
+	num_split_list=[]
+	split = 0
+	sampling_rate = 0.1
+
+	import random
+	random.seed(100)
+	data_ids = list(range(N))
+	random.shuffle(data_ids)
+	# print(data_ids[0:1000])
+	dataset = read_data(dataset_basedir)
+	for split in range(args.num_split):
+		if split < args.num_split:
+			write_split_data(split_dataset_path + str(args.num_split) + "_" + str(split), dataset[data_ids[split*num_per_split:(split+1)*num_per_split]])
+		else:
+			write_split_data(split_dataset_path + str(args.num_split) + "_" + str(split), dataset[data_ids[split*num_per_split:]])
+	np.array(data_ids, dtype=np.uint32).tofile(remapping_file_path)
+	print("Wrote remapping index file to ", remapping_file_path)
 
 def run_groundtruth():
 	print("Making groudtruth file")
@@ -271,8 +301,6 @@ def sort_neighbors(distances, neighbors):
 
 def prepare_eval():
 	gt = get_groundtruth()
-	# gt = np.load("/home/arcuser/hyunji/ss_faiss/benchs/sift1b_squared_l2_gt.npy")
-	# gt = np.load("/home/arcuser/hyunji/ss_faiss/benchs/sift1m_squared_l2_gt.npy")
 	queries = get_queries()
 	print("gt shape: ", gt.shape)
 	# print("gt: ", gt[0])
@@ -298,12 +326,10 @@ def print_recall(final_neighbors, gt):
 	return top1, top10, top100, top1000
 
 def get_searcher_path(split):
-	coarse_dir = basedir + args.program + '_searcher_' + args.metric + '/' + args.dataset + '/coarse_dir/'
 	searcher_dir = basedir + args.program + '_searcher_' + args.metric + '/' + args.dataset + '/Split_' + str(args.num_split) + '/'
-	os.makedirs(coarse_dir, exist_ok=True)
 	os.makedirs(searcher_dir, exist_ok=True)
 	searcher_path = searcher_dir + args.dataset + '_searcher_' + str(args.num_split)+'_'+str(split)
-	return coarse_dir, searcher_dir, searcher_path
+	return searcher_dir, searcher_path
 
 def check_available_search_config(program, bc, search_config):
 	sc_list = list()
@@ -330,6 +356,11 @@ def check_available_search_config(program, bc, search_config):
 
 def run_scann():
 	gt, queries = prepare_eval()
+	train_dataset = get_train()
+	if args.num_split > 1:
+		print("[YJ] Reading remap file from ", remapping_file_path)
+		remap_index = np.fromfile(remapping_file_path, dtype=np.uint32)
+
 	if args.sweep:
 		if "sift1b" in args.dataset or "deep1b" in args.dataset:
 			# For sift 1b
@@ -378,15 +409,19 @@ def run_scann():
 	for bc in build_config:
 		num_leaves, threshold, dims, metric = bc
 		sc_list = check_available_search_config(args.program, bc, search_config)
-		neighbors=np.empty((len(sc_list), queries.shape[0],0), dtype=np.int32)
-		distances=np.empty((len(sc_list), queries.shape[0],0), dtype=np.float32)
-		total_latency = np.zeros(len(sc_list))
-		base_idx = 0
+
 		if len(sc_list) > 0:
+			neighbors=np.empty((len(sc_list), queries.shape[0],0), dtype=np.int32)
+			distances=np.empty((len(sc_list), queries.shape[0],0), dtype=np.float32)
+			total_latency = np.zeros(len(sc_list))
+			base_idx = 0
+			os.makedirs(coarse_dir, exist_ok=True)
+			coarse_path = coarse_dir+"coarse_codebook_L_"+str(num_leaves)+"_threshold_"+str(threshold)+"_dims_"+str(dims)+"_metric_"+metric
+
 			for split in range(args.num_split):
 
 				num_per_split = int(N/args.num_split) if split < args.num_split-1 else N-base_idx
-				coarse_dir, searcher_dir, searcher_path = get_searcher_path(split)
+				searcher_dir, searcher_path = get_searcher_path(split)
 				print("Split ", split)
 				# Load splitted dataset
 				batch_size = min(args.batch, queries.shape[0])
@@ -395,22 +430,27 @@ def run_scann():
 
 				if os.path.isdir(searcher_path):
 					print("Loading searcher from ", searcher_path)
-					searcher = scann.scann_ops_pybind.load_searcher(searcher_path, num_per_split, D)
+					searcher = scann.scann_ops_pybind.load_searcher(searcher_path, num_per_split, D, coarse_path)
 				else:
 					# Create ScaNN searcher
 					print("Entering ScaNN builder, will be created to ", searcher_path)
+					if os.path.isfile(coarse_path):
+						load_coarse = True
+					else:
+						load_coarse = False
+					print("Load coarse: ", load_coarse)
 					dataset = read_data(split_dataset_path + str(args.num_split) + "_" + str(split) if args.num_split>1 else dataset_basedir, base=False if args.num_split>1 else True, offset_=None if args.num_split>1 else 0, shape_=None)
 					if args.reorder!=-1:
-						searcher = scann.scann_ops_pybind.builder(dataset, 10, metric).tree(
+						searcher = scann.scann_ops_pybind.builder(dataset, train_dataset, load_coarse, coarse_path, 10, metric).tree(
 							num_leaves=num_leaves, num_leaves_to_search=num_leaves, training_sample_size=args.coarse_training_size).score_ah(
 							dims, anisotropic_quantization_threshold=threshold, training_sample_size=args.fine_training_size).reorder(args.reorder).build()
 					else:
-						searcher = scann.scann_ops_pybind.builder(dataset, 10, metric).tree(
+						searcher = scann.scann_ops_pybind.builder(dataset, train_dataset, load_coarse, coarse_path, 10, metric).tree(
 								num_leaves=num_leaves, num_leaves_to_search=num_leaves, training_sample_size=args.coarse_training_size).score_ah(
 								dims, anisotropic_quantization_threshold=threshold, training_sample_size=args.fine_training_size).build()
 					print("Saving searcher to ", searcher_path)
 					os.makedirs(searcher_path, exist_ok=True)
-					searcher.serialize(searcher_path)
+					searcher.serialize(searcher_path, coarse_path, load_coarse)
 				print("sc_list: ", sc_list)
 				n = list()
 				d = list()
@@ -465,7 +505,10 @@ def run_scann():
 					leaves_to_search, reorder = search_config[sc_list[idx]]
 					f.write(str(num_leaves)+"\t"+str(threshold)+"\t"+str(int(D/dims))+"\t|\t"+str(leaves_to_search)+"\t"+str(reorder)+"\t"+str(metric)+"\n")
 				print(str(num_leaves)+"\t"+str(threshold)+"\t"+str(int(D/dims))+"\t|\t"+str(leaves_to_search)+"\t"+str(reorder)+"\t"+str(metric)+"\n")
-				top1, top10, top100, top1000 = print_recall(final_neighbors[idx], gt)
+				if args.num_split > 1:
+					top1, top10, top100, top1000 = print_recall(remap_index[final_neighbors[idx]], gt)
+				else:
+					top1, top10, top100, top1000 = print_recall(final_neighbors[idx], gt)
 				print("Top ", args.topk, " Total latency (ms): ", total_latency[idx])
 				print("arcm::Latency written. End of File.\n");
 				if args.sweep:
@@ -484,7 +527,7 @@ def faiss_pad_trains_queries(padded_D, queries, train_dataset):
 	plus_dim = padded_D-D
 	queries = np.concatenate((queries, np.full((queries.shape[0], plus_dim), 0)), axis=-1)
 	train_dataset = np.concatenate((train_dataset, np.full((train_dataset.shape[0], plus_dim), 0)), axis=-1)
-	print("Query and Train Dataset dimension is padded from ", D, " to ", dataset.shape[1])
+	print("Query and Train Dataset dimension is padded from ", D, " to ", queries.shape[1])
 	return queries, train_dataset
 
 def get_padded_info(m):
@@ -526,6 +569,10 @@ def get_padded_info(m):
 def run_faiss(D):
 	gt, queries = prepare_eval()
 	train_dataset = get_train()
+	if args.num_split > 1:
+		print("[YJ] Reading remap file from ", remapping_file_path)
+		remap_index = np.fromfile(remapping_file_path, dtype=np.uint32)
+		
 	if args.sweep:
 		if args.is_gpu:
 			log2kstar_ = 8
@@ -601,30 +648,31 @@ def run_faiss(D):
 		sc_list = check_available_search_config(args.program, bc, search_config)
 		print(bc)
 		print(sc_list)
-		neighbors=np.empty((len(sc_list), queries.shape[0],0), dtype=np.int32)
-		distances=np.empty((len(sc_list), queries.shape[0],0), dtype=np.float32)
-		base_idx = 0
-		total_latency = np.zeros(len(sc_list))
-
-		args.batch = min(args.batch, queries.shape[0])
-		padded_D, faiss_m, is_padding = get_padded_info(m)
-		if is_padding:
-			padded_queries, padded_train_dataset = faiss_pad_trains_queries(padded_D, queries, train_dataset)
-		else:
-			padded_queries, padded_train_dataset = queries, train_dataset
-
-		if args.opq == -1 and args.sq == -1:
-			index_key_manual = "IVF"+str(L)+",PQ"+str(faiss_m)+"x"+str(log2kstar)
-		elif args.sq != -1:
-				index_key_manual = "IVF"+str(L)+",SQ"+str(args.sq)
-		else:
-			index_key_manual = "OPQ"+str(faiss_m)+"_"+str(args.opq)+",IVF"+str(L)+",PQ"+str(faiss_m)+"x"+str(log2kstar)
-
 		if len(sc_list) > 0:
+			neighbors=np.empty((len(sc_list), queries.shape[0],0), dtype=np.int32)
+			distances=np.empty((len(sc_list), queries.shape[0],0), dtype=np.float32)
+			base_idx = 0
+			total_latency = np.zeros(len(sc_list))
+
+			args.batch = min(args.batch, queries.shape[0])
+			padded_D, faiss_m, is_padding = get_padded_info(m)
+			if is_padding:
+				padded_queries, padded_train_dataset = faiss_pad_trains_queries(padded_D, queries, train_dataset)
+			else:
+				padded_queries, padded_train_dataset = queries, train_dataset
+
+			if args.opq == -1 and args.sq == -1:
+				index_key_manual = "IVF"+str(L)+",PQ"+str(faiss_m)+"x"+str(log2kstar)
+			elif args.sq != -1:
+					index_key_manual = "IVF"+str(L)+",SQ"+str(args.sq)
+			else:
+				index_key_manual = "OPQ"+str(faiss_m)+"_"+str(args.opq)+",IVF"+str(L)+",PQ"+str(faiss_m)+"x"+str(log2kstar)
+
+
 			for split in range(args.num_split):
 				print("Split ", split)
 				num_per_split = int(N/args.num_split) if split < args.num_split-1 else N-base_idx
-				coarse_dir, searcher_dir, searcher_path = get_searcher_path(split)
+				searcher_dir, searcher_path = get_searcher_path(split)
 
 				is_cached = check_cached(searcher_dir, args, args.dataset, split, index_key_manual)
 				args.m = faiss_m
@@ -668,8 +716,10 @@ def run_faiss(D):
 				if args.sweep:
 					w, reorder = search_config[sc_list[idx]]
 					f.write(str(L)+"\t"+str(m)+"\t"+str(2**log2kstar)+"\t|\t"+str(w)+"\t"+str(reorder)+"\t"+str(metric)+"\n")		# faiss-gpu has no reorder
-
-				top1, top10, top100, top1000 = print_recall(final_neighbors[idx], gt)
+				if args.num_split > 1:
+					top1, top10, top100, top1000 = print_recall(remap_index[final_neighbors[idx]], gt)
+				else:
+					top1, top10, top100, top1000 = print_recall(final_neighbors[idx], gt)
 				print("Top ", args.topk, " Total latency (ms): ", total_latency[idx])
 				print("arcm::Latency written. End of File.\n");
 				if args.sweep:
@@ -705,7 +755,7 @@ def run_annoy(D):
 		base_idx = 0
 		for split in range(args.num_split):
 			num_per_split = int(N/args.num_split) if split < args.num_split-1 else N-base_idx
-			_, searcher_dir, searcher_path = get_searcher_path(split)
+			searcher_dir, searcher_path = get_searcher_path(split)
 			searcher_path = searcher_path + '_' + str(n_trees) + '_' + metric
 			print("Split ", split)
 
@@ -798,7 +848,7 @@ def get_train():
 		filename = dataset_basedir + 'bigann_learn.bvecs'
 		return bvecs_read(filename)
 	elif "glove" in args.dataset:
-		filename = dataset_basedir + 'split_data/glove_learn1_0'
+		filename = dataset_basedir + 'split_data/glove_'+args.metric+'_learn1_0'
 		return read_data(filename, base=False)
 	else:
 		assert False
@@ -813,25 +863,6 @@ def get_groundtruth():
 		return np.load(groundtruth_path)
 	else:
 		return ivecs_read(groundtruth_path)
-
-	# elif "sift1m" in args.dataset:
-	# 	return ivecs_read(groundtruth_path)
-	# 	# filename = dataset_basedir + 'sift_groundtruth.ivecs' if args.metric=="squared_l2" else groundtruth_path
-	# 	# print("Reading from ", filename)
-	# 	# return ivecs_read(filename)
-	# elif "sift1b" in args.dataset:
-	#  	filename = dataset_basedir +  'gnd/idx_1000M.ivecs' if args.metric=="squared_l2" else groundtruth_path
-	#  	print("Reading from ", filename)
-	#  	return ivecs_read(filename)
-	# elif "glove" in args.dataset:
-	# 	if args.metric == "dot_product":
-	# 		print("Reading from ", dataset_basedir+"glove-100-angular.hdf5")
-	# 		return h5py.File(dataset_basedir+"glove-100-angular.hdf5", "r")['neighbors']
-	# 	else:
-	# 		print("Reading from ", groundtruth_path)
-	# 		return read_data(groundtruth_path, base=False)
-	# else:
-	#  	assert False
 
 def get_queries():
 	if "sift1m" in args.dataset:
@@ -893,6 +924,7 @@ elif "sift1b" in args.dataset:
 	qN = 10000
 	index_key = "OPQ8_32,IVF262144,PQ8"
 elif "glove" in args.dataset:
+	assert args.metric != None
 	dataset_basedir = basedir + "GLOVE/"
 	split_dataset_path = dataset_basedir+"split_data/glove_"
 	if args.split==False:
@@ -912,11 +944,17 @@ elif "deep1b" in args.dataset:
 	num_iter = 16
 	qN = 10000
 
+if args.split == False:
+	coarse_dir = basedir + args.program + '_searcher_' + args.metric + '/' + args.dataset + '/coarse_dir/'
+	os.makedirs(coarse_dir, exist_ok=True)
+if (args.num_split > 1 and args.eval_split) or args.split:
+	remapping_file_path = split_dataset_path + 'remapping_index_' + str(args.num_split)
 os.makedirs(dataset_basedir+"split_data/", exist_ok=True)
 
 # main
 if args.split:
-	split(args.dataset, num_iter, N, D)
+	# split(args.dataset, num_iter, N, D)
+	random_split(args.dataset, num_iter, N, D)
 if args.eval_split or args.sweep:
 	if args.program == "scann":
 		run_scann()

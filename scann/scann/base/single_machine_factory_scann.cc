@@ -53,17 +53,18 @@ namespace {
 template <typename T>
 StatusOr<unique_ptr<Partitioner<T>>> CreateTreeXPartitioner(
     shared_ptr<const TypedDataset<T>> dataset, const ScannConfig& config,
-    SingleMachineFactoryOptions* opts) {
+    SingleMachineFactoryOptions* opts, shared_ptr<const TypedDataset<T>> train_set=nullptr) {
   if (config.partitioning().num_partitioning_epochs() != 1) {
     return InvalidArgumentError(
         "num_partitioning_epochs must be == 1 for tree-X hybrids.");
   }
-
+  std::cout << "[YJ] CreateTreeXPartitioner" << std::endl;
   unique_ptr<Partitioner<T>> partitioner;
   if (opts->kmeans_tree) {
     return InvalidArgumentError(
         "pre-trained kmeans-tree partitioners are not supported.");
   } else if (opts->serialized_partitioner) {
+    std::cout << "[YJ] serialized_partitioner" << std::endl;
     TF_ASSIGN_OR_RETURN(
         partitioner, PartitionerFromSerialized<T>(*opts->serialized_partitioner,
                                                   config.partitioning()));
@@ -75,7 +76,7 @@ StatusOr<unique_ptr<Partitioner<T>>> CreateTreeXPartitioner(
     }
     TF_ASSIGN_OR_RETURN(
         partitioner, PartitionerFactory<T>(dataset.get(), config.partitioning(),
-                                           opts->parallelization_pool));
+                                           opts->parallelization_pool, train_set.get()));
   } else {
     return InvalidArgumentError("Loading a partitioner is not supported.");
   }
@@ -135,20 +136,20 @@ StatusOrSearcherUntyped AsymmetricHasherFactory(
 template <typename T>
 StatusOrSearcherUntyped TreeAhHybridResidualFactory(
     const ScannConfig& config, const shared_ptr<TypedDataset<T>>& dataset,
-    const GenericSearchParameters& params, SingleMachineFactoryOptions* opts) {
+    const GenericSearchParameters& params, SingleMachineFactoryOptions* opts, const shared_ptr<TypedDataset<T>>& train_set=nullptr) {
   return InvalidArgumentError(
       "Tree-AH with residual quantization only works with float data.");
 }
 template <>
 StatusOrSearcherUntyped TreeAhHybridResidualFactory<float>(
     const ScannConfig& config, const shared_ptr<TypedDataset<float>>& dataset,
-    const GenericSearchParameters& params, SingleMachineFactoryOptions* opts) {
+    const GenericSearchParameters& params, SingleMachineFactoryOptions* opts, const shared_ptr<TypedDataset<float>>& train_set) {
   unique_ptr<Partitioner<float>> partitioner;
   if (config.partitioning().has_partitioner_prefix()) {
     return InvalidArgumentError("Loading a partitioner is not supported.");
   } else {
     TF_ASSIGN_OR_RETURN(partitioner,
-                        CreateTreeXPartitioner<float>(dataset, config, opts));
+                        CreateTreeXPartitioner<float>(dataset, config, opts, train_set));
   }
   unique_ptr<KMeansTreeLikePartitioner<float>> kmeans_tree_partitioner(
       dynamic_cast<KMeansTreeLikePartitioner<float>*>(partitioner.release()));
@@ -389,9 +390,9 @@ StatusOrSearcherUntyped PretrainedSQTreeXHybridFactory(
 template <typename T>
 StatusOrSearcherUntyped NonResidualTreeXHybridFactory(
     const ScannConfig& config, const shared_ptr<TypedDataset<T>>& dataset,
-    const GenericSearchParameters& params, SingleMachineFactoryOptions* opts) {
+    const GenericSearchParameters& params, SingleMachineFactoryOptions* opts, const shared_ptr<TypedDataset<T>>& train_set) {
   TF_ASSIGN_OR_RETURN(auto partitioner,
-                      CreateTreeXPartitioner<T>(dataset, config, opts));
+                      CreateTreeXPartitioner<T>(dataset, config, opts, train_set));
   DCHECK(partitioner);
 
   bool use_serialized_per_leaf_hashers = false;
@@ -512,7 +513,7 @@ StatusOrSearcherUntyped NonResidualTreeXHybridFactory(
       leaf_opts.parallelization_pool = opts->parallelization_pool;
       TF_ASSIGN_OR_RETURN(auto leaf_searcher,
                           internal::SingleMachineFactoryLeafSearcherScann<T>(
-                              spec_config, leaf_dataset, params, &leaf_opts));
+                              spec_config, leaf_dataset, params, &leaf_opts, train_set));
       return {unique_cast_unsafe<SingleMachineSearcherBase<T>>(
           std::move(leaf_searcher))};
     };
@@ -553,15 +554,15 @@ StatusOrSearcherUntyped NonResidualTreeXHybridFactory(
 template <typename T>
 StatusOrSearcherUntyped TreeXHybridFactory(
     const ScannConfig& config, const shared_ptr<TypedDataset<T>>& dataset,
-    const GenericSearchParameters& params, SingleMachineFactoryOptions* opts) {
+    const GenericSearchParameters& params, SingleMachineFactoryOptions* opts, const shared_ptr<TypedDataset<T>>& train_set=nullptr) {
   if (config.hash().asymmetric_hash().use_residual_quantization()) {
-    return TreeAhHybridResidualFactory<T>(config, dataset, params, opts);
+    return TreeAhHybridResidualFactory<T>(config, dataset, params, opts, train_set);
   } else if (std::is_same<T, float>::value &&
              config.brute_force().fixed_point().enabled() &&
              opts->pre_quantized_fixed_point) {
     return PretrainedSQTreeXHybridFactory(config, nullptr, params, opts);
   } else {
-    return NonResidualTreeXHybridFactory<T>(config, dataset, params, opts);
+    return NonResidualTreeXHybridFactory<T>(config, dataset, params, opts, train_set);
   }
 }
 
@@ -671,7 +672,7 @@ class ScannLeafSearcher {
   static StatusOrSearcherUntyped SingleMachineFactoryLeafSearcher(
       const ScannConfig& config, const shared_ptr<TypedDataset<T>>& dataset,
       const GenericSearchParameters& params,
-      SingleMachineFactoryOptions* opts) {
+      SingleMachineFactoryOptions* opts, const shared_ptr<TypedDataset<T>>& train_set=nullptr) {
     if (internal::NumQueryDatabaseSearchTypesConfigured(config) != 1) {
       return InvalidArgumentError(
           "Exactly one single-machine search type must be configured in "
@@ -679,7 +680,7 @@ class ScannLeafSearcher {
     }
 
     if (config.has_partitioning()) {
-      return TreeXHybridFactory<T>(config, dataset, params, opts);
+      return TreeXHybridFactory<T>(config, dataset, params, opts, train_set);
     } else if (config.has_brute_force()) {
       if (std::is_same<T, float>::value &&
           config.brute_force().fixed_point().enabled() &&
@@ -702,19 +703,19 @@ class ScannLeafSearcher {
 template <typename T>
 StatusOr<unique_ptr<SingleMachineSearcherBase<T>>> SingleMachineFactoryScann(
     const ScannConfig& config, shared_ptr<TypedDataset<T>> dataset,
-    SingleMachineFactoryOptions opts) {
+    SingleMachineFactoryOptions opts, shared_ptr<TypedDataset<T>> train_set) {
   opts.type_tag = TagForType<T>();
   TF_ASSIGN_OR_RETURN(auto searcher, SingleMachineFactoryUntypedScann(
-                                         config, dataset, std::move(opts)));
+                                         config, dataset, std::move(opts), train_set));
   return {
       unique_cast_unsafe<SingleMachineSearcherBase<T>>(std::move(searcher))};
 }
 
 StatusOrSearcherUntyped SingleMachineFactoryUntypedScann(
     const ScannConfig& config, shared_ptr<Dataset> dataset,
-    SingleMachineFactoryOptions opts) {
+    SingleMachineFactoryOptions opts, shared_ptr<Dataset> train_set) {
   return internal::SingleMachineFactoryUntypedImpl<ScannLeafSearcher>(
-      config, dataset, opts);
+      config, dataset, opts, train_set);
 }
 
 namespace internal {
@@ -722,9 +723,9 @@ namespace internal {
 template <typename T>
 StatusOrSearcherUntyped SingleMachineFactoryLeafSearcherScann(
     const ScannConfig& config, const shared_ptr<TypedDataset<T>>& dataset,
-    const GenericSearchParameters& params, SingleMachineFactoryOptions* opts) {
+    const GenericSearchParameters& params, SingleMachineFactoryOptions* opts, const shared_ptr<TypedDataset<T>>& train_set) {
   return ScannLeafSearcher::SingleMachineFactoryLeafSearcher(config, dataset,
-                                                             params, opts);
+                                                             params, opts, train_set);
 }
 
 }  // namespace internal

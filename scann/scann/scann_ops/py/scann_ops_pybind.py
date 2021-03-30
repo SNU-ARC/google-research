@@ -69,26 +69,30 @@ class ScannSearcher(object):
     leaves = -1 if leaves_to_search is None else leaves_to_search
     return self.searcher.search_batched(queries, final_nn, pre_nn, leaves, batch_size, True)
 
-  def serialize(self, artifacts_dir):
-    self.searcher.serialize(artifacts_dir)
+  def serialize(self, artifacts_dir, coarse_dir, load_coarse):
+    self.searcher.serialize(artifacts_dir, coarse_dir, load_coarse)
 
 
-def builder(db, num_neighbors, distance_measure):
+def builder(db, train_set, load_coarse, coarse_path, num_neighbors, distance_measure):
   """pybind analogue of builder() in scann_ops.py; see docstring there."""
 
-  def builder_lambda(db, config, training_threads, **kwargs):
-    return create_searcher(db, config, training_threads, **kwargs)
+  def builder_lambda(db, train_set, config, training_threads, load_coarse, coarse_path, **kwargs):
+    return create_searcher(db, train_set, config, load_coarse, coarse_path, training_threads, **kwargs)
 
   return scann_builder.ScannBuilder(
-      db, num_neighbors, distance_measure).set_builder_lambda(builder_lambda)
+      db, train_set, load_coarse, coarse_path, num_neighbors, distance_measure).set_builder_lambda(builder_lambda)
 
 
-def create_searcher(db, scann_config, training_threads=0):
+def create_searcher(db, train_set, scann_config, load_coarse, coarse_path, training_threads=0):
+  # if load_coarse == True:
+  #   coarse_codebook = np.load(coarse_path, mmap_mode="r")
+  # else:
+  #   coarse_codebook = None
   return ScannSearcher(
-      scann_pybind.ScannNumpy(db, scann_config, training_threads))
+      scann_pybind.ScannNumpy(db, train_set, scann_config, load_coarse, coarse_path, training_threads))
 
 
-def load_searcher(artifacts_dir, N, D):
+def load_searcher(artifacts_dir, N, D, coarse_path):
   """Loads searcher assets from artifacts_dir and returns a ScaNN searcher."""
 
   def load_if_exists(filename):
@@ -103,4 +107,4 @@ def load_searcher(artifacts_dir, N, D):
 
   return ScannSearcher(
       scann_pybind.ScannNumpy(db, tokenization, hashed_db, int8_db,
-                              int8_multipliers, db_norms, artifacts_dir))
+                              int8_multipliers, db_norms, artifacts_dir, coarse_path))
