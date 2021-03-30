@@ -207,7 +207,10 @@ def split(filename, num_iter, N, D):
 					split_size = dataset[count*num_per_split:].shape[0]
 					write_split_data(split_dataset_path + str(args.num_split) + "_" + str(split), dataset[count*num_per_split:])
 					trainset = np.random.choice(split_size, int(sampling_rate*split_size), replace=False)
-					write_split_data(split_dataset_path + "learn" + str(args.num_split) + "_" + str(split), dataset[count*num_per_split:][trainset])
+					if "glove" in args.dataset:
+						write_split_data(split_dataset_path + args.metric + "_learn" + str(args.num_split) + "_" + str(split), dataset[count*num_per_split:][trainset])
+					else:
+						write_split_data(split_dataset_path + "learn" + str(args.num_split) + "_" + str(split), dataset[count*num_per_split:][trainset])
 					num_split_list.append(dataset[count*num_per_split:].shape[0])
 					split = split+1
 				break
@@ -215,7 +218,10 @@ def split(filename, num_iter, N, D):
 				split_size = dataset[count*num_per_split:(count+1)*num_per_split].shape[0]
 				write_split_data(split_dataset_path + str(args.num_split) + "_" + str(split), dataset[count*num_per_split:(count+1)*num_per_split])
 				trainset = np.random.choice(split_size, int(sampling_rate*split_size), replace=False)
-				write_split_data(split_dataset_path + "learn" + str(args.num_split) + "_" + str(split), dataset[count*num_per_split:(count+1)*num_per_split][trainset])
+				if "glove" in args.dataset:
+					write_split_data(split_dataset_path + args.metric + "_learn" + str(args.num_split) + "_" + str(split), dataset[count*num_per_split:(count+1)*num_per_split][trainset])
+				else:
+					write_split_data(split_dataset_path + "learn" + str(args.num_split) + "_" + str(split), dataset[count*num_per_split:(count+1)*num_per_split][trainset])
 				num_split_list.append(dataset[count*num_per_split:(count+1)*num_per_split].shape[0])
 				split = split+1
 			count = count+1
@@ -799,7 +805,7 @@ def get_train():
 		filename = dataset_basedir + 'bigann_learn.bvecs'
 		return bvecs_read(filename)
 	elif "glove" in args.dataset:
-		filename = dataset_basedir + 'split_data/glove_learn1_0'
+		filename = dataset_basedir + 'split_data/glove_'+args.metric+'_learn1_0'
 		return read_data(filename, base=False)
 	else:
 		assert False
@@ -894,6 +900,7 @@ elif "sift1b" in args.dataset:
 	qN = 10000
 	index_key = "OPQ8_32,IVF262144,PQ8"
 elif "glove" in args.dataset:
+	assert args.metric != None
 	dataset_basedir = basedir + "GLOVE/"
 	split_dataset_path = dataset_basedir+"split_data/glove_"
 	if args.split==False:
@@ -913,9 +920,11 @@ elif "deep1b" in args.dataset:
 	num_iter = 16
 	qN = 10000
 
-coarse_dir = basedir + args.program + '_searcher_' + args.metric + '/' + args.dataset + '/coarse_dir/'
+if args.split == False:
+	coarse_dir = basedir + args.program + '_searcher_' + args.metric + '/' + args.dataset + '/coarse_dir/'
+	os.makedirs(coarse_dir, exist_ok=True)
+
 os.makedirs(dataset_basedir+"split_data/", exist_ok=True)
-os.makedirs(coarse_dir, exist_ok=True)
 
 # main
 if args.split:
