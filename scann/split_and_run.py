@@ -941,7 +941,7 @@ elif "deep1b" in args.dataset:
 if args.split == False:
 	coarse_dir = basedir + args.program + '_searcher_' + args.metric + '/' + args.dataset + '/coarse_dir/'
 	os.makedirs(coarse_dir, exist_ok=True)
-if (args.num_split > 1 and args.eval_split) || args.split:
+if (args.num_split > 1 and args.eval_split) or args.split:
 	remapping_file_path = split_dataset_path + 'remapping_index_' + str(args.num_split)
 os.makedirs(dataset_basedir+"split_data/", exist_ok=True)
 
