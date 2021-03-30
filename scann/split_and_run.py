@@ -249,7 +249,8 @@ def random_split(filename, num_iter, N, D):
 			write_split_data(split_dataset_path + str(args.num_split) + "_" + str(split), dataset[data_ids[split*num_per_split:(split+1)*num_per_split]])
 		else:
 			write_split_data(split_dataset_path + str(args.num_split) + "_" + str(split), dataset[data_ids[split*num_per_split:]])
-	np.array(data_ids, dtype=np.uint32).tofile(split_dataset_path + 'remapping_index_' + str(args.num_split))
+	np.array(data_ids, dtype=np.uint32).tofile(remapping_file_path)
+	print("Wrote remapping index file to ", remapping_file_path)
 
 def run_groundtruth():
 	print("Making groudtruth file")
@@ -299,7 +300,7 @@ def sort_neighbors(distances, neighbors):
 		assert False
 
 def prepare_eval():
-	gt = get_groundtruth(args.metric, groundtruth_path)
+	gt = get_groundtruth()
 	queries = get_queries()
 	print("gt shape: ", gt.shape)
 	# print("gt: ", gt[0])
@@ -356,7 +357,10 @@ def check_available_search_config(program, bc, search_config):
 def run_scann():
 	gt, queries = prepare_eval()
 	train_dataset = get_train()
-	print("train set size: ", train_dataset.shape)
+	if args.num_split > 1:
+		print("[YJ] Reading remap file from ", remapping_file_path)
+		remap_index = np.fromfile(remapping_file_path, dtype=np.uint32)
+
 	if args.sweep:
 		if "sift1b" in args.dataset or "deep1b" in args.dataset:
 			# For sift 1b
@@ -501,7 +505,10 @@ def run_scann():
 					leaves_to_search, reorder = search_config[sc_list[idx]]
 					f.write(str(num_leaves)+"\t"+str(threshold)+"\t"+str(int(D/dims))+"\t|\t"+str(leaves_to_search)+"\t"+str(reorder)+"\t"+str(metric)+"\n")
 				print(str(num_leaves)+"\t"+str(threshold)+"\t"+str(int(D/dims))+"\t|\t"+str(leaves_to_search)+"\t"+str(reorder)+"\t"+str(metric)+"\n")
-				top1, top10, top100, top1000 = print_recall(final_neighbors[idx], gt)
+				if args.num_split > 1:
+					top1, top10, top100, top1000 = print_recall(remap_index[final_neighbors[idx]], gt)
+				else:
+					top1, top10, top100, top1000 = print_recall(final_neighbors[idx], gt)
 				print("Top ", args.topk, " Total latency (ms): ", total_latency[idx])
 				print("arcm::Latency written. End of File.\n");
 				if args.sweep:
@@ -563,8 +570,8 @@ def run_faiss(D):
 	gt, queries = prepare_eval()
 	train_dataset = get_train()
 	if args.num_split > 1:
-		print("[YJ] Reading remap file from ", split_dataset_path + 'remapping_index_' + str(args.num_split))
-		remap_index = np.fromfile(split_dataset_path + 'remapping_index_' + str(args.num_split), dtype=np.uint32)
+		print("[YJ] Reading remap file from ", remapping_file_path)
+		remap_index = np.fromfile(remapping_file_path, dtype=np.uint32)
 		
 	if args.sweep:
 		if args.is_gpu:
@@ -840,13 +847,13 @@ def get_train():
 	else:
 		assert False
 
-def get_groundtruth(metric, groundtruth_path):
+def get_groundtruth():
 	print("Reading grountruth from ", groundtruth_path)
 	if os.path.isfile(groundtruth_path)==False:
 		run_groundtruth()
 	if "glove" in args.dataset:
 		return read_data(groundtruth_path, base=False)
-	elif "deep1b" in args.dataset or ("sift1b" in args.dataset and metric == "dot_product"):
+	elif "deep1b" in args.dataset or ("sift1b" in args.dataset and args.metric == "dot_product"):
 		return np.load(groundtruth_path)
 	else:
 		return ivecs_read(groundtruth_path)
@@ -934,6 +941,8 @@ elif "deep1b" in args.dataset:
 if args.split == False:
 	coarse_dir = basedir + args.program + '_searcher_' + args.metric + '/' + args.dataset + '/coarse_dir/'
 	os.makedirs(coarse_dir, exist_ok=True)
+if (args.num_split > 1 and args.eval_split) || args.split:
+	remapping_file_path = split_dataset_path + 'remapping_index_' + str(args.num_split)
 os.makedirs(dataset_basedir+"split_data/", exist_ok=True)
 
 # main
