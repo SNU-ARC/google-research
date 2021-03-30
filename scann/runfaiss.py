@@ -260,7 +260,7 @@ def dataset_iterator(x, preproc, bs):
     return rate_limited_imap(prepare_block, block_ranges)
 
 
-def build_faiss(args, cacheroot, split, N_, D, index_key, train, base, query_):
+def build_faiss(args, cacheroot, coarse_dir, split, N_, D, index_key, train, base, query_):
 
     # set global variables
     name1_to_metric = {
@@ -310,15 +310,15 @@ def build_faiss(args, cacheroot, split, N_, D, index_key, train, base, query_):
 
     print("cachefiles:")
     if preproc_str:
-        preproc_cachefile = '%s%s_preproc_%s_%s_%s_%s.vectrans' % (
-            cacheroot, args.metric, dbname, split, args.num_split, preproc_str[:-1])
+        preproc_cachefile = '%s%s_preproc_%s_%s.vectrans' % (
+            cacheroot, args.metric, dbname, preproc_str[:-1])
         print(preproc_cachefile)
     else:
         preproc_str = ''
         preproc_cachefile = None
 
-    cent_cachefile = '%s%s_cent_%s_%s_%s_%s%s_%s.npy' % (
-        cacheroot, args.metric, dbname, split, args.num_split, preproc_str, ivf_str, D)
+    cent_cachefile = '%s%s_cent_%s_%s%s_%s.npy' % (
+        coarse_dir, args.metric, dbname, preproc_str, ivf_str, D)
     print(cent_cachefile)
 
     index_cachefile = '%s%s_%s_%s_%s_%s%s,%s.index' % (
@@ -366,8 +366,8 @@ def build_faiss(args, cacheroot, split, N_, D, index_key, train, base, query_):
 
 def check_cached(cacheroot, args, dbname, split, index_key):
     preproc_str, ivf_str, pqflat_str = process_index_key(index_key)
-    index_cachefile = '%s%s_%s_%s_%s_%s%s,%s.index' % (
-        cacheroot, args.metric, dbname, split, args.num_split, preproc_str, ivf_str, pqflat_str)
+    index_cachefile = '%s%s_%s_%s%s,%s.index' % (
+        cacheroot, args.metric, dbname, preproc_str, ivf_str, pqflat_str)
     if not index_cachefile or not os.path.exists(index_cachefile):
         print("Cache file does not exist..")
         return False

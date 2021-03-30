@@ -47,7 +47,8 @@ ScannNumpy::ScannNumpy(
     std::optional<const np_row_major_arr<int8_t>> int8_dataset,
     std::optional<const np_row_major_arr<float>> int8_multipliers,
     std::optional<const np_row_major_arr<float>> dp_norms,
-    const std::string& artifacts_dir) {
+    const std::string& artifacts_dir,
+    const std::string& coarse_path) {
   DatapointIndex n_points = kInvalidDatapointIndex;
   ConstSpan<float> dataset;
   if (np_dataset) {
@@ -83,16 +84,17 @@ ScannNumpy::ScannNumpy(
   RuntimeErrorIfNotOk(
       "Error initializing searcher: ",
       scann_.Initialize(dataset, tokenization, hashed_span, int8_span,
-                        mult_span, norm_span, n_points, artifacts_dir));
+                        mult_span, norm_span, n_points, artifacts_dir, coarse_path));
 }
 
 ScannNumpy::ScannNumpy(const np_row_major_arr<float>& np_dataset,
-                       const std::string& config, int training_threads) {
+                       const np_row_major_arr<float>& train_set,
+                       const std::string& config, const bool& load_coarse, const std::string& coarse_path, int training_threads) {
   if (np_dataset.ndim() != 2)
     throw std::invalid_argument("Dataset input must be two-dimensional");
   ConstSpan<float> dataset(np_dataset.data(), np_dataset.size());
   RuntimeErrorIfNotOk("Error initializing searcher: ",
-                      scann_.Initialize(dataset, np_dataset.shape()[0], config,
+                      scann_.Initialize(dataset, train_set, np_dataset.shape()[0], train_set.shape()[0], config, load_coarse, coarse_path,
                                         training_threads));
 }
 
@@ -147,8 +149,8 @@ ScannNumpy::SearchBatched(const np_row_major_arr<float>& queries, int final_nn,
   return {indices, distances};
 }
 
-void ScannNumpy::Serialize(std::string path) {
-  Status status = scann_.Serialize(path);
+void ScannNumpy::Serialize(std::string path, std::string coarse_path, bool load_coarse) {
+  Status status = scann_.Serialize(path, coarse_path, load_coarse);
   RuntimeErrorIfNotOk("Failed to extract SingleMachineFactoryOptions: ",
                       status);
 }

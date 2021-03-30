@@ -65,10 +65,16 @@ class ScannCreateSearcherOp : public ResourceOpKernel<ScannResource> {
     if (resource_ && resource_->is_initialized()) return;
 
     const Tensor* config_tensor;
+    const Tensor* load_coarse_tensor;
+    const Tensor* coarse_path_tensor;
+    const Tensor* train_set_tensor;
     const Tensor* db_tensor;
     const Tensor* threads_tensor;
     OP_REQUIRES_OK(context, context->input("scann_config", &config_tensor));
+    OP_REQUIRES_OK(context, context->input("load_coarse", &load_coarse_tensor));
+    OP_REQUIRES_OK(context, context->input("coarse_path", &coarse_path_tensor));
     OP_REQUIRES_OK(context, context->input("x", &db_tensor));
+    OP_REQUIRES_OK(context, context->input("train_set", &train_set_tensor));
     OP_REQUIRES_OK(context,
                    context->input("training_threads", &threads_tensor));
 
@@ -76,10 +82,13 @@ class ScannCreateSearcherOp : public ResourceOpKernel<ScannResource> {
                 errors::InvalidArgument("Dataset must be two-dimensional"));
 
     std::string config = config_tensor->scalar<tstring>()();
+    bool load_coarse = load_coarse_tensor->scalar<bool>()();
+    std::string coarse_path = coarse_path_tensor->scalar<tstring>()();
     auto db_span = TensorToConstSpan<float>(db_tensor);
+    auto train_span = TensorToConstSpan<float>(train_set_tensor);
 
     OP_REQUIRES_OK(context, ConvertStatus(resource_->scann_->Initialize(
-                                db_span, db_tensor->dim_size(0), config,
+                                db_span, train_span, db_tensor->dim_size(0), train_set_tensor->dim_size(0), config, load_coarse, coarse_path,
                                 threads_tensor->scalar<int>()())));
     resource_->Initialize();
   }

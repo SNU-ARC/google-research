@@ -20,6 +20,7 @@ namespace addons {
 
 REGISTER_OP("Scann>ScannCreateSearcher")
     .Input("x: float32")
+    .Input("train_set: float32")
     .Input("scann_config: string")
     .Input("training_threads: int32")
     .Attr("container: string = ''")

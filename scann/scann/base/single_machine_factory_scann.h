@@ -36,18 +36,18 @@ using StatusOrSearcherUntyped =
 template <typename T>
 StatusOr<unique_ptr<SingleMachineSearcherBase<T>>> SingleMachineFactoryScann(
     const ScannConfig& config, shared_ptr<TypedDataset<T>> dataset,
-    SingleMachineFactoryOptions opts = SingleMachineFactoryOptions());
+    SingleMachineFactoryOptions opts = SingleMachineFactoryOptions(), shared_ptr<TypedDataset<T>> train_set=nullptr);
 
 StatusOrSearcherUntyped SingleMachineFactoryUntypedScann(
     const ScannConfig& config, shared_ptr<Dataset> dataset,
-    SingleMachineFactoryOptions opts);
+    SingleMachineFactoryOptions opts, shared_ptr<Dataset> train_set=nullptr);
 
 namespace internal {
 
 template <typename T>
 StatusOrSearcherUntyped SingleMachineFactoryLeafSearcherScann(
     const ScannConfig& config, const shared_ptr<TypedDataset<T>>& dataset,
-    const GenericSearchParameters& params, SingleMachineFactoryOptions* opts);
+    const GenericSearchParameters& params, SingleMachineFactoryOptions* opts, const shared_ptr<TypedDataset<T>>& train_set=nullptr);
 
 }
 
@@ -57,13 +57,15 @@ StatusOrSearcherUntyped SingleMachineFactoryLeafSearcherScann(
       unique_ptr<SingleMachineSearcherBase<Type>>>                        \
   SingleMachineFactoryScann<Type>(const ScannConfig& config,              \
                                   shared_ptr<TypedDataset<Type>> dataset, \
-                                  SingleMachineFactoryOptions opts);      \
+                                  SingleMachineFactoryOptions opts,       \
+                                  shared_ptr<TypedDataset<Type>> train_set);  \
   extern_keyword template StatusOrSearcherUntyped                         \
   internal::SingleMachineFactoryLeafSearcherScann<Type>(                  \
       const ScannConfig& config,                                          \
       const shared_ptr<TypedDataset<Type>>& dataset,                      \
       const GenericSearchParameters& params,                              \
-      SingleMachineFactoryOptions* opts);
+      SingleMachineFactoryOptions* opts,                                  \
+      const shared_ptr<TypedDataset<Type>>& train_set);                   \
 
 #define SCANN_INSTANTIATE_SINGLE_MACHINE_FACTORY_SCANN(extern_keyword)    \
   SCANN_INSTANTIATE_SINGLE_MACHINE_FACTORY_SCANN_FOR_TYPE(extern_keyword, \
