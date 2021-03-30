@@ -39,7 +39,7 @@ class ScannInterface {
                     ConstSpan<int8_t> int8_dataset,
                     ConstSpan<float> int8_multipliers,
                     ConstSpan<float> dp_norms, DatapointIndex n_points,
-                    const std::string& artifacts_dir);
+                    const std::string& artifacts_dir, const std::string& coarse_path);
   Status Initialize(ScannConfig config, SingleMachineFactoryOptions opts,
                     ConstSpan<float> dataset,
                     ConstSpan<int32_t> datapoint_to_token,
@@ -47,11 +47,12 @@ class ScannInterface {
                     ConstSpan<int8_t> int8_dataset,
                     ConstSpan<float> int8_multipliers,
                     ConstSpan<float> dp_norms, DatapointIndex n_points);
-  Status Initialize(ConstSpan<float> dataset, DatapointIndex n_points,
-                    const std::string& config, int training_threads);
+  Status Initialize(ConstSpan<float> dataset, ConstSpan<float> train_set, DatapointIndex n_points, DatapointIndex t_points,
+                    const std::string& config, const bool& load_coarse, const std::string& coarse_path, int training_threads);
   Status Initialize(
       shared_ptr<DenseDataset<float>> dataset,
-      SingleMachineFactoryOptions opts = SingleMachineFactoryOptions());
+      SingleMachineFactoryOptions opts = SingleMachineFactoryOptions(),
+      shared_ptr<DenseDataset<float>> train_set=nullptr);
 
   Status Search(const DatapointPtr<float> query, NNResultsVector* res,
                 int final_nn, int pre_reorder_nn, int leaves) const;
@@ -61,7 +62,7 @@ class ScannInterface {
   Status SearchBatchedParallel(const DenseDataset<float>& queries,
                                MutableSpan<NNResultsVector> res, int final_nn,
                                int pre_reorder_nn, int leaves, int batch_size) const;   // [ANNA] batch_size
-  Status Serialize(std::string path);
+  Status Serialize(std::string path, std::string coarse_path, bool load_coarse);
   StatusOr<SingleMachineFactoryOptions> ExtractOptions();
 
   template <typename T_idx>

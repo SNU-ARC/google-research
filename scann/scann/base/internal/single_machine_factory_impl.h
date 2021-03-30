@@ -54,17 +54,18 @@ class SingleMachineFactoryImplClass {
   static StatusOrSearcherUntyped SingleMachineFactoryImpl(
       ScannConfig config, const shared_ptr<Dataset>& dataset,
       const GenericSearchParameters& params,
-      SingleMachineFactoryOptions* opts) {
+      SingleMachineFactoryOptions* opts, const shared_ptr<Dataset>& train_set) {
     config.mutable_input_output()->set_in_memory_data_type(TagForType<T>());
     SCANN_RETURN_IF_ERROR(CanonicalizeScannConfigForRetrieval(&config));
     auto typed_dataset = std::dynamic_pointer_cast<TypedDataset<T>>(dataset);
+    auto typed_train_set = std::dynamic_pointer_cast<TypedDataset<T>>(train_set);
     if (dataset && !typed_dataset) {
       return InvalidArgumentError("Dataset is the wrong type");
     }
 
     TF_ASSIGN_OR_RETURN(auto searcher,
                         LeafSearcherT::SingleMachineFactoryLeafSearcher(
-                            config, typed_dataset, params, opts));
+                            config, typed_dataset, params, opts, typed_train_set));
     auto* typed_searcher =
         down_cast<SingleMachineSearcherBase<T>*>(searcher.get());
 
@@ -88,7 +89,7 @@ class SingleMachineFactoryImplClass {
 template <typename LeafSearcherT>
 StatusOrSearcherUntyped SingleMachineFactoryUntypedImpl(
     const ScannConfig& config, shared_ptr<Dataset> dataset,
-    SingleMachineFactoryOptions opts) {
+    SingleMachineFactoryOptions opts, shared_ptr<Dataset> train_set=nullptr) {
   GenericSearchParameters params;
   SCANN_RETURN_IF_ERROR(params.PopulateValuesFromScannConfig(config));
   if (params.reordering_dist->NormalizationRequired() != NONE && dataset &&
@@ -116,7 +117,7 @@ StatusOrSearcherUntyped SingleMachineFactoryUntypedImpl(
                           opts.type_tag,
                           SingleMachineFactoryImplClass<
                               LeafSearcherT>::template SingleMachineFactoryImpl,
-                          config, dataset, params, &opts));
+                          config, dataset, params, &opts, train_set));
   CHECK(searcher) << "Returning nullptr instead of Status is a bug";
 
   if (config.crowding().enabled() && opts.crowding_attributes) {

@@ -137,7 +137,8 @@ def create_searcher(db,
                     scann_config,
                     training_threads=0,
                     container="",
-                    shared_name=None):
+                    shared_name=None,
+                    train_set_path=""):
   """Create a ScaNN searcher given a dataset and text config proto."""
   if shared_name is None:
     shared_name = f"scann-{uuid.uuid4()}"
@@ -147,4 +148,5 @@ def create_searcher(db,
           scann_config=scann_config,
           training_threads=training_threads,
           container=container,
-          shared_name=shared_name))
+          shared_name=shared_name,
+          train_set_path=train_set_path))

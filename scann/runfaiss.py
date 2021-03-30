@@ -119,17 +119,17 @@ def prepare_trained_index(preproc, coarse_quantizer, ncent, pqflat_str, nprobe):
         idx_model = faiss.IndexIVFFlat(coarse_quantizer, d, ncent, fmetric)
     elif 'SQ' in pqflat_str:
         print("making a SQ index")
-        quantizer = faiss.IndexFlatL2(d)
         if fmetric == faiss.METRIC_L2:
             quantizer = faiss.IndexFlatL2(d)
         elif fmetric == faiss.METRIC_INNER_PRODUCT:
             quantizer = faiss.IndexFlatIP(d)
-        name = "QT_" + str(pqflat_str.split("SQ")[1]) + "bit"
         if pqflat_str.split("SQ")[1] == "16":
             name = "QT_fp16"
+        else:
+            name = "QT_" + str(pqflat_str.split("SQ")[1]) + "bit"
         qtype = getattr(faiss.ScalarQuantizer, name)
         idx_model = faiss.IndexIVFScalarQuantizer(quantizer, d, ncent, qtype, fmetric)
-        idx_model.nprobe = nprobe
+        # idx_model.nprobe = nprobe
     else:
         key = pqflat_str[2:].split("x")
         assert len(key) == 2, "use format PQ(m)x(log2kstar)"
@@ -341,27 +341,16 @@ def build_faiss(args, cacheroot, coarse_dir, split, N_, D, index_key, train, bas
         # train index
         coarse_quantizer = prepare_coarse_quantizer(preproc, cent_cachefile, ncentroid, args.is_gpu)
         index_trained = prepare_trained_index(preproc, coarse_quantizer, ncentroid, pqflat_str, args.w)
-        if args.sq != -1:
-            index_all = index_trained
-            index_all.add(xb)
-        else:
-            index_all, index_gpu = add_vectors(index_trained, preproc, args.is_gpu, addBatchSize)
+        index_all, index_gpu = add_vectors(index_trained, preproc, args.is_gpu, addBatchSize)
 
         if index_cachefile:
             print("store", index_cachefile)
             faiss.write_index(index_all, index_cachefile)
 
-        if args.sq == -1:
-            if args.is_gpu:
-                index = index_gpu
-            else:
-                index = index_all
+        if args.is_gpu:
+            index = index_gpu
         else:
-            if args.is_gpu:
-                # arcm::FIXME::handle gpu case for sq
-                index = index_all
-            else:
-                index = index_all
+            index = index_all
     else:
         print("load", index_cachefile)
         index_load = faiss.read_index(index_cachefile)
@@ -418,6 +407,5 @@ def faiss_search(index, preproc, args, reorder, w):
         total_latency += 1000*(time.time()-start)
         I[i0:i1] = Ii
         D[i0:i1] = Di
-
     return I, D, total_latency
 
