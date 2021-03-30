@@ -382,7 +382,6 @@ def run_scann():
 		distances=np.empty((len(sc_list), queries.shape[0],0), dtype=np.float32)
 		total_latency = np.zeros(len(sc_list))
 		base_idx = 0
-		coarse_dir = basedir + args.program + '_searcher_' + args.metric + '/' + args.dataset + '/coarse_dir/'
 		os.makedirs(coarse_dir, exist_ok=True)
 		coarse_path = coarse_dir+"coarse_codebook_L_"+str(num_leaves)+"_threshold_"+str(threshold)+"_dims_"+str(dims)+"_metric_"+metric
 		if len(sc_list) > 0:
@@ -914,7 +913,9 @@ elif "deep1b" in args.dataset:
 	num_iter = 16
 	qN = 10000
 
+coarse_dir = basedir + args.program + '_searcher_' + args.metric + '/' + args.dataset + '/coarse_dir/'
 os.makedirs(dataset_basedir+"split_data/", exist_ok=True)
+os.makedirs(coarse_dir, exist_ok=True)
 
 # main
 if args.split:
