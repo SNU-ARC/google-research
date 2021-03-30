@@ -282,13 +282,12 @@ def build_faiss(args, cacheroot, coarse_dir, split, N_, D, index_key, train, bas
     global usePrecomputed
     global useFloat16
     global query
+    query = sanitize(query_)
     global N
     N = N_
+    print("[YJ] Sanitize done")
 
-    query = sanitize(query_)
-    # set default arguments
     usePrecomputed = False
-    # useFloat16 = True if args.m >= 56 else False
     useFloat16 = True
     print("usefloat16? ", useFloat16)
     replicas = 1
