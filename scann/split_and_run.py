@@ -222,6 +222,29 @@ def split(filename, num_iter, N, D):
 	print("num_split_lists: ", num_split_list)
 	print("arcm::split done\n");
 
+def random_split(filename, num_iter, N, D):
+	num_per_split = int(N/args.num_split)
+	dataset = np.empty((0, D), dtype=np.uint8 if 'sift1b' in args.dataset else np.float32)
+	dataset_per_iter = int(N/num_iter)
+	num_per_split = int(N/args.num_split)
+	print("dataset_per_iter: ", dataset_per_iter, " / num_per_split: ", num_per_split)
+	num_split_list=[]
+	split = 0
+	sampling_rate = 0.1
+
+	import random
+	random.seed(100)
+	data_ids = list(range(N))
+	random.shuffle(data_ids)
+	# print(data_ids[0:1000])
+	dataset = read_data(dataset_basedir)
+	for split in range(args.num_split):
+		if split < args.num_split:
+			write_split_data(split_dataset_path + str(args.num_split) + "_" + str(split), dataset[data_ids[split*num_per_split:(split+1)*num_per_split]])
+		else:
+			write_split_data(split_dataset_path + str(args.num_split) + "_" + str(split), dataset[data_ids[split*num_per_split:]])
+	np.array(data_ids, dtype=np.uint32).tofile(split_dataset_path + 'remapping_index_' + str(args.num_split))
+
 def run_groundtruth():
 	print("Making groudtruth file")
 	import ctypes
@@ -270,9 +293,7 @@ def sort_neighbors(distances, neighbors):
 		assert False
 
 def prepare_eval():
-	gt = get_groundtruth()
-	# gt = np.load("/home/arcuser/hyunji/ss_faiss/benchs/sift1b_squared_l2_gt.npy")
-	# gt = np.load("/home/arcuser/hyunji/ss_faiss/benchs/sift1m_squared_l2_gt.npy")
+	gt = get_groundtruth(args.metric, groundtruth_path)
 	queries = get_queries()
 	print("gt shape: ", gt.shape)
 	# print("gt: ", gt[0])
@@ -382,8 +403,6 @@ def run_scann():
 		distances=np.empty((len(sc_list), queries.shape[0],0), dtype=np.float32)
 		total_latency = np.zeros(len(sc_list))
 		base_idx = 0
-		coarse_dir = basedir + args.program + '_searcher_' + args.metric + '/' + args.dataset + '/coarse_dir/'
-		os.makedirs(coarse_dir, exist_ok=True)
 		coarse_path = coarse_dir+"coarse_codebook_L_"+str(num_leaves)+"_threshold_"+str(threshold)+"_dims_"+str(dims)+"_metric_"+metric
 		if len(sc_list) > 0:
 			for split in range(args.num_split):
@@ -534,6 +553,10 @@ def get_padded_info(m):
 def run_faiss(D):
 	gt, queries = prepare_eval()
 	train_dataset = get_train()
+	if args.num_split > 1:
+		print("[YJ] Reading remap file from ", split_dataset_path + 'remapping_index_' + str(args.num_split))
+		remap_index = np.fromfile(split_dataset_path + 'remapping_index_' + str(args.num_split), dtype=np.uint32)
+		
 	if args.sweep:
 		if args.is_gpu:
 			log2kstar_ = 8
@@ -670,8 +693,10 @@ def run_faiss(D):
 				if args.sweep:
 					w, reorder = search_config[sc_list[idx]]
 					f.write(str(L)+"\t"+str(m)+"\t"+str(2**log2kstar)+"\t|\t"+str(w)+"\t"+str(reorder)+"\t"+str(metric)+"\n")		# faiss-gpu has no reorder
-
-				top1, top10, top100, top1000 = print_recall(final_neighbors[idx], gt)
+				if args.num_split > 1:
+					top1, top10, top100, top1000 = print_recall(remap_index[final_neighbors[idx]], gt)
+				else:
+					top1, top10, top100, top1000 = print_recall(final_neighbors[idx], gt)
 				print("Top ", args.topk, " Total latency (ms): ", total_latency[idx])
 				print("arcm::Latency written. End of File.\n");
 				if args.sweep:
@@ -805,35 +830,16 @@ def get_train():
 	else:
 		assert False
 
-def get_groundtruth():
+def get_groundtruth(metric, groundtruth_path):
 	print("Reading grountruth from ", groundtruth_path)
 	if os.path.isfile(groundtruth_path)==False:
 		run_groundtruth()
 	if "glove" in args.dataset:
 		return read_data(groundtruth_path, base=False)
-	elif "deep1b" in args.dataset or ("sift1b" in args.dataset and args.metric == "dot_product"):
+	elif "deep1b" in args.dataset or ("sift1b" in args.dataset and metric == "dot_product"):
 		return np.load(groundtruth_path)
 	else:
 		return ivecs_read(groundtruth_path)
-
-	# elif "sift1m" in args.dataset:
-	# 	return ivecs_read(groundtruth_path)
-	# 	# filename = dataset_basedir + 'sift_groundtruth.ivecs' if args.metric=="squared_l2" else groundtruth_path
-	# 	# print("Reading from ", filename)
-	# 	# return ivecs_read(filename)
-	# elif "sift1b" in args.dataset:
-	#  	filename = dataset_basedir +  'gnd/idx_1000M.ivecs' if args.metric=="squared_l2" else groundtruth_path
-	#  	print("Reading from ", filename)
-	#  	return ivecs_read(filename)
-	# elif "glove" in args.dataset:
-	# 	if args.metric == "dot_product":
-	# 		print("Reading from ", dataset_basedir+"glove-100-angular.hdf5")
-	# 		return h5py.File(dataset_basedir+"glove-100-angular.hdf5", "r")['neighbors']
-	# 	else:
-	# 		print("Reading from ", groundtruth_path)
-	# 		return read_data(groundtruth_path, base=False)
-	# else:
-	#  	assert False
 
 def get_queries():
 	if "sift1m" in args.dataset:
@@ -914,11 +920,14 @@ elif "deep1b" in args.dataset:
 	num_iter = 16
 	qN = 10000
 
+coarse_dir = basedir + args.program + '_searcher_' + args.metric + '/' + args.dataset + '/coarse_dir/'
+os.makedirs(coarse_dir, exist_ok=True)
 os.makedirs(dataset_basedir+"split_data/", exist_ok=True)
 
 # main
 if args.split:
-	split(args.dataset, num_iter, N, D)
+	# split(args.dataset, num_iter, N, D)
+	random_split(args.dataset, num_iter, N, D)
 if args.eval_split or args.sweep:
 	if args.program == "scann":
 		run_scann()
