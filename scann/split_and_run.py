@@ -491,7 +491,7 @@ def faiss_pad_trains_queries(padded_D, queries, train_dataset):
 	plus_dim = padded_D-D
 	queries = np.concatenate((queries, np.full((queries.shape[0], plus_dim), 0)), axis=-1)
 	train_dataset = np.concatenate((train_dataset, np.full((train_dataset.shape[0], plus_dim), 0)), axis=-1)
-	print("Query and Train Dataset dimension is padded from ", D, " to ", dataset.shape[1])
+	print("Query and Train Dataset dimension is padded from ", D, " to ", queries.shape[1])
 	return queries, train_dataset
 
 def get_padded_info(m):
