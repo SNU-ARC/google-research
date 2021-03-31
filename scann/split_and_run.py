@@ -578,23 +578,24 @@ def run_faiss(D):
 			log2kstar_ = 8
 			if "sift1b" in args.dataset or "deep1b" in args.dataset:
 				build_config = [
-								# [7000, int(D/2), log2kstar_, args.metric], [7000, int(D/4), log2kstar_, args.metric], [7000, int(D/8), log2kstar_, args.metric], \
-								# [8000, int(D/2), log2kstar_, args.metric], [8000, int(D/4), log2kstar_, args.metric], [8000, int(D/8), log2kstar_, args.metric], \
-								# [6000, int(D/2), log2kstar_, args.metric], [6000, int(D/4), log2kstar_, args.metric], [6000, int(D/8), log2kstar_, args.metric], \
-								# [8000, int(D/2), log2kstar_, args.metric], [8000, int(D/4), log2kstar_, args.metric], [8000, int(D/8), log2kstar_, args.metric], \
+								[7000, int(D/2), log2kstar_, args.metric], [7000, int(D/4), log2kstar_, args.metric], [7000, int(D/8), log2kstar_, args.metric], \
+								[8000, int(D/2), log2kstar_, args.metric], [8000, int(D/4), log2kstar_, args.metric], [8000, int(D/8), log2kstar_, args.metric], \
+								[6000, int(D/2), log2kstar_, args.metric], [6000, int(D/4), log2kstar_, args.metric], [6000, int(D/8), log2kstar_, args.metric], \
+								[8000, int(D/2), log2kstar_, args.metric], [8000, int(D/4), log2kstar_, args.metric], [8000, int(D/8), log2kstar_, args.metric], \
 								[5000, D, log2kstar_, args.metric], [5000, int(D/2), log2kstar_, args.metric], \
 								[4000, D, log2kstar_, args.metric], [4000, int(D/2), log2kstar_, args.metric], \
 								[3500, D, log2kstar_, args.metric], [3500, int(D/2), log2kstar_, args.metric], \
 								]
 			else:
-				build_config = [[800, int(D/64), log2kstar_, args.metric], [800, int(D/50), log2kstar_, args.metric], [800, int(D/32), log2kstar_, args.metric], [800, int(D/25), log2kstar_, args.metric], [800, int(D/16), log2kstar_, args.metric], [800, int(D/10), log2kstar_, args.metric], [800, int(D/8), log2kstar_, args.metric], [800, int(D/5), log2kstar_, args.metric], [800, int(D/4), log2kstar_, args.metric], [800, int(D/3), log2kstar_, args.metric], [800, int(D/2), log2kstar_, args.metric], [800, D, log2kstar_, args.metric], \
-								[1000, int(D/64), log2kstar_, args.metric], [1000, int(D/50), log2kstar_, args.metric], [1000, int(D/32), log2kstar_, args.metric], [1000, int(D/25), log2kstar_, args.metric], [1000, int(D/16), log2kstar_, args.metric], [1000, int(D/10), log2kstar_, args.metric], [1000, int(D/8), log2kstar_, args.metric], [1000, int(D/5), log2kstar_, args.metric], [1000, int(D/4), log2kstar_, args.metric], [1000, int(D/3), log2kstar_, args.metric], [1000, int(D/2), log2kstar_, args.metric], [1000, D, log2kstar_, args.metric], \
-								[1500, int(D/64), log2kstar_, args.metric], [1500, int(D/50), log2kstar_, args.metric], [1500, int(D/32), log2kstar_, args.metric], [1500, int(D/25), log2kstar_, args.metric], [1500, int(D/16), log2kstar_, args.metric], [1500, int(D/10), log2kstar_, args.metric], [1500, int(D/8), log2kstar_, args.metric], [1500, int(D/5), log2kstar_, args.metric], [1500, int(D/4), log2kstar_, args.metric], [1500, int(D/3), log2kstar_, args.metric], [1500, int(D/2), log2kstar_, args.metric], [1500, D, log2kstar_, args.metric], \
-								[2000, int(D/64), log2kstar_, args.metric], [2000, int(D/50), log2kstar_, args.metric], [2000, int(D/32), log2kstar_, args.metric], [2000, int(D/25), log2kstar_, args.metric], [2000, int(D/16), log2kstar_, args.metric], [2000, int(D/10), log2kstar_, args.metric], [2000, int(D/8), log2kstar_, args.metric], [2000, int(D/5), log2kstar_, args.metric], [2000, int(D/4), log2kstar_, args.metric], [2000, int(D/3), log2kstar_, args.metric], [2000, int(D/2), log2kstar_, args.metric], [2000, D, log2kstar_, args.metric], \
-								[4000, int(D/64), log2kstar_, args.metric], [4000, int(D/50), log2kstar_, args.metric], [4000, int(D/32), log2kstar_, args.metric], [4000, int(D/25), log2kstar_, args.metric], [4000, int(D/16), log2kstar_, args.metric], [4000, int(D/10), log2kstar_, args.metric], [4000, int(D/8), log2kstar_, args.metric], [4000, int(D/5), log2kstar_, args.metric], [4000, int(D/4), log2kstar_, args.metric], [4000, int(D/3), log2kstar_, args.metric], [4000, int(D/2), log2kstar_, args.metric], [4000, D, log2kstar_, args.metric], \
-								[600, int(D/25), log2kstar_, args.metric], [600, int(D/16), log2kstar_, args.metric], [600, int(D/10), log2kstar_, args.metric], [600, int(D/8), log2kstar_, args.metric], [600, int(D/5), log2kstar_, args.metric], [600, int(D/4), log2kstar_, args.metric], [600, int(D/3), log2kstar_, args.metric], [600, int(D/2), log2kstar_, args.metric], [600, D, log2kstar_, args.metric], \
-								[500, int(D/25), log2kstar_, args.metric], [500, int(D/16), log2kstar_, args.metric], [500, int(D/10), log2kstar_, args.metric], [500, int(D/8), log2kstar_, args.metric], [500, int(D/5), log2kstar_, args.metric], [500, int(D/4), log2kstar_, args.metric], [500, int(D/3), log2kstar_, args.metric], [500, int(D/2), log2kstar_, args.metric], [500, D, log2kstar_, args.metric], \
-								[400, int(D/25), log2kstar_, args.metric], [400, int(D/16), log2kstar_, args.metric], [400, int(D/10), log2kstar_, args.metric], [400, int(D/8), log2kstar_, args.metric], [400, int(D/5), log2kstar_, args.metric], [400, int(D/4), log2kstar_, args.metric], [400, int(D/3), log2kstar_, args.metric], [400, int(D/2), log2kstar_, args.metric], [400, D, log2kstar_, args.metric]]
+				# build_config = [[800, int(D/64), log2kstar_, args.metric], [800, int(D/50), log2kstar_, args.metric], [800, int(D/32), log2kstar_, args.metric], [800, int(D/25), log2kstar_, args.metric], [800, int(D/16), log2kstar_, args.metric], [800, int(D/10), log2kstar_, args.metric], [800, int(D/8), log2kstar_, args.metric], [800, int(D/5), log2kstar_, args.metric], [800, int(D/4), log2kstar_, args.metric], [800, int(D/3), log2kstar_, args.metric], [800, int(D/2), log2kstar_, args.metric], [800, D, log2kstar_, args.metric], \
+				# 				[1000, int(D/64), log2kstar_, args.metric], [1000, int(D/50), log2kstar_, args.metric], [1000, int(D/32), log2kstar_, args.metric], [1000, int(D/25), log2kstar_, args.metric], [1000, int(D/16), log2kstar_, args.metric], [1000, int(D/10), log2kstar_, args.metric], [1000, int(D/8), log2kstar_, args.metric], [1000, int(D/5), log2kstar_, args.metric], [1000, int(D/4), log2kstar_, args.metric], [1000, int(D/3), log2kstar_, args.metric], [1000, int(D/2), log2kstar_, args.metric], [1000, D, log2kstar_, args.metric], \
+				# 				[1500, int(D/64), log2kstar_, args.metric], [1500, int(D/50), log2kstar_, args.metric], [1500, int(D/32), log2kstar_, args.metric], [1500, int(D/25), log2kstar_, args.metric], [1500, int(D/16), log2kstar_, args.metric], [1500, int(D/10), log2kstar_, args.metric], [1500, int(D/8), log2kstar_, args.metric], [1500, int(D/5), log2kstar_, args.metric], [1500, int(D/4), log2kstar_, args.metric], [1500, int(D/3), log2kstar_, args.metric], [1500, int(D/2), log2kstar_, args.metric], [1500, D, log2kstar_, args.metric], \
+				# 				[2000, int(D/64), log2kstar_, args.metric], [2000, int(D/50), log2kstar_, args.metric], [2000, int(D/32), log2kstar_, args.metric], [2000, int(D/25), log2kstar_, args.metric], [2000, int(D/16), log2kstar_, args.metric], [2000, int(D/10), log2kstar_, args.metric], [2000, int(D/8), log2kstar_, args.metric], [2000, int(D/5), log2kstar_, args.metric], [2000, int(D/4), log2kstar_, args.metric], [2000, int(D/3), log2kstar_, args.metric], [2000, int(D/2), log2kstar_, args.metric], [2000, D, log2kstar_, args.metric], \
+				# 				[4000, int(D/64), log2kstar_, args.metric], [4000, int(D/50), log2kstar_, args.metric], [4000, int(D/32), log2kstar_, args.metric], [4000, int(D/25), log2kstar_, args.metric], [4000, int(D/16), log2kstar_, args.metric], [4000, int(D/10), log2kstar_, args.metric], [4000, int(D/8), log2kstar_, args.metric], [4000, int(D/5), log2kstar_, args.metric], [4000, int(D/4), log2kstar_, args.metric], [4000, int(D/3), log2kstar_, args.metric], [4000, int(D/2), log2kstar_, args.metric], [4000, D, log2kstar_, args.metric], \
+				# 				[600, int(D/25), log2kstar_, args.metric], [600, int(D/16), log2kstar_, args.metric], [600, int(D/10), log2kstar_, args.metric], [600, int(D/8), log2kstar_, args.metric], [600, int(D/5), log2kstar_, args.metric], [600, int(D/4), log2kstar_, args.metric], [600, int(D/3), log2kstar_, args.metric], [600, int(D/2), log2kstar_, args.metric], [600, D, log2kstar_, args.metric], \
+				# 				[500, int(D/25), log2kstar_, args.metric], [500, int(D/16), log2kstar_, args.metric], [500, int(D/10), log2kstar_, args.metric], [500, int(D/8), log2kstar_, args.metric], [500, int(D/5), log2kstar_, args.metric], [500, int(D/4), log2kstar_, args.metric], [500, int(D/3), log2kstar_, args.metric], [500, int(D/2), log2kstar_, args.metric], [500, D, log2kstar_, args.metric], \
+				# 				[400, int(D/25), log2kstar_, args.metric], [400, int(D/16), log2kstar_, args.metric], [400, int(D/10), log2kstar_, args.metric], [400, int(D/8), log2kstar_, args.metric], [400, int(D/5), log2kstar_, args.metric], [400, int(D/4), log2kstar_, args.metric], [400, int(D/3), log2kstar_, args.metric], [400, int(D/2), log2kstar_, args.metric], [400, D, log2kstar_, args.metric]]
+				build_config = [[1000, int(D/32), log2kstar_, args.metric]]
 
 
 			search_config = [[1, args.reorder], [16, args.reorder], [32, args.reorder], [64, args.reorder], [128, args.reorder], \
@@ -674,11 +675,11 @@ def run_faiss(D):
 				num_per_split = int(N/args.num_split) if split < args.num_split-1 else N-base_idx
 				searcher_dir, searcher_path = get_searcher_path(split)
 
-				is_cached = check_cached(searcher_dir, args, args.dataset, split, index_key_manual)
+				is_cached = check_cached(searcher_dir, args, args.dataset, split, args.num_split, index_key_manual)
 				args.m = faiss_m
 
 				if is_cached:
-					index, preproc = build_faiss(args, searcher_dir, coarse_dir, split, N, padded_D, index_key_manual, None, None, padded_queries)
+					index, preproc = build_faiss(args, searcher_dir, coarse_dir, split, N, padded_D, index_key_manual, is_cached, padded_queries)
 				else:
 					print("[YJ] get train")
 					print("[YJ] read data")
@@ -688,7 +689,7 @@ def run_faiss(D):
 					else:
 						padded_dataset = dataset
 					print("[YJ] reading done")
-					index, preproc = build_faiss(args, searcher_dir, coarse_dir, split, N, padded_D, index_key_manual, padded_train_dataset, padded_dataset, padded_queries)
+					index, preproc = build_faiss(args, searcher_dir, coarse_dir, split, N, padded_D, index_key_manual, is_cached, padded_queries, padded_train_dataset, padded_dataset)
 
 				n = list()
 				d = list()

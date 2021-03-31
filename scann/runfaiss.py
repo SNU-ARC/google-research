@@ -260,7 +260,7 @@ def dataset_iterator(x, preproc, bs):
     return rate_limited_imap(prepare_block, block_ranges)
 
 
-def build_faiss(args, cacheroot, coarse_dir, split, N_, D, index_key, train, base, query_):
+def build_faiss(args, cacheroot, coarse_dir, split, N_, D, index_key, is_cached, query_, train=None, base=None):
 
     # set global variables
     name1_to_metric = {
@@ -270,9 +270,11 @@ def build_faiss(args, cacheroot, coarse_dir, split, N_, D, index_key, train, bas
     global fmetric
     fmetric = name1_to_metric[args.metric]
     global xt
-    xt = sanitize(train)
+    if is_cached == False:
+        xt = sanitize(train)
     global xb
-    xb = sanitize(base)
+    if is_cached == False:
+        xb = sanitize(base)
     global dbname
     dbname = args.dataset
     global dim
@@ -285,7 +287,6 @@ def build_faiss(args, cacheroot, coarse_dir, split, N_, D, index_key, train, bas
     query = sanitize(query_)
     global N
     N = N_
-    print("[YJ] Sanitize done")
 
     usePrecomputed = False
     useFloat16 = True
@@ -363,10 +364,13 @@ def build_faiss(args, cacheroot, coarse_dir, split, N_, D, index_key, train, bas
             index = index_load
     return index, preproc
 
-def check_cached(cacheroot, args, dbname, split, index_key):
+def check_cached(cacheroot, args, dbname, split, num_split, index_key):
     preproc_str, ivf_str, pqflat_str = process_index_key(index_key)
-    index_cachefile = '%s%s_%s_%s%s,%s.index' % (
-        cacheroot, args.metric, dbname, preproc_str, ivf_str, pqflat_str)
+    if preproc_str == None:
+        preproc_str = ''
+    index_cachefile = '%s%s_%s_%s_%s_%s%s,%s.index' % (
+        cacheroot, args.metric, dbname, split, num_split, preproc_str, ivf_str, pqflat_str)
+    print("Checking ", index_cachefile)
     if not index_cachefile or not os.path.exists(index_cachefile):
         print("Cache file does not exist..")
         return False
