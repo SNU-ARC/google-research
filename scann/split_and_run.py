@@ -228,6 +228,30 @@ def split(filename, num_iter, N, D):
 	print("num_split_lists: ", num_split_list)
 	print("arcm::split done\n");
 
+def random_split(filename, num_iter, N, D):
+	num_per_split = int(N/args.num_split)
+	dataset = np.empty((0, D), dtype=np.uint8 if 'sift1b' in args.dataset else np.float32)
+	dataset_per_iter = int(N/num_iter)
+	num_per_split = int(N/args.num_split)
+	print("dataset_per_iter: ", dataset_per_iter, " / num_per_split: ", num_per_split)
+	num_split_list=[]
+	split = 0
+	sampling_rate = 0.1
+
+	import random
+	random.seed(100)
+	data_ids = list(range(N))
+	random.shuffle(data_ids)
+	# print(data_ids[0:1000])
+	dataset = read_data(dataset_basedir)
+	for split in range(args.num_split):
+		if split < args.num_split:
+			write_split_data(split_dataset_path + str(args.num_split) + "_" + str(split), dataset[data_ids[split*num_per_split:(split+1)*num_per_split]])
+		else:
+			write_split_data(split_dataset_path + str(args.num_split) + "_" + str(split), dataset[data_ids[split*num_per_split:]])
+	np.array(data_ids, dtype=np.uint32).tofile(remapping_file_path)
+	print("Wrote remapping index file to ", remapping_file_path)
+
 def run_groundtruth():
 	print("Making groudtruth file")
 	import ctypes
@@ -277,8 +301,6 @@ def sort_neighbors(distances, neighbors):
 
 def prepare_eval():
 	gt = get_groundtruth()
-	# gt = np.load("/home/arcuser/hyunji/ss_faiss/benchs/sift1b_squared_l2_gt.npy")
-	# gt = np.load("/home/arcuser/hyunji/ss_faiss/benchs/sift1m_squared_l2_gt.npy")
 	queries = get_queries()
 	print("gt shape: ", gt.shape)
 	# print("gt: ", gt[0])
@@ -335,7 +357,10 @@ def check_available_search_config(program, bc, search_config):
 def run_scann():
 	gt, queries = prepare_eval()
 	train_dataset = get_train()
-	print("train set size: ", train_dataset.shape)
+	if args.num_split > 1:
+		print("[YJ] Reading remap file from ", remapping_file_path)
+		remap_index = np.fromfile(remapping_file_path, dtype=np.uint32)
+
 	if args.sweep:
 		if "sift1b" in args.dataset or "deep1b" in args.dataset:
 			# For sift 1b
@@ -384,13 +409,15 @@ def run_scann():
 	for bc in build_config:
 		num_leaves, threshold, dims, metric = bc
 		sc_list = check_available_search_config(args.program, bc, search_config)
-		neighbors=np.empty((len(sc_list), queries.shape[0],0), dtype=np.int32)
-		distances=np.empty((len(sc_list), queries.shape[0],0), dtype=np.float32)
-		total_latency = np.zeros(len(sc_list))
-		base_idx = 0
-		os.makedirs(coarse_dir, exist_ok=True)
-		coarse_path = coarse_dir+"coarse_codebook_L_"+str(num_leaves)+"_threshold_"+str(threshold)+"_dims_"+str(dims)+"_metric_"+metric
+
 		if len(sc_list) > 0:
+			neighbors=np.empty((len(sc_list), queries.shape[0],0), dtype=np.int32)
+			distances=np.empty((len(sc_list), queries.shape[0],0), dtype=np.float32)
+			total_latency = np.zeros(len(sc_list))
+			base_idx = 0
+			os.makedirs(coarse_dir, exist_ok=True)
+			coarse_path = coarse_dir+"coarse_codebook_L_"+str(num_leaves)+"_threshold_"+str(threshold)+"_dims_"+str(dims)+"_metric_"+metric
+
 			for split in range(args.num_split):
 
 				num_per_split = int(N/args.num_split) if split < args.num_split-1 else N-base_idx
@@ -478,7 +505,10 @@ def run_scann():
 					leaves_to_search, reorder = search_config[sc_list[idx]]
 					f.write(str(num_leaves)+"\t"+str(threshold)+"\t"+str(int(D/dims))+"\t|\t"+str(leaves_to_search)+"\t"+str(reorder)+"\t"+str(metric)+"\n")
 				print(str(num_leaves)+"\t"+str(threshold)+"\t"+str(int(D/dims))+"\t|\t"+str(leaves_to_search)+"\t"+str(reorder)+"\t"+str(metric)+"\n")
-				top1, top10, top100, top1000 = print_recall(final_neighbors[idx], gt)
+				if args.num_split > 1:
+					top1, top10, top100, top1000 = print_recall(remap_index[final_neighbors[idx]], gt)
+				else:
+					top1, top10, top100, top1000 = print_recall(final_neighbors[idx], gt)
 				print("Top ", args.topk, " Total latency (ms): ", total_latency[idx])
 				print("arcm::Latency written. End of File.\n");
 				if args.sweep:
@@ -539,13 +569,23 @@ def get_padded_info(m):
 def run_faiss(D):
 	gt, queries = prepare_eval()
 	train_dataset = get_train()
+	if args.num_split > 1:
+		print("[YJ] Reading remap file from ", remapping_file_path)
+		remap_index = np.fromfile(remapping_file_path, dtype=np.uint32)
+		
 	if args.sweep:
 		if args.is_gpu:
 			log2kstar_ = 8
 			if "sift1b" in args.dataset or "deep1b" in args.dataset:
-				build_config = [[7000, int(D/2), log2kstar_, args.metric], [7000, int(D/4), log2kstar_, args.metric], [7000, int(D/8), log2kstar_, args.metric], [7000, int(D/32), log2kstar_, args.metric], \
-								[8000, int(D/2), log2kstar_, args.metric], [8000, int(D/4), log2kstar_, args.metric], [8000, int(D/8), log2kstar_, args.metric], [8000, int(D/32), log2kstar_, args.metric], \
-								[6000, int(D/2), log2kstar_, args.metric], [6000, int(D/4), log2kstar_, args.metric], [6000, int(D/8), log2kstar_, args.metric], [6000, int(D/32), log2kstar_, args.metric]]
+				build_config = [
+								# [7000, int(D/2), log2kstar_, args.metric], [7000, int(D/4), log2kstar_, args.metric], [7000, int(D/8), log2kstar_, args.metric], \
+								# [8000, int(D/2), log2kstar_, args.metric], [8000, int(D/4), log2kstar_, args.metric], [8000, int(D/8), log2kstar_, args.metric], \
+								# [6000, int(D/2), log2kstar_, args.metric], [6000, int(D/4), log2kstar_, args.metric], [6000, int(D/8), log2kstar_, args.metric], \
+								# [8000, int(D/2), log2kstar_, args.metric], [8000, int(D/4), log2kstar_, args.metric], [8000, int(D/8), log2kstar_, args.metric], \
+								[5000, D, log2kstar_, args.metric], [5000, int(D/2), log2kstar_, args.metric], \
+								[4000, D, log2kstar_, args.metric], [4000, int(D/2), log2kstar_, args.metric], \
+								[3500, D, log2kstar_, args.metric], [3500, int(D/2), log2kstar_, args.metric], \
+								]
 			else:
 				build_config = [[800, int(D/64), log2kstar_, args.metric], [800, int(D/50), log2kstar_, args.metric], [800, int(D/32), log2kstar_, args.metric], [800, int(D/25), log2kstar_, args.metric], [800, int(D/16), log2kstar_, args.metric], [800, int(D/10), log2kstar_, args.metric], [800, int(D/8), log2kstar_, args.metric], [800, int(D/5), log2kstar_, args.metric], [800, int(D/4), log2kstar_, args.metric], [800, int(D/3), log2kstar_, args.metric], [800, int(D/2), log2kstar_, args.metric], [800, D, log2kstar_, args.metric], \
 								[1000, int(D/64), log2kstar_, args.metric], [1000, int(D/50), log2kstar_, args.metric], [1000, int(D/32), log2kstar_, args.metric], [1000, int(D/25), log2kstar_, args.metric], [1000, int(D/16), log2kstar_, args.metric], [1000, int(D/10), log2kstar_, args.metric], [1000, int(D/8), log2kstar_, args.metric], [1000, int(D/5), log2kstar_, args.metric], [1000, int(D/4), log2kstar_, args.metric], [1000, int(D/3), log2kstar_, args.metric], [1000, int(D/2), log2kstar_, args.metric], [1000, D, log2kstar_, args.metric], \
@@ -608,26 +648,27 @@ def run_faiss(D):
 		sc_list = check_available_search_config(args.program, bc, search_config)
 		print(bc)
 		print(sc_list)
-		neighbors=np.empty((len(sc_list), queries.shape[0],0), dtype=np.int32)
-		distances=np.empty((len(sc_list), queries.shape[0],0), dtype=np.float32)
-		base_idx = 0
-		total_latency = np.zeros(len(sc_list))
-
-		args.batch = min(args.batch, queries.shape[0])
-		padded_D, faiss_m, is_padding = get_padded_info(m)
-		if is_padding:
-			padded_queries, padded_train_dataset = faiss_pad_trains_queries(padded_D, queries, train_dataset)
-		else:
-			padded_queries, padded_train_dataset = queries, train_dataset
-
-		if args.opq == -1 and args.sq == -1:
-			index_key_manual = "IVF"+str(L)+",PQ"+str(faiss_m)+"x"+str(log2kstar)
-		elif args.sq != -1:
-				index_key_manual = "IVF"+str(L)+",SQ"+str(args.sq)
-		else:
-			index_key_manual = "OPQ"+str(faiss_m)+"_"+str(args.opq)+",IVF"+str(L)+",PQ"+str(faiss_m)+"x"+str(log2kstar)
-
 		if len(sc_list) > 0:
+			neighbors=np.empty((len(sc_list), queries.shape[0],0), dtype=np.int32)
+			distances=np.empty((len(sc_list), queries.shape[0],0), dtype=np.float32)
+			base_idx = 0
+			total_latency = np.zeros(len(sc_list))
+
+			args.batch = min(args.batch, queries.shape[0])
+			padded_D, faiss_m, is_padding = get_padded_info(m)
+			if is_padding:
+				padded_queries, padded_train_dataset = faiss_pad_trains_queries(padded_D, queries, train_dataset)
+			else:
+				padded_queries, padded_train_dataset = queries, train_dataset
+
+			if args.opq == -1 and args.sq == -1:
+				index_key_manual = "IVF"+str(L)+",PQ"+str(faiss_m)+"x"+str(log2kstar)
+			elif args.sq != -1:
+					index_key_manual = "IVF"+str(L)+",SQ"+str(args.sq)
+			else:
+				index_key_manual = "OPQ"+str(faiss_m)+"_"+str(args.opq)+",IVF"+str(L)+",PQ"+str(faiss_m)+"x"+str(log2kstar)
+
+
 			for split in range(args.num_split):
 				print("Split ", split)
 				num_per_split = int(N/args.num_split) if split < args.num_split-1 else N-base_idx
@@ -675,8 +716,10 @@ def run_faiss(D):
 				if args.sweep:
 					w, reorder = search_config[sc_list[idx]]
 					f.write(str(L)+"\t"+str(m)+"\t"+str(2**log2kstar)+"\t|\t"+str(w)+"\t"+str(reorder)+"\t"+str(metric)+"\n")		# faiss-gpu has no reorder
-
-				top1, top10, top100, top1000 = print_recall(final_neighbors[idx], gt)
+				if args.num_split > 1:
+					top1, top10, top100, top1000 = print_recall(remap_index[final_neighbors[idx]], gt)
+				else:
+					top1, top10, top100, top1000 = print_recall(final_neighbors[idx], gt)
 				print("Top ", args.topk, " Total latency (ms): ", total_latency[idx])
 				print("arcm::Latency written. End of File.\n");
 				if args.sweep:
@@ -821,25 +864,6 @@ def get_groundtruth():
 	else:
 		return ivecs_read(groundtruth_path)
 
-	# elif "sift1m" in args.dataset:
-	# 	return ivecs_read(groundtruth_path)
-	# 	# filename = dataset_basedir + 'sift_groundtruth.ivecs' if args.metric=="squared_l2" else groundtruth_path
-	# 	# print("Reading from ", filename)
-	# 	# return ivecs_read(filename)
-	# elif "sift1b" in args.dataset:
-	#  	filename = dataset_basedir +  'gnd/idx_1000M.ivecs' if args.metric=="squared_l2" else groundtruth_path
-	#  	print("Reading from ", filename)
-	#  	return ivecs_read(filename)
-	# elif "glove" in args.dataset:
-	# 	if args.metric == "dot_product":
-	# 		print("Reading from ", dataset_basedir+"glove-100-angular.hdf5")
-	# 		return h5py.File(dataset_basedir+"glove-100-angular.hdf5", "r")['neighbors']
-	# 	else:
-	# 		print("Reading from ", groundtruth_path)
-	# 		return read_data(groundtruth_path, base=False)
-	# else:
-	#  	assert False
-
 def get_queries():
 	if "sift1m" in args.dataset:
 		return mmap_fvecs(dataset_basedir + 'sift_query.fvecs')
@@ -923,12 +947,14 @@ elif "deep1b" in args.dataset:
 if args.split == False:
 	coarse_dir = basedir + args.program + '_searcher_' + args.metric + '/' + args.dataset + '/coarse_dir/'
 	os.makedirs(coarse_dir, exist_ok=True)
-
+if (args.num_split > 1 and args.eval_split) or args.split:
+	remapping_file_path = split_dataset_path + 'remapping_index_' + str(args.num_split)
 os.makedirs(dataset_basedir+"split_data/", exist_ok=True)
 
 # main
 if args.split:
-	split(args.dataset, num_iter, N, D)
+	# split(args.dataset, num_iter, N, D)
+	random_split(args.dataset, num_iter, N, D)
 if args.eval_split or args.sweep:
 	if args.program == "scann":
 		run_scann()
