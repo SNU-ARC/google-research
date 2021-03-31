@@ -339,6 +339,8 @@ def check_available_search_config(program, bc, search_config):
 			leaves_to_search = sc[0]
 			if leaves_to_search > num_leaves or (D%dims!=0 and args.sweep==True) or (metric == 'squared_l2' and (4**(D/dims) < N)):
 				continue
+			elif (D/dims) <= 4:
+				continue
 			else:
 				sc_list.append(idx)
 	elif program == "faiss":
@@ -346,6 +348,8 @@ def check_available_search_config(program, bc, search_config):
 		for idx, sc in enumerate(search_config):
 			nprobe, args.reorder = sc[0], sc[1]
 			if nprobe > L or (nprobe > 2048 and args.is_gpu) or (D%m!=0 and args.sweep==True) or (m > 96 and args.is_gpu) or (not args.is_gpu and log2kstar>8) or (args.is_gpu and log2kstar != 8) or (metric == 'dot_product' and ((2**log2kstar)**m < N)) or (args.opq != -1 and args.opq%m != 0):
+				continue
+			elif m <= 4:
 				continue
 			else:
 				sc_list.append(idx)
@@ -572,7 +576,7 @@ def run_faiss(D):
 	if args.num_split > 1:
 		print("[YJ] Reading remap file from ", remapping_file_path)
 		remap_index = np.fromfile(remapping_file_path, dtype=np.uint32)
-		
+
 	if args.sweep:
 		if args.is_gpu:
 			log2kstar_ = 8
