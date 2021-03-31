@@ -365,6 +365,7 @@ def run_scann():
 	# if args.num_split > 1:
 	# 	print("[YJ] Reading remap file from ", remapping_file_path)
 	# 	remap_index = np.fromfile(remapping_file_path, dtype=np.uint32)
+	num_per_split = int(N/args.num_split)
 
 	if args.sweep:
 		if "sift1b" in args.dataset or "deep1b" in args.dataset:
@@ -424,8 +425,6 @@ def run_scann():
 			coarse_path = coarse_dir+"coarse_codebook_L_"+str(num_leaves)+"_threshold_"+str(threshold)+"_dims_"+str(dims)+"_metric_"+metric
 
 			for split in range(args.num_split):
-
-				num_per_split = int(N/args.num_split) if split < args.num_split-1 else N-base_idx
 				searcher_dir, searcher_path = get_searcher_path(split)
 				print("Split ", split)
 				# Load splitted dataset
@@ -700,6 +699,7 @@ def run_faiss(D):
 					print(str(L)+"\t"+str(m)+"\t"+str(2**log2kstar)+"\t|\t"+str(w)+"\t"+str(reorder)+"\t"+str(metric)+"\n")		# faiss-gpu has no reorder
 					# Faiss search
 					local_neighbors, local_distances, total_latency[idx] = faiss_search(index, preproc, args, reorder, w)
+					print("base_idx: ", base_idx)
 					n.append((local_neighbors+base_idx).astype(np.int32))
 					d.append(local_distances.astype(np.float32))
 				del index
@@ -953,8 +953,8 @@ os.makedirs(dataset_basedir+"split_data/", exist_ok=True)
 
 # main
 if args.split:
-	# split(args.dataset, num_iter, N, D)
-	random_split(args.dataset, num_iter, N, D)
+	split(args.dataset, num_iter, N, D)
+	# random_split(args.dataset, num_iter, N, D)
 if args.eval_split or args.sweep:
 	if args.program == "scann":
 		run_scann()
