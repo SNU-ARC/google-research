@@ -295,8 +295,8 @@ def sort_neighbors(distances, neighbors):
 	if "dot_product" == args.metric or "angular" == args.metric:
 		return np.take_along_axis(neighbors, np.argsort(-distances, axis=-1), -1)[:,:,:args.topk], -np.sort(-distances, axis=-1)[:,:,:args.topk]
 	elif "squared_l2" == args.metric:
-		# return np.take_along_axis(neighbors, np.argsort(distances, axis=-1), -1)[:,:,:args.topk], np.sort(distances, axis=-1)[:,:,:args.topk]
-		return np.take_along_axis(neighbors, np.argsort(distances, axis=-1), -1), np.sort(distances, axis=-1)
+		return np.take_along_axis(neighbors, np.argsort(distances, axis=-1), -1)[:,:,:args.topk], np.sort(distances, axis=-1)[:,:,:args.topk]
+		# return np.take_along_axis(neighbors, np.argsort(distances, axis=-1), -1), np.sort(distances, axis=-1)
 	else:
 		assert False
 
