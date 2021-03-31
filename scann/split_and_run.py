@@ -340,6 +340,8 @@ def check_available_search_config(program, bc, search_config):
 			leaves_to_search = sc[0]
 			if leaves_to_search > num_leaves or (D%dims!=0 and args.sweep==True) or (metric == 'squared_l2' and (4**(D/dims) < N)):
 				continue
+			elif (D/dims) <= 4:
+				continue
 			else:
 				sc_list.append(idx)
 	elif program == "faiss":
@@ -347,6 +349,8 @@ def check_available_search_config(program, bc, search_config):
 		for idx, sc in enumerate(search_config):
 			nprobe, args.reorder = sc[0], sc[1]
 			if nprobe > L or (nprobe > 2048 and args.is_gpu) or (D%m!=0 and args.sweep==True) or (m > 96 and args.is_gpu) or (not args.is_gpu and log2kstar>8) or (args.is_gpu and log2kstar != 8) or (metric == 'dot_product' and ((2**log2kstar)**m < N)) or (args.opq != -1 and args.opq%m != 0):
+				continue
+			elif m <= 4:
 				continue
 			else:
 				sc_list.append(idx)
@@ -571,10 +575,6 @@ def get_padded_info(m):
 def run_faiss(D):
 	gt, queries = prepare_eval()
 	train_dataset = get_train()
-	# if args.num_split > 1:
-	# 	print("[YJ] Reading remap file from ", remapping_file_path)
-	# 	remap_index = np.fromfile(remapping_file_path, dtype=np.uint32)
-		
 	if args.sweep:
 		if args.is_gpu:
 			log2kstar_ = 8
@@ -820,7 +820,7 @@ def run_annoy(D):
 			base_idx = base_idx + num_per_split
 			neighbors = np.append(neighbors, np.array(n), axis=-1)
 			distances = np.append(distances, np.array(d), axis=-1)
-		final_neighbors = sort_neighbors(distances, neighbors)
+		final_neighbors, _ = sort_neighbors(distances, neighbors)
 		for idx in range(len(search_config)):
 			top1, top10, top100, top1000 = print_recall(final_neighbors[idx], gt)
 			print("Top ", args.topk, " Total latency (ms): ", total_latency[idx])
