@@ -825,7 +825,7 @@ def run_annoy(D):
 			base_idx = base_idx + num_per_split
 			neighbors = np.append(neighbors, np.array(n), axis=-1)
 			distances = np.append(distances, np.array(d), axis=-1)
-		final_neighbors = sort_neighbors(distances, neighbors)
+		final_neighbors, _ = sort_neighbors(distances, neighbors)
 		for idx in range(len(search_config)):
 			top1, top10, top100, top1000 = print_recall(final_neighbors[idx], gt)
 			print("Top ", args.topk, " Total latency (ms): ", total_latency[idx])
