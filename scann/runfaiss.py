@@ -355,7 +355,9 @@ def build_faiss(args, cacheroot, coarse_dir, split, N_, D, index_key, is_cached,
     else:
         print("load", index_cachefile)
         index_load = faiss.read_index(index_cachefile)
-
+        centroids = faiss.vector_to_array(index_load.pq.centroids).reshape(index_load.pq.M, index_load.pq.ksub, index_load.pq.dsub)
+        print("index_load: ", centroids.shape)
+        print("index_load: ", centroids)
         # move to GPU
         if args.is_gpu:
             index = copyToGpu(index_load)
