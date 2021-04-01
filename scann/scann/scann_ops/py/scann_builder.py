@@ -39,7 +39,7 @@ def _factory_decorator(key):
 class ScannBuilder(object):
   """Builder class."""
 
-  def __init__(self, db, train_set, load_coarse, coarse_path, num_neighbors, distance_measure):
+  def __init__(self, db, train_set, load_coarse, coarse_path, load_fine, fine_path, num_neighbors, distance_measure):
     self.params = {}
     self.training_threads = 0
     self.builder_lambda = None
@@ -49,6 +49,8 @@ class ScannBuilder(object):
     self.train_set = train_set
     self.load_coarse = load_coarse
     self.coarse_path = coarse_path
+    self.load_fine = load_fine
+    self.fine_path = fine_path
 
   def set_n_training_threads(self, threads):
     self.training_threads = threads
@@ -255,4 +257,4 @@ class ScannBuilder(object):
     if self.builder_lambda is None:
       raise Exception("build() called but no builder lambda was set.")
     config = self.create_config()
-    return self.builder_lambda(self.db, self.train_set, config, self.training_threads, self.load_coarse, self.coarse_path, **kwargs)
+    return self.builder_lambda(self.db, self.train_set, config, self.training_threads, self.load_coarse, self.coarse_path, self.load_fine, self.fine_path, **kwargs)

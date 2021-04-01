@@ -58,13 +58,11 @@ StatusOr<unique_ptr<Partitioner<T>>> CreateTreeXPartitioner(
     return InvalidArgumentError(
         "num_partitioning_epochs must be == 1 for tree-X hybrids.");
   }
-  std::cout << "[YJ] CreateTreeXPartitioner" << std::endl;
   unique_ptr<Partitioner<T>> partitioner;
   if (opts->kmeans_tree) {
     return InvalidArgumentError(
         "pre-trained kmeans-tree partitioners are not supported.");
   } else if (opts->serialized_partitioner) {
-    std::cout << "[YJ] serialized_partitioner" << std::endl;
     TF_ASSIGN_OR_RETURN(
         partitioner, PartitionerFromSerialized<T>(*opts->serialized_partitioner,
                                                   config.partitioning()));
@@ -203,6 +201,7 @@ StatusOrSearcherUntyped TreeAhHybridResidualFactory<float>(
 
   shared_ptr<const asymmetric_hashing2::Model<float>> ah_model;
   if (opts->ah_codebook) {
+    std::cout << "[YJ] Not training fine codebook, loading from trained file" << std::endl;
     TF_ASSIGN_OR_RETURN(ah_model, asymmetric_hashing2::Model<float>::FromProto(
                                       *opts->ah_codebook));
   } else if (config.hash().asymmetric_hash().has_centers_filename()) {

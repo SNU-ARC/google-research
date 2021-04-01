@@ -421,6 +421,7 @@ def run_scann():
 			base_idx = 0
 			os.makedirs(coarse_dir, exist_ok=True)
 			coarse_path = coarse_dir+"coarse_codebook_L_"+str(num_leaves)+"_threshold_"+str(threshold)+"_dims_"+str(dims)+"_metric_"+metric
+			fine_path = scann_fine_dir+"fine_codebook_L_"+str(num_leaves)+"_threshold_"+str(threshold)+"_dims_"+str(dims)+"_metric_"+metric
 
 			for split in range(args.num_split):
 				searcher_dir, searcher_path = get_searcher_path(split)
@@ -430,29 +431,27 @@ def run_scann():
 				searcher = None
 				searcher_path = searcher_path + '_' + str(num_leaves) + '_' + str(threshold) + '_' + str(dims) + '_' + metric + ("_reorder" if args.reorder!=-1 else '')
 
-				# if os.path.isdir(searcher_path):
-				# 	print("Loading searcher from ", searcher_path)
-				# 	searcher = scann.scann_ops_pybind.load_searcher(searcher_path, num_per_split, D, coarse_path)
-				# else:
-				# Create ScaNN searcher
-				print("Entering ScaNN builder, will be created to ", searcher_path)
-				if os.path.isfile(coarse_path):
-					load_coarse = True
+				if os.path.isdir(searcher_path):
+					print("Loading searcher from ", searcher_path)
+					searcher = scann.scann_ops_pybind.load_searcher(searcher_path, num_per_split, D, coarse_path, fine_path)
 				else:
-					load_coarse = False
-				print("Load coarse: ", load_coarse)
-				dataset = read_data(split_dataset_path + str(args.num_split) + "_" + str(split) if args.num_split>1 else dataset_basedir, base=False if args.num_split>1 else True, offset_=None if args.num_split>1 else 0, shape_=None)
-				if args.reorder!=-1:
-					searcher = scann.scann_ops_pybind.builder(dataset, train_dataset, load_coarse, coarse_path, 10, metric).tree(
-						num_leaves=num_leaves, num_leaves_to_search=num_leaves, training_sample_size=args.coarse_training_size).score_ah(
-						dims, anisotropic_quantization_threshold=threshold, training_sample_size=args.fine_training_size).reorder(args.reorder).build()
-				else:
-					searcher = scann.scann_ops_pybind.builder(dataset, train_dataset, load_coarse, coarse_path, 10, metric).tree(
+					# Create ScaNN searcher
+					print("Entering ScaNN builder, will be created to ", searcher_path)
+					load_coarse = True if os.path.isfile(coarse_path) else False
+					load_fine = True if os.path.isfile(fine_path) else False
+					print("Load coarse: ", load_coarse, " / Load fine: ", load_fine)
+					dataset = read_data(split_dataset_path + str(args.num_split) + "_" + str(split) if args.num_split>1 else dataset_basedir, base=False if args.num_split>1 else True, offset_=None if args.num_split>1 else 0, shape_=None)
+					if args.reorder!=-1:
+						searcher = scann.scann_ops_pybind.builder(dataset, train_dataset, load_coarse, coarse_path, load_fine, fine_path, 10, metric).tree(
 							num_leaves=num_leaves, num_leaves_to_search=num_leaves, training_sample_size=args.coarse_training_size).score_ah(
-							dims, anisotropic_quantization_threshold=threshold, training_sample_size=args.fine_training_size).build()
-				print("Saving searcher to ", searcher_path)
-				os.makedirs(searcher_path, exist_ok=True)
-				searcher.serialize(searcher_path, coarse_path, load_coarse)
+							dims, anisotropic_quantization_threshold=threshold, training_sample_size=args.fine_training_size).reorder(args.reorder).build()
+					else:
+						searcher = scann.scann_ops_pybind.builder(dataset, train_dataset, load_coarse, coarse_path, load_fine, fine_path, 10, metric).tree(
+								num_leaves=num_leaves, num_leaves_to_search=num_leaves, training_sample_size=args.coarse_training_size).score_ah(
+								dims, anisotropic_quantization_threshold=threshold, training_sample_size=args.fine_training_size).build()
+					print("Saving searcher to ", searcher_path)
+					os.makedirs(searcher_path, exist_ok=True)
+					searcher.serialize(searcher_path, coarse_path, load_coarse, fine_path, load_fine)
 				print("sc_list: ", sc_list)
 				n = list()
 				d = list()
@@ -949,6 +948,9 @@ elif "deep1b" in args.dataset:
 if args.split == False:
 	coarse_dir = basedir + args.program + '_searcher_' + args.metric + '/' + args.dataset + '/coarse_dir/'
 	os.makedirs(coarse_dir, exist_ok=True)
+	if args.program == "scann":
+		scann_fine_dir = basedir + args.program + '_searcher_' + args.metric + '/' + args.dataset + '/fine_dir/'
+		os.makedirs(scann_fine_dir, exist_ok=True)
 # if (args.num_split > 1 and args.eval_split) or args.split:
 # 	remapping_file_path = split_dataset_path + 'remapping_index_' + str(args.num_split)
 os.makedirs(dataset_basedir+"split_data/", exist_ok=True)

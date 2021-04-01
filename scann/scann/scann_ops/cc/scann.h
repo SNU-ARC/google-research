@@ -39,7 +39,7 @@ class ScannInterface {
                     ConstSpan<int8_t> int8_dataset,
                     ConstSpan<float> int8_multipliers,
                     ConstSpan<float> dp_norms, DatapointIndex n_points,
-                    const std::string& artifacts_dir, const std::string& coarse_path);
+                    const std::string& artifacts_dir, const std::string& coarse_path, const std::string& fine_path);
   Status Initialize(ScannConfig config, SingleMachineFactoryOptions opts,
                     ConstSpan<float> dataset,
                     ConstSpan<int32_t> datapoint_to_token,
@@ -48,7 +48,7 @@ class ScannInterface {
                     ConstSpan<float> int8_multipliers,
                     ConstSpan<float> dp_norms, DatapointIndex n_points);
   Status Initialize(ConstSpan<float> dataset, ConstSpan<float> train_set, DatapointIndex n_points, DatapointIndex t_points,
-                    const std::string& config, const bool& load_coarse, const std::string& coarse_path, int training_threads);
+                    const std::string& config, const bool& load_coarse, const std::string& coarse_path, const bool& load_fine, const std::string& fine_path, int training_threads);
   Status Initialize(
       shared_ptr<DenseDataset<float>> dataset,
       SingleMachineFactoryOptions opts = SingleMachineFactoryOptions(),
@@ -62,7 +62,7 @@ class ScannInterface {
   Status SearchBatchedParallel(const DenseDataset<float>& queries,
                                MutableSpan<NNResultsVector> res, int final_nn,
                                int pre_reorder_nn, int leaves, int batch_size) const;   // [ANNA] batch_size
-  Status Serialize(std::string path, std::string coarse_path, bool load_coarse);
+  Status Serialize(std::string path, std::string coarse_path, bool load_coarse, std::string fine_path, bool load_fine);
   StatusOr<SingleMachineFactoryOptions> ExtractOptions();
 
   template <typename T_idx>
