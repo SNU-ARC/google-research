@@ -69,8 +69,8 @@ class ScannSearcher(object):
     leaves = -1 if leaves_to_search is None else leaves_to_search
     return self.searcher.search_batched(queries, final_nn, pre_nn, leaves, batch_size, True)
 
-  def serialize(self, artifacts_dir, coarse_dir, load_coarse):
-    self.searcher.serialize(artifacts_dir, coarse_dir, load_coarse)
+  def serialize(self, artifacts_dir, coarse_dir, load_coarse, fine_dir, load_fine):
+    self.searcher.serialize(artifacts_dir, coarse_dir, load_coarse, fine_dir, load_fine)
 
 
 def builder(db, train_set, load_coarse, coarse_path, load_fine, fine_path, num_neighbors, distance_measure):
