@@ -117,11 +117,11 @@ def bvecs_read(fname):
 
 def mmap_fvecs(fname, offset_=None, shape_=None):
 	if offset_!=None and shape_!=None:
-		x = np.memmap(fname, dtype='int32', mode='r', offset=offset_*(D+1), shape=(shape_*(D+1)))
+		x = np.memmap(fname, dtype='int32', mode='r', offset=(offset_*(D+1)*4), shape=(shape_*(D+1)))
 	else:
 		x = np.memmap(fname, dtype='int32', mode='r')
 	d = x[0]
-	return x.reshape(-1, d + 1)[:, 1:].view('float32')
+	return x.reshape(-1, d + 1)[:, 1:].view(np.float32)
 
 def fvecs_write(fname, m):
 	m = m.astype('float32')
@@ -183,9 +183,8 @@ def write_gt_data(gt_data):
 
 def split(filename, num_iter, N, D):
 	num_per_split = int(N/args.num_split)
-	dataset = np.empty((0, D), dtype=np.uint8 if 'sift1b' in args.dataset else np.float32)
 	dataset_per_iter = int(N/num_iter)
-	num_per_split = int(N/args.num_split)
+	dataset = np.empty((0, D), dtype=np.uint8 if 'sift1b' in args.dataset else np.float32)
 	print("dataset_per_iter: ", dataset_per_iter, " / num_per_split: ", num_per_split)
 	num_split_list=[]
 	split = 0
@@ -196,32 +195,31 @@ def split(filename, num_iter, N, D):
 			dataset = np.append(dataset, read_data(dataset_basedir, offset_=it*dataset_per_iter, shape_=(N-it*dataset_per_iter)), axis=0)
 		else:
 			dataset = np.append(dataset, read_data(dataset_basedir, offset_=it*dataset_per_iter, shape_=dataset_per_iter), axis=0)
-		print("Reading dataset done")
 		count=0
 		while split<args.num_split:
 			if (split+1)*num_per_split > dataset_per_iter*(it+1):
 				if it!=num_iter-1:
-					print("Entering next iter..")
+					print("Entering next iter.. start index ", count*num_per_split, " ", dataset.shape[0])
 					dataset = dataset[count*num_per_split:]
 				else:
 					split_size = dataset[count*num_per_split:].shape[0]
+					print("Split ", split, ": ", count*num_per_split, " ", N-1)
+					print(dataset[count*num_per_split])
 					write_split_data(split_dataset_path + str(args.num_split) + "_" + str(split), dataset[count*num_per_split:])
-					trainset = np.random.choice(split_size, int(sampling_rate*split_size), replace=False)
 					if "glove" in args.dataset:
+						trainset = np.random.choice(split_size, int(sampling_rate*split_size), replace=False)
 						write_split_data(split_dataset_path + args.metric + "_learn" + str(args.num_split) + "_" + str(split), dataset[count*num_per_split:][trainset])
-					else:
-						write_split_data(split_dataset_path + "learn" + str(args.num_split) + "_" + str(split), dataset[count*num_per_split:][trainset])
 					num_split_list.append(dataset[count*num_per_split:].shape[0])
 					split = split+1
 				break
 			elif split < args.num_split:
 				split_size = dataset[count*num_per_split:(count+1)*num_per_split].shape[0]
+				print("Split ", split, ": ", count*num_per_split, " ", (count+1)*num_per_split)
+				print(dataset[count*num_per_split])
 				write_split_data(split_dataset_path + str(args.num_split) + "_" + str(split), dataset[count*num_per_split:(count+1)*num_per_split])
-				trainset = np.random.choice(split_size, int(sampling_rate*split_size), replace=False)
 				if "glove" in args.dataset:
+					trainset = np.random.choice(split_size, int(sampling_rate*split_size), replace=False)
 					write_split_data(split_dataset_path + args.metric + "_learn" + str(args.num_split) + "_" + str(split), dataset[count*num_per_split:(count+1)*num_per_split][trainset])
-				else:
-					write_split_data(split_dataset_path + "learn" + str(args.num_split) + "_" + str(split), dataset[count*num_per_split:(count+1)*num_per_split][trainset])
 				num_split_list.append(dataset[count*num_per_split:(count+1)*num_per_split].shape[0])
 				split = split+1
 			count = count+1
@@ -689,6 +687,7 @@ def run_faiss(D):
 						padded_dataset = dataset
 					print("[YJ] reading done")
 					index, preproc = build_faiss(args, searcher_dir, coarse_dir, split, N, padded_D, index_key_manual, is_cached, padded_queries, padded_train_dataset, padded_dataset)
+					# index, preproc = build_faiss(args, "./temp2/", "./temp2/", split, N, padded_D, index_key_manual, is_cached, padded_queries, padded_train_dataset, padded_dataset)
 
 				n = list()
 				d = list()
@@ -699,7 +698,12 @@ def run_faiss(D):
 					print(str(L)+"\t"+str(m)+"\t"+str(2**log2kstar)+"\t|\t"+str(w)+"\t"+str(reorder)+"\t"+str(metric)+"\n")		# faiss-gpu has no reorder
 					# Faiss search
 					local_neighbors, local_distances, total_latency[idx] = faiss_search(index, preproc, args, reorder, w)
-					print("base_idx: ", base_idx)
+					# print("Split ", split)
+					# print("base index", base_idx)
+					# nn = (local_neighbors+base_idx).astype(np.int32)
+					# dd = local_distances.astype(np.float32)
+					# for i in range(1000):
+					# 	print(local_neighbors[3][i], " ", nn[3][i], " ", dd[3][i])
 					n.append((local_neighbors+base_idx).astype(np.int32))
 					d.append(local_distances.astype(np.float32))
 				del index
@@ -707,6 +711,10 @@ def run_faiss(D):
 				neighbors = np.append(neighbors, np.array(n, dtype=np.int32), axis=-1)
 				distances = np.append(distances, np.array(d, dtype=np.float32), axis=-1)
 				neighbors, distances = sort_neighbors(distances, neighbors)
+				# print("After sort")
+				# for i in range(1000):
+				# 	print(neighbors[0][3][i], " ", distances[0][3][i])
+
 			final_neighbors, _ = sort_neighbors(distances, neighbors)
 			# print("neighbors: ", final_neighbors[0][3])
 			# print("distances: ", _[0][3])
@@ -715,16 +723,11 @@ def run_faiss(D):
 				if args.sweep:
 					w, reorder = search_config[sc_list[idx]]
 					f.write(str(L)+"\t"+str(m)+"\t"+str(2**log2kstar)+"\t|\t"+str(w)+"\t"+str(reorder)+"\t"+str(metric)+"\n")		# faiss-gpu has no reorder
-				# if args.num_split > 1:
-				# 	top1, top10, top100, top1000 = print_recall(remap_index[final_neighbors[idx]], gt)
-				# else:
-				# 	top1, top10, top100, top1000 = print_recall(final_neighbors[idx], gt)
 				top1, top10, top100, top1000 = print_recall(final_neighbors[idx], gt)
 				print("Top ", args.topk, " Total latency (ms): ", total_latency[idx])
 				print("arcm::Latency written. End of File.\n");
 				if args.sweep:
 					f.write(str(top1)+" %\t"+str(top10)+" %\t"+str(top100)+" %\t"+str(top1000)+" %\t"+str(total_latency[idx])+"\n")
-
 	if args.sweep:
 		f.close()
 
@@ -938,7 +941,6 @@ elif "deep1b" in args.dataset:
 	split_dataset_path = dataset_basedir+"split_data/deep1b_"
 	if args.split==False:
 		groundtruth_path = dataset_basedir + "deep1b_"+args.metric+"_gt"
-		# groundtruth_path = "/home/arcuser/hyunji/ss_faiss/benchs/data/DEEP1B/deep1B_groundtruth.ivecs"
 	N=1000000000
 	D=96
 	num_iter = 16
