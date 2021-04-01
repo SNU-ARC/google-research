@@ -43,10 +43,10 @@ template <typename T>
 struct HashLeafHelpers {
   static StatusOr<TrainedAsymmetricHashingResults<T>>
   TrainAsymmetricHashingModel(shared_ptr<TypedDataset<T>> dataset,
-                              shared_ptr<TypedDataset<T>> train_set,
                               const AsymmetricHasherConfig& config,
                               const GenericSearchParameters& params,
-                              shared_ptr<ThreadPool> pool);
+                              shared_ptr<ThreadPool> pool,
+                              shared_ptr<TypedDataset<T>> train_set=nullptr);
 
   static StatusOr<unique_ptr<SingleMachineSearcherBase<T>>>
   AsymmetricHasherFactory(

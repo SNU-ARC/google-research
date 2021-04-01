@@ -85,8 +85,8 @@ shared_ptr<DenseDataset<uint8_t>> IndexDatabase(const TypedDataset<T>& dataset,
 template <typename T>
 StatusOr<TrainedAsymmetricHashingResults<T>>
 HashLeafHelpers<T>::TrainAsymmetricHashingModel(
-    shared_ptr<TypedDataset<T>> dataset, hared_ptr<TypedDataset<T>> train_set, const AsymmetricHasherConfig& config,
-    const GenericSearchParameters& params, shared_ptr<ThreadPool> pool) {
+    shared_ptr<TypedDataset<T>> dataset, const AsymmetricHasherConfig& config,
+    const GenericSearchParameters& params, shared_ptr<ThreadPool> pool, shared_ptr<TypedDataset<T>> train_set) {
   if (params.pre_reordering_dist == nullptr) {
     return InvalidArgumentError(
         "pre_reordering_dist in GenericSearchParameters is not "

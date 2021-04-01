@@ -466,7 +466,7 @@ StatusOrSearcherUntyped NonResidualTreeXHybridFactory(
       TF_ASSIGN_OR_RETURN(
           training_results,
           internal::HashLeafHelpers<T>::TrainAsymmetricHashingModel(
-              dataset, train_set, ah_config, params, opts->parallelization_pool));
+              dataset, ah_config, params, opts->parallelization_pool, train_set));
     }
     auto leaf_searcher_builder_lambda =
         [&](shared_ptr<TypedDataset<T>> leaf_dataset,
