@@ -77,7 +77,7 @@ def builder(db, train_set, load_coarse, coarse_path, load_fine, fine_path, num_n
   """pybind analogue of builder() in scann_ops.py; see docstring there."""
 
   def builder_lambda(db, train_set, config, training_threads, load_coarse, coarse_path, load_fine, fine_path, **kwargs):
-    return create_searcher(db, train_set, config, load_coarse, coarse_path, training_threads, **kwargs)
+    return create_searcher(db, train_set, config, load_coarse, coarse_path, load_fine, fine_path, training_threads, **kwargs)
 
   return scann_builder.ScannBuilder(
       db, train_set, load_coarse, coarse_path, load_fine, fine_path, num_neighbors, distance_measure).set_builder_lambda(builder_lambda)
