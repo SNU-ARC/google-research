@@ -101,7 +101,7 @@ double ComputeNormBiasCorrection(const DenseDataset<double>& db,
 template <typename T>
 StatusOr<vector<DenseDataset<double>>> AhImpl<T>::TrainAsymmetricHashing(
     const TypedDataset<T>& dataset, const TrainingOptionsT& opts,
-    shared_ptr<ThreadPool> pool) {
+    shared_ptr<ThreadPool> pool, const TypedDataset<T>& train_set) {
   if (dataset.empty()) {
     return InvalidArgumentError("Cannot train AH on an empty dataset.");
   }
@@ -110,38 +110,44 @@ StatusOr<vector<DenseDataset<double>>> AhImpl<T>::TrainAsymmetricHashing(
 
   if (opts.preprocessing_function()) {
     TF_ASSIGN_OR_RETURN(Datapoint<T> preprocessed,
-                        opts.preprocessing_function()(dataset[0]));
+                        opts.preprocessing_function()(train_set[0]));
     SCANN_RETURN_IF_ERROR(
         opts.projector()->ProjectInput(preprocessed.ToPtr(), &chunked_vec));
   } else {
     SCANN_RETURN_IF_ERROR(
-        opts.projector()->ProjectInput(dataset[0], &chunked_vec));
+        opts.projector()->ProjectInput(train_set[0], &chunked_vec));
   }
   int32_t num_blocks = chunked_vec.size();
   vector<DenseDataset<double>> chunked_dataset(num_blocks);
 
-  const float sampling_fraction =
-      opts.config().has_expected_sample_size()
-          ? std::min(1.0,
-                     static_cast<double>(opts.config().expected_sample_size()) /
-                         static_cast<double>(dataset.size()))
-          : opts.config().sampling_fraction();
+  // const float sampling_fraction =
+  //     opts.config().has_expected_sample_size()
+  //         ? std::min(1.0,
+  //                    static_cast<double>(opts.config().expected_sample_size()) /
+  //                        static_cast<double>(dataset.size()))
+  //         : opts.config().sampling_fraction();
+
+  const float sampling_fraction = 1.0;
 
   if (sampling_fraction == 1.0) {
     for (int32_t i = 0; i < num_blocks; ++i) {
       DenseDataset<double>& ds = chunked_dataset[i];
       ds.set_dimensionality(chunked_vec[i].dimensionality());
-      ds.Reserve(dataset.size());
+      ds.Reserve(train_set.size());
     }
   }
 
   MTRandom rng(kDeterministicSeed * (opts.config().sampling_seed() + 1));
   vector<DatapointIndex> sample;
-  for (DatapointIndex i = 0; i < dataset.size(); ++i) {
-    if (absl::Uniform<double>(rng, 0, 1.0) < sampling_fraction) {
+  // for (DatapointIndex i = 0; i < dataset.size(); ++i) {
+  //   if (absl::Uniform<double>(rng, 0, 1.0) < sampling_fraction) {
+  //     sample.push_back(i);
+  //   }
+  // }
+  for (DatapointIndex i = 0; i < train_set.size(); ++i) {
       sample.push_back(i);
-    }
   }
+
 
   if (sample.size() > opts.config().max_sample_size()) {
     std::shuffle(sample.begin(), sample.end(), rng);
@@ -157,6 +163,7 @@ StatusOr<vector<DenseDataset<double>>> AhImpl<T>::TrainAsymmetricHashing(
         sample.size(), ")."));
   }
 
+  std::cout << "[YJ] FineCodebook sample size " << sample.size() << std::endl;
   auto append_chunked_blocks = [&] {
     for (size_t j = 0; j < num_blocks; ++j) {
       chunked_dataset[j].AppendOrDie(chunked_vec[j], "");
@@ -166,7 +173,7 @@ StatusOr<vector<DenseDataset<double>>> AhImpl<T>::TrainAsymmetricHashing(
   if (opts.preprocessing_function()) {
     for (DatapointIndex i : sample) {
       TF_ASSIGN_OR_RETURN(Datapoint<T> preprocessed,
-                          opts.preprocessing_function()(dataset[i]));
+                          opts.preprocessing_function()(train_set[i]));
       SCANN_RETURN_IF_ERROR(
           opts.projector()->ProjectInput(preprocessed.ToPtr(), &chunked_vec));
       append_chunked_blocks();
@@ -174,7 +181,7 @@ StatusOr<vector<DenseDataset<double>>> AhImpl<T>::TrainAsymmetricHashing(
   } else {
     for (DatapointIndex i : sample) {
       SCANN_RETURN_IF_ERROR(
-          opts.projector()->ProjectInput(dataset[i], &chunked_vec));
+          opts.projector()->ProjectInput(train_set[i], &chunked_vec));
       append_chunked_blocks();
     }
   }
@@ -188,7 +195,7 @@ StatusOr<vector<DenseDataset<double>>> AhImpl<T>::TrainAsymmetricHashing(
   if (!std::isnan(opts.config().noise_shaping_threshold()) &&
       opts.config().use_noise_shaped_training()) {
     gmm_opts.parallel_cost_multiplier = ComputeParallelCostMultiplier(
-        opts.config().noise_shaping_threshold(), 1.0, dataset.dimensionality());
+        opts.config().noise_shaping_threshold(), 1.0, train_set.dimensionality());
     auto d = make_shared<ParallelPerpendicularDistance>();
     d->set_parallel_cost_multiplier(gmm_opts.parallel_cost_multiplier);
     quantization_distance = d;

@@ -62,9 +62,9 @@ print(queries.shape)
 normalized_dataset = dataset / np.linalg.norm(dataset, axis=1)[:, np.newaxis]
 # configure ScaNN as a tree - asymmetric hash hybrid with reordering
 # anisotropic quantization as described in the paper; see README
-
+coarse_path = "/arc-share/MICRO21_ANNA/scann_searcher_dot_product/glove/coarse_dir/coarse_codebook_L_800_threshold_0.55_dims_1_metric_dot_product"
 # use scann.scann_ops.build() to instead create a TensorFlow-compatible searcher
-searcher = scann.scann_ops_pybind.builder(normalized_dataset, 10, "squared_l2").tree(
+searcher = scann.scann_ops_pybind.builder(normalized_dataset, normalized_dataset[:1000], True, coarse_path, 10, "dot_product").tree(
     num_leaves=2000, num_leaves_to_search=100, training_sample_size=250000).score_ah(
     2, anisotropic_quantization_threshold=0.2).reorder(100).build()
 
