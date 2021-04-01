@@ -107,7 +107,6 @@ StatusOr<vector<DenseDataset<double>>> AhImpl<T>::TrainAsymmetricHashing(
   }
 
   ChunkedDatapoint<double> chunked_vec;
-
   if (opts.preprocessing_function()) {
     TF_ASSIGN_OR_RETURN(Datapoint<T> preprocessed,
                         opts.preprocessing_function()(train_set[0]));

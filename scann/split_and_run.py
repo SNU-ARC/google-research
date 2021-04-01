@@ -430,29 +430,29 @@ def run_scann():
 				searcher = None
 				searcher_path = searcher_path + '_' + str(num_leaves) + '_' + str(threshold) + '_' + str(dims) + '_' + metric + ("_reorder" if args.reorder!=-1 else '')
 
-				if os.path.isdir(searcher_path):
-					print("Loading searcher from ", searcher_path)
-					searcher = scann.scann_ops_pybind.load_searcher(searcher_path, num_per_split, D, coarse_path)
+				# if os.path.isdir(searcher_path):
+				# 	print("Loading searcher from ", searcher_path)
+				# 	searcher = scann.scann_ops_pybind.load_searcher(searcher_path, num_per_split, D, coarse_path)
+				# else:
+				# Create ScaNN searcher
+				print("Entering ScaNN builder, will be created to ", searcher_path)
+				if os.path.isfile(coarse_path):
+					load_coarse = True
 				else:
-					# Create ScaNN searcher
-					print("Entering ScaNN builder, will be created to ", searcher_path)
-					if os.path.isfile(coarse_path):
-						load_coarse = True
-					else:
-						load_coarse = False
-					print("Load coarse: ", load_coarse)
-					dataset = read_data(split_dataset_path + str(args.num_split) + "_" + str(split) if args.num_split>1 else dataset_basedir, base=False if args.num_split>1 else True, offset_=None if args.num_split>1 else 0, shape_=None)
-					if args.reorder!=-1:
-						searcher = scann.scann_ops_pybind.builder(dataset, train_dataset, load_coarse, coarse_path, 10, metric).tree(
+					load_coarse = False
+				print("Load coarse: ", load_coarse)
+				dataset = read_data(split_dataset_path + str(args.num_split) + "_" + str(split) if args.num_split>1 else dataset_basedir, base=False if args.num_split>1 else True, offset_=None if args.num_split>1 else 0, shape_=None)
+				if args.reorder!=-1:
+					searcher = scann.scann_ops_pybind.builder(dataset, train_dataset, load_coarse, coarse_path, 10, metric).tree(
+						num_leaves=num_leaves, num_leaves_to_search=num_leaves, training_sample_size=args.coarse_training_size).score_ah(
+						dims, anisotropic_quantization_threshold=threshold, training_sample_size=args.fine_training_size).reorder(args.reorder).build()
+				else:
+					searcher = scann.scann_ops_pybind.builder(dataset, train_dataset, load_coarse, coarse_path, 10, metric).tree(
 							num_leaves=num_leaves, num_leaves_to_search=num_leaves, training_sample_size=args.coarse_training_size).score_ah(
-							dims, anisotropic_quantization_threshold=threshold, training_sample_size=args.fine_training_size).reorder(args.reorder).build()
-					else:
-						searcher = scann.scann_ops_pybind.builder(dataset, train_dataset, load_coarse, coarse_path, 10, metric).tree(
-								num_leaves=num_leaves, num_leaves_to_search=num_leaves, training_sample_size=args.coarse_training_size).score_ah(
-								dims, anisotropic_quantization_threshold=threshold, training_sample_size=args.fine_training_size).build()
-					print("Saving searcher to ", searcher_path)
-					os.makedirs(searcher_path, exist_ok=True)
-					searcher.serialize(searcher_path, coarse_path, load_coarse)
+							dims, anisotropic_quantization_threshold=threshold, training_sample_size=args.fine_training_size).build()
+				print("Saving searcher to ", searcher_path)
+				os.makedirs(searcher_path, exist_ok=True)
+				searcher.serialize(searcher_path, coarse_path, load_coarse)
 				print("sc_list: ", sc_list)
 				n = list()
 				d = list()

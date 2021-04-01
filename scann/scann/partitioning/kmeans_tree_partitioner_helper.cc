@@ -70,7 +70,7 @@ CreateRecommendedAsymmetricSearcher(
       hasher_config, quantization_distance, *dataset);
   TF_ASSIGN_OR_RETURN(shared_ptr<asymmetric_hashing2::Model<float>> model,
                       asymmetric_hashing2::TrainSingleMachine<float>(
-                          *dataset, training_opts, pool));
+                          *dataset, *dataset, training_opts, pool));   // [YJ] dataset should be train set, but quick fix for compilation
   auto indexer = make_unique<asymmetric_hashing2::Indexer<float>>(
       training_opts.projector(), quantization_distance, model);
 

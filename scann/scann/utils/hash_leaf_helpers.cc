@@ -99,7 +99,7 @@ HashLeafHelpers<T>::TrainAsymmetricHashingModel(
                                                *dataset);
   TF_ASSIGN_OR_RETURN(
       shared_ptr<const asymmetric_hashing2::Model<T>> model,
-      asymmetric_hashing2::TrainSingleMachine<T>(*dataset, opts, pool));
+      asymmetric_hashing2::TrainSingleMachine<T>(*dataset, *dataset, opts, pool));  // [YJ] dataset should be train set, but quick fix for compilation
   internal::TrainedAsymmetricHashingResults<T> result;
   result.indexer = std::make_shared<asymmetric_hashing2::Indexer<T>>(
       opts.projector(), quantization_distance, model);

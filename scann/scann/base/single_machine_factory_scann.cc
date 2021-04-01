@@ -228,7 +228,7 @@ StatusOrSearcherUntyped TreeAhHybridResidualFactory<float>(
         config.hash().asymmetric_hash(), quantization_distance, residuals);
     TF_ASSIGN_OR_RETURN(
         ah_model, asymmetric_hashing2::TrainSingleMachine(
-                      residuals, training_opts, opts->parallelization_pool, train_set));
+                      residuals, *train_set, training_opts, opts->parallelization_pool));
   } else {
     return InvalidArgumentError(
         "For Tree-AH hybrid with residual quantization, either "
