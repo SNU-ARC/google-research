@@ -844,7 +844,7 @@ def get_train():
 		return mmap_fvecs(filename)
 	elif "sift1b" in args.dataset:
 		filename = dataset_basedir + 'bigann_learn.bvecs'
-		return bvecs_read(filename)
+		return bvecs_mmap(filename, 0, 1000000)
 	elif "glove" in args.dataset:
 		filename = dataset_basedir + 'split_data/glove_'+args.metric+'_learn1_0'
 		return read_data(filename, base=False)
