@@ -360,9 +360,6 @@ def check_available_search_config(program, bc, search_config):
 def run_scann():
 	gt, queries = prepare_eval()
 	train_dataset = get_train()
-	# if args.num_split > 1:
-	# 	print("[YJ] Reading remap file from ", remapping_file_path)
-	# 	remap_index = np.fromfile(remapping_file_path, dtype=np.uint32)
 	num_per_split = int(N/args.num_split)
 
 	if args.sweep:
@@ -840,8 +837,7 @@ def get_train():
 		return mmap_fvecs(filename)
 	if "deep1b" in args.dataset:
 		filename = dataset_basedir + 'deep1b_learn.fvecs'
-		xt = mmap_fvecs(filename)
-		xt = xt[:1000 * 1000]
+		xt = mmap_fvecs(filename, 0, 1000000)
 		return xt
 	elif "gist" in args.dataset:
 		filename = dataset_basedir + 'gist_learn.fvecs'

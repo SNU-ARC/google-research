@@ -39,7 +39,6 @@ CreateRecommendedAsymmetricSearcher(
     bool with_exact_reordering = true, shared_ptr<ThreadPool> pool = nullptr,
     int num_clusters_per_block = 16, int num_dimension_per_block = 2) {
   DCHECK(dataset);
-
   if (dataset->size() < num_clusters_per_block ||
       dataset->dimensionality() < num_dimension_per_block) {
     unique_ptr<SingleMachineSearcherBase<float>> bf_searcher(

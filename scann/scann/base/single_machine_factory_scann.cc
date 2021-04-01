@@ -212,6 +212,7 @@ StatusOrSearcherUntyped TreeAhHybridResidualFactory<float>(
           "If a pre-computed hashed database is specified for tree-AH hybrid "
           "then pre-computed AH centers must be specified too.");
     }
+    std::cout << "[YJ] Training Finecodebook" << std::endl;
     TF_ASSIGN_OR_RETURN(
         auto quantization_distance,
         GetDistanceMeasure(
