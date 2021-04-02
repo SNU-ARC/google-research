@@ -686,8 +686,6 @@ def run_faiss(D):
 				if is_cached:
 					index, preproc = build_faiss(args, searcher_dir, coarse_dir, split, int(N/args.num_split), padded_D, index_key_manual, is_cached, padded_queries)
 				else:
-					print("[YJ] get train")
-					print("[YJ] read data")
 					dataset = read_data(split_dataset_path + str(args.num_split) + "_" + str(split) if args.num_split>1 else dataset_basedir, base=False if args.num_split>1 else True, offset_=None if args.num_split>1 else 0, shape_=None)
 					if is_padding:
 						padded_dataset = faiss_pad_dataset(padded_D, dataset)
@@ -714,6 +712,7 @@ def run_faiss(D):
 					n.append((local_neighbors+base_idx).astype(np.int32))
 					d.append(local_distances.astype(np.float32))
 				del index
+				dataset._mmap.close()
 				base_idx = base_idx + num_per_split
 				neighbors = np.append(neighbors, np.array(n, dtype=np.int32), axis=-1)
 				distances = np.append(distances, np.array(d, dtype=np.float32), axis=-1)
