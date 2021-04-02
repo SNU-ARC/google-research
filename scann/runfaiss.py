@@ -371,6 +371,17 @@ def build_faiss(args, cacheroot, coarse_dir, split, N_, D, index_key, is_cached,
             del index_load
         else:
             index = index_load
+
+    global ps
+    index.use_precomputed_table = usePrecomputed
+    if args.is_gpu:
+        ps = faiss.GpuParameterSpace()
+        ps.initialize(index)
+        # ps.set_index_parameter(index, 'nprobe', w)
+    else:
+        faiss.omp_set_num_threads(faiss.omp_get_max_threads())
+        # index.nprobe = w
+
     return index, preproc
 
 def check_cached(cacheroot, args, dbname, split, num_split, index_key):
@@ -389,13 +400,20 @@ def check_cached(cacheroot, args, dbname, split, num_split, index_key):
 
 def faiss_search(index, preproc, args, reorder, w):
     # search environment
-    index.use_precomputed_table = usePrecomputed
+    # index.use_precomputed_table = usePrecomputed
+    # if args.is_gpu:
+    #     ps = faiss.GpuParameterSpace()
+    #     ps.initialize(index)
+    #     ps.set_index_parameter(index, 'nprobe', w)
+    # else:
+    #     faiss.omp_set_num_threads(faiss.omp_get_max_threads())
+    #     index.nprobe = w
     if args.is_gpu:
-        ps = faiss.GpuParameterSpace()
-        ps.initialize(index)
+        # ps = faiss.GpuParameterSpace()
+        # ps.initialize(index)
         ps.set_index_parameter(index, 'nprobe', w)
     else:
-        faiss.omp_set_num_threads(faiss.omp_get_max_threads())
+        # faiss.omp_set_num_threads(faiss.omp_get_max_threads())
         index.nprobe = w
 
     # reorder
