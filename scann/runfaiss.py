@@ -153,7 +153,6 @@ def prepare_trained_index(preproc, coarse_quantizer, ncent, pqflat_str):
 
 
 def add_vectors(index_cpu, preproc, is_gpu, addBatchSize):
-
     # copy to GPU
     if is_gpu:
         index = copyToGpu(index_cpu)
@@ -170,7 +169,6 @@ def add_vectors(index_cpu, preproc, is_gpu, addBatchSize):
             i0, nb, time.time() - t0), end=' ')
         sys.stdout.flush()
     print("Add time: %.3f s" % (time.time() - t0))
-
     # copy to CPU
     if is_gpu:
         index_all = index_cpu
@@ -322,6 +320,10 @@ def build_faiss(args, cacheroot, coarse_dir, split, N_, D, index_key, is_cached,
     index_cachefile = '%s%s_%s_%s_%s_%s%s,%s.index' % (
         cacheroot, args.metric, dbname, split, args.num_split, preproc_str, ivf_str, pqflat_str)
     print(index_cachefile)
+    
+    first_index_cachefile = '%s%s_%s_0_%s_%s%s,%s.index' % (
+        cacheroot, args.metric, dbname, args.num_split, preproc_str, ivf_str, pqflat_str)
+    print(index_cachefile)
 
     # GPU resources
     if args.is_gpu:
@@ -339,10 +341,16 @@ def build_faiss(args, cacheroot, coarse_dir, split, N_, D, index_key, is_cached,
     if not index_cachefile or not os.path.exists(index_cachefile):
         # train index
         coarse_quantizer = prepare_coarse_quantizer(preproc, cent_cachefile, ncentroid, args.is_gpu)
-        index_trained = prepare_trained_index(preproc, coarse_quantizer, ncentroid, pqflat_str)
-        centroids = faiss.vector_to_array(index_trained.pq.centroids).reshape(index_trained.pq.M, index_trained.pq.ksub, index_trained.pq.dsub)
-        print("index_load: ", centroids.shape)
-        print("index_load: ", centroids)
+        if split == 0:
+            index_trained = prepare_trained_index(preproc, coarse_quantizer, ncentroid, pqflat_str)
+        else:
+            index_trained = faiss.read_index(first_index_cachefile)
+            index_trained.ntotal = 0
+            index_trained.invlists.reset()
+        
+        # centroids = faiss.vector_to_array(index_trained.pq.centroids).reshape(index_trained.pq.M, index_trained.pq.ksub, index_trained.pq.dsub)
+        # print("index_load: ", centroids.shape)
+        # print("index_load: ", centroids)
 
         index_all, index_gpu = add_vectors(index_trained, preproc, args.is_gpu, addBatchSize)
 
