@@ -401,13 +401,15 @@ def run_scann():
 
 		f = open(sweep_result_path, "w")
 		f.write("Program: " + args.program + " Topk: " + str(args.topk) + " Num_split: " + str(args.num_split)+ " Batch: "+str(args.batch)+"\n")
-		f.write("L\tThreashold\tm\t|\tw\tr\tMetric\n")
+		f.write("L\tThreshold\tm\t|\tw\tr\tMetric\tSOW_avg\tSOW_per_time\n")
 	else:
 		# assert D%args.m == 0
 		build_config = [(args.L, args.threshold, int(D/args.m), args.metric)]
 		search_config = [[args.w, args.reorder]]
 
 	for bc in build_config:
+		SOW_list = list()
+		SOW = np.zeros((queries.shape[0], 1))
 		num_leaves, threshold, dims, metric = bc
 		sc_list = check_available_search_config(args.program, bc, search_config)
 
@@ -453,6 +455,7 @@ def run_scann():
 				n = list()
 				d = list()
 				for idx in range(len(sc_list)):
+					SOW = np.zeros((queries.shape[0], 1))
 					# if idx < len(sc_list)-2:
 					# 	continue
 					leaves_to_search, reorder = search_config[sc_list[idx]]
@@ -467,27 +470,33 @@ def run_scann():
 					print(str(num_leaves)+"\t"+str(threshold)+"\t"+str(int(D/dims))+"\t|\t"+str(leaves_to_search)+"\t"+str(reorder)+"\t"+str(metric)+"\n")
 					if args.batch > 1:
 						start = time.time()
-						local_neighbors, local_distances = searcher.search_batched_parallel(queries, leaves_to_search=leaves_to_search, pre_reorder_num_neighbors=reorder, final_num_neighbors=args.topk, batch_size=batch_size)
+						local_SOW, local_neighbors, local_distances = searcher.search_batched_parallel(queries, leaves_to_search=leaves_to_search, pre_reorder_num_neighbors=reorder, final_num_neighbors=args.topk, batch_size=batch_size)
 						# local_neighbors, local_distances = searcher.search_batched(queries, leaves_to_search=leaves_to_search, pre_reorder_num_neighbors=reorder, final_num_neighbors=args.topk)
 						end = time.time()
 						local_distances[local_neighbors==2147483647] =  math.inf if metric=="squared_l2" else -math.inf 		# 2147483647: maximum integer value
 						total_latency[idx] = total_latency[idx] + 1000*(end - start)
 						n.append(local_neighbors+base_idx)
 						d.append(local_distances)
+						SOW += local_SOW
 					else:
 						# ScaNN search
 						def single_query(query, base_idx):
 							start = time.time()
-							local_neighbors, local_distances = searcher.search(query, leaves_to_search=leaves_to_search, pre_reorder_num_neighbors=reorder, final_num_neighbors=args.topk)
+							local_SOW, local_neighbors, local_distances = searcher.search(query, leaves_to_search=leaves_to_search, pre_reorder_num_neighbors=reorder, final_num_neighbors=args.topk)
 							local_distances[local_neighbors==2147483647] =  math.inf if metric=="squared_l2" else -math.inf 		# 2147483647: maximum integer value
-							return (time.time() - start, (local_neighbors, local_distances))
+							return (time.time() - start, local_SOW, (local_neighbors, local_distances))
 						# ScaNN search
 						print("Entering ScaNN searcher")
 						local_results = [single_query(q, base_idx) for q in queries]
-						total_latency[idx] += (np.sum(np.array([time for time, _ in local_results]).reshape(queries.shape[0], 1)))*1000
-						nd = [nd for _, nd in local_results]
+						total_latency[idx] += (np.sum(np.array([time for time, local_SOW, _ in local_results]).reshape(queries.shape[0], 1)))*1000
+						nd = [nd for _, local_SOW, nd in local_results]
+						idx_SOW = 0
+						for time_, local_SOW_, nd_ in local_results:
+							SOW[idx_SOW] += local_SOW_[0]
+							idx_SOW += 1
 						n.append(np.vstack([n for n,d in nd])+base_idx)
 						d.append(np.vstack([d for n,d in nd]))
+					SOW_list.append(SOW)
 				base_idx = base_idx + num_per_split
 				neighbors = np.append(neighbors, np.array(n, dtype=np.int32), axis=-1)
 				distances = np.append(distances, np.array(d, dtype=np.float32), axis=-1)
@@ -499,6 +508,9 @@ def run_scann():
 
 			final_neighbors, _ = sort_neighbors(distances, neighbors)
 			for idx in range(len(sc_list)):
+				current_SOW = SOW_list[idx]
+				SOW_avg = np.average(current_SOW)
+				SOW_per_time = np.sum(current_SOW) / total_latency[idx]
 				if args.sweep:
 					leaves_to_search, reorder = search_config[sc_list[idx]]
 					f.write(str(num_leaves)+"\t"+str(threshold)+"\t"+str(int(D/dims))+"\t|\t"+str(leaves_to_search)+"\t"+str(reorder)+"\t"+str(metric)+"\n")
@@ -509,9 +521,11 @@ def run_scann():
 				# 	top1, top10, top100, top1000 = print_recall(final_neighbors[idx], gt)
 				top1, top10, top100, top1000 = print_recall(final_neighbors[idx], gt)
 				print("Top ", args.topk, " Total latency (ms): ", total_latency[idx])
+				print("SOW shape :", current_SOW.shape, ", min :", np.min(current_SOW), ", max :", np.max(current_SOW), ", avg :", np.average(current_SOW))
+				print("Sum of SOW per total latency: ", SOW_per_time)
 				print("arcm::Latency written. End of File.\n");
 				if args.sweep:
-					f.write(str(top1)+" %\t"+str(top10)+" %\t"+str(top100)+" %\t"+str(top1000)+" %\t"+str(total_latency[idx])+"\n")
+					f.write(str(top1)+" %\t"+str(top10)+" %\t"+str(top100)+" %\t"+str(top1000)+"%\t"+str(total_latency[idx])+"\t"+str(SOW_avg)+"\t"+str(SOW_per_time)+"\n")
 	if args.sweep:
 		f.close()
 
@@ -626,7 +640,7 @@ def run_faiss(D):
 
 		f = open(sweep_result_path, "w")
 		f.write("Program: " + args.program + ("GPU" if args.is_gpu else "") + " Topk: " + str(args.topk) + " Num_split: " + str(args.num_split)+ " Batch: "+str(args.batch)+"\n")
-		f.write("L\tm\tk_star\t|\tw\tReorder\tMetric\n")
+		f.write("L\tm\tk_star\t|\tw\tReorder\tMetric\tSOW_avg\tSOW_per_time\n")
 	else:
 		if args.opq != -1:
 			assert args.opq % args.m == 0 and args.sq == -1
@@ -637,6 +651,8 @@ def run_faiss(D):
 		build_config = [[args.L, args.m, int(math.log(args.k_star,2)), args.metric]]
 		search_config = [[args.w, args.reorder]]
 	for bc in build_config:
+		SOW_list = list()
+		SOW = np.zeros((queries.shape[0], 1))
 		L, m, log2kstar, metric = bc
 		# assert (not args.is_gpu and log2kstar<=8) or (log2kstar == 8)
 		sc_list = check_available_search_config(args.program, bc, search_config)
@@ -658,7 +674,7 @@ def run_faiss(D):
 			if args.opq == -1 and args.sq == -1:
 				index_key_manual = "IVF"+str(L)+",PQ"+str(faiss_m)+"x"+str(log2kstar)
 			elif args.sq != -1:
-					index_key_manual = "IVF"+str(L)+",SQ"+str(args.sq)
+				index_key_manual = "IVF"+str(L)+",SQ"+str(args.sq)
 			else:
 				index_key_manual = "OPQ"+str(faiss_m)+"_"+str(args.opq)+",IVF"+str(L)+",PQ"+str(faiss_m)+"x"+str(log2kstar)
 
@@ -688,12 +704,13 @@ def run_faiss(D):
 				n = list()
 				d = list()
 				for idx in range(len(sc_list)):
+					SOW = np.zeros((queries.shape[0], 1))
 					w, reorder = search_config[sc_list[idx]]
 					assert reorder == args.reorder
 					# Build Faiss index
 					print(str(L)+"\t"+str(m)+"\t"+str(2**log2kstar)+"\t|\t"+str(w)+"\t"+str(reorder)+"\t"+str(metric)+"\n")		# faiss-gpu has no reorder
 					# Faiss search
-					local_neighbors, local_distances, total_latency[idx] = faiss_search(index, preproc, args, reorder, w)
+					local_neighbors, local_distances, local_SOW, total_latency[idx] = faiss_search(index, preproc, args, reorder, w)
 					# print("Split ", split)
 					# print("base index", base_idx)
 					# nn = (local_neighbors+base_idx).astype(np.int32)
@@ -702,6 +719,8 @@ def run_faiss(D):
 					# 	print(local_neighbors[3][i], " ", nn[3][i], " ", dd[3][i])
 					n.append((local_neighbors+base_idx).astype(np.int32))
 					d.append(local_distances.astype(np.float32))
+					SOW += local_SOW
+					SOW_list.append(SOW)
 				del index
 				base_idx = base_idx + num_per_split
 				neighbors = np.append(neighbors, np.array(n, dtype=np.int32), axis=-1)
@@ -716,14 +735,19 @@ def run_faiss(D):
 			# print("distances: ", _[0][3])
 
 			for idx in range(len(sc_list)):
+				current_SOW = SOW_list[idx]
+				SOW_avg = np.average(current_SOW)
+				SOW_per_time = np.sum(current_SOW) / total_latency[idx]
 				if args.sweep:
 					w, reorder = search_config[sc_list[idx]]
 					f.write(str(L)+"\t"+str(m)+"\t"+str(2**log2kstar)+"\t|\t"+str(w)+"\t"+str(reorder)+"\t"+str(metric)+"\n")		# faiss-gpu has no reorder
 				top1, top10, top100, top1000 = print_recall(final_neighbors[idx], gt)
 				print("Top ", args.topk, " Total latency (ms): ", total_latency[idx])
+				print("SOW shape :", current_SOW.shape, ", min :", np.min(current_SOW), ", max :", np.max(current_SOW), ", avg :", np.average(current_SOW))
+				print("Sum of SOW per total latency: ", SOW_per_time)
 				print("arcm::Latency written. End of File.\n");
 				if args.sweep:
-					f.write(str(top1)+" %\t"+str(top10)+" %\t"+str(top100)+" %\t"+str(top1000)+" %\t"+str(total_latency[idx])+"\n")
+					f.write(str(top1)+" %\t"+str(top10)+" %\t"+str(top100)+" %\t"+str(top1000)+"%\t"+str(total_latency[idx])+"\t"+str(SOW_avg)+"\t"+str(SOW_per_time)+"\n")
 	if args.sweep:
 		f.close()
 

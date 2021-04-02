@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "scann/scann_ops/cc/scann_npy.h"
+#include <tuple> // ADD FOR SOW INFO
 
 namespace research_scann {
 
@@ -99,15 +100,20 @@ ScannNumpy::ScannNumpy(const np_row_major_arr<float>& np_dataset,
                                         training_threads));
 }
 
-std::pair<pybind11::array_t<DatapointIndex>, pybind11::array_t<float>>
+std::tuple<pybind11::array_t<float>, pybind11::array_t<DatapointIndex>, pybind11::array_t<float>>
 ScannNumpy::Search(const np_row_major_arr<float>& query, int final_nn,
                    int pre_reorder_nn, int leaves) {
   if (query.ndim() != 1)
     throw std::invalid_argument("Query must be one-dimensional");
 
+  pybind11::array_t<float> SOW({static_cast<long>(1), 1L});  // ADD FOR SOW INFO, one query at a time
+  auto sow_ptr = reinterpret_cast<float*>(SOW.request().ptr);
+  size_t begin = 0;
+  size_t curSize = 0;
+
   DatapointPtr<float> ptr(nullptr, query.data(), query.size(), query.size());
   NNResultsVector res;
-  auto status = scann_.Search(ptr, &res, final_nn, pre_reorder_nn, leaves);
+  auto status = scann_.Search(ptr, &res, final_nn, pre_reorder_nn, leaves, sow_ptr, begin, curSize);
   RuntimeErrorIfNotOk("Error during search: ", status);
 
   // pybind11::array_t<DatapointIndex> indices(res.size());
@@ -117,10 +123,10 @@ ScannNumpy::Search(const np_row_major_arr<float>& query, int final_nn,
   auto idx_ptr = reinterpret_cast<DatapointIndex*>(indices.request().ptr);
   auto dis_ptr = reinterpret_cast<float*>(distances.request().ptr);
   scann_.ReshapeNNResult(res, idx_ptr, dis_ptr, final_nn);
-  return {indices, distances};
+  return {SOW, indices, distances};
 }
 
-std::pair<pybind11::array_t<DatapointIndex>, pybind11::array_t<float>>
+std::tuple<pybind11::array_t<float>, pybind11::array_t<DatapointIndex>, pybind11::array_t<float>>
 ScannNumpy::SearchBatched(const np_row_major_arr<float>& queries, int final_nn,
                           int pre_reorder_nn, int leaves,  int batch_size, bool parallel) {
   if (queries.ndim() != 2)
@@ -129,11 +135,20 @@ ScannNumpy::SearchBatched(const np_row_major_arr<float>& queries, int final_nn,
   vector<float> queries_vec(queries.data(), queries.data() + queries.size());
   auto query_dataset = DenseDataset<float>(queries_vec, queries.shape()[0]);
 
+  pybind11::array_t<float> SOW({static_cast<long>(query_dataset.size()), 1L});  // ADD FOR SOW INFO
+  auto sow_ptr = reinterpret_cast<float*>(SOW.request().ptr);                   // ADD FOR SOW INFO
+  size_t begin = 0;
+  size_t curSize = 0;
+
   std::vector<NNResultsVector> res(query_dataset.size());
   Status status;
   if (parallel)
     status = scann_.SearchBatchedParallel(query_dataset, MakeMutableSpan(res),
-                                          final_nn, pre_reorder_nn, leaves, batch_size);  // [ANNA] batch size added
+                                          final_nn, pre_reorder_nn, leaves,
+                                          batch_size,
+                                          sow_ptr,
+                                          begin,
+                                          curSize);  // [ANNA] batch size, sow_ptr added
   else
     status = scann_.SearchBatched(query_dataset, MakeMutableSpan(res), final_nn,
                                   pre_reorder_nn, leaves);
@@ -147,7 +162,7 @@ ScannNumpy::SearchBatched(const np_row_major_arr<float>& queries, int final_nn,
   auto idx_ptr = reinterpret_cast<DatapointIndex*>(indices.request().ptr);
   auto dis_ptr = reinterpret_cast<float*>(distances.request().ptr);
   scann_.ReshapeBatchedNNResult(MakeConstSpan(res), idx_ptr, dis_ptr, final_nn);
-  return {indices, distances};
+  return {SOW, indices, distances};
 }
 
 void ScannNumpy::Serialize(std::string path, std::string coarse_path, bool load_coarse, std::string fine_path, bool load_fine) {

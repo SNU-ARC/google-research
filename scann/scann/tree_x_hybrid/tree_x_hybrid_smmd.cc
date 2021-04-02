@@ -347,7 +347,10 @@ Status TreeXHybridSMMD<T>::EnableCrowdingImpl(
 template <typename T>
 Status TreeXHybridSMMD<T>::FindNeighborsImpl(const DatapointPtr<T>& query,
                                              const SearchParameters& params,
-                                             NNResultsVector* result) const {
+                                             NNResultsVector* result,
+                                             float* SOW,
+                                             size_t begin,
+                                             size_t curSize) const {
   SCANN_RETURN_IF_ERROR(CheckReadyToQuery(params));
   auto tree_x_params =
       params.searcher_specific_optional_parameters<TreeXOptionalParameters>();
@@ -390,6 +393,24 @@ Status TreeXHybridSMMD<T>::FindNeighborsImpl(const DatapointPtr<T>& query,
     query_tokens = query_tokens_storage;
   }
 
+  /* arcm::Below code computes SOW from here until... */
+  long long sum_data = 0L;
+
+  for (int num_center = 0; num_center < query_tokens.size(); ++num_center)
+    SOW[0] += datapoints_by_token_[query_tokens[num_center]].size();
+
+  // printf("arcm::query_tokens.size() = %d\n", query_tokens.size());
+  for (int i = 0; i < query_tokens.size(); i++){
+    printf("%d\t", datapoints_by_token_[query_tokens[i]].size());
+  }
+  printf("\n");
+
+  for(int leaf_id = 0; leaf_id < datapoints_by_token_.size(); ++leaf_id)
+    sum_data += datapoints_by_token_[leaf_id].size();
+  // std::cout << " Is data all good ? : " << sum_data << std::endl;
+  /* arcm::...here! SOW computation has ended. */
+
+
   if (params.pre_reordering_crowding_enabled()) {
     return FailedPreconditionError("Crowding is not supported.");
   } else {
@@ -402,7 +423,10 @@ Status TreeXHybridSMMD<T>::FindNeighborsImpl(const DatapointPtr<T>& query,
 template <typename T>
 Status TreeXHybridSMMD<T>::FindNeighborsBatchedImpl(
     const TypedDataset<T>& queries, ConstSpan<SearchParameters> params,
-    MutableSpan<NNResultsVector> results) const {
+    MutableSpan<NNResultsVector> results,
+    float* SOW,
+    size_t begin,
+    size_t curSize) const {
   if (params.empty()) {
     DCHECK_EQ(queries.size(), 0);
     DCHECK_EQ(results.size(), 0);
@@ -489,6 +513,25 @@ Status TreeXHybridSMMD<T>::FindNeighborsBatchedImpl(
       query_tokens[i] = query_tokens_storage[i];
     }
   }
+
+  /* arcm::Below code computes SOW from here until... */
+  long long sum_data = 0L;
+  vector<float> sow(queries.size(), 0.0f);
+  for(int q_idx = 0; q_idx < query_tokens.size(); ++q_idx){
+    for(int num_center = 0; num_center < query_tokens[q_idx].size(); ++num_center){
+      sow[q_idx] += datapoints_by_token_[query_tokens[q_idx][num_center]].size();
+    }
+  }
+  for(int leaf_id = 0; leaf_id < datapoints_by_token_.size(); ++leaf_id)
+    sum_data += datapoints_by_token_[leaf_id].size();
+  // std::cout << " Is data all good ? : " << sum_data << std::endl;
+  int idx = 0;
+  for (int i = begin; ; i++){
+    SOW[i] = sow[idx++];
+    if (idx == sow.size())
+      break;
+  }
+  /* arcm::...here! SOW computation has ended. */
 
   for (DatapointIndex i = 0; i < queries.size(); ++i) {
     if (params[i].pre_reordering_crowding_enabled()) {

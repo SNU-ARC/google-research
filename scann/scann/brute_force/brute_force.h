@@ -51,11 +51,17 @@ class BruteForceSearcher final : public SingleMachineSearcherBase<T> {
  protected:
   Status FindNeighborsImpl(const DatapointPtr<T>& query,
                            const SearchParameters& params,
-                           NNResultsVector* result) const final;
+                           NNResultsVector* result,
+                           float* SOW = nullptr,
+                           size_t begin = 0,
+                           size_t curSize = 0) const final;
 
   Status FindNeighborsBatchedImpl(
       const TypedDataset<T>& queries, ConstSpan<SearchParameters> params,
-      MutableSpan<NNResultsVector> results) const final;
+      MutableSpan<NNResultsVector> results,
+      float* SOW = nullptr,
+      size_t begin = 0,
+      size_t curSize = 0) const final;
 
   Status EnableCrowdingImpl(
       ConstSpan<int64_t> datapoint_index_to_crowding_attribute) final;

@@ -357,31 +357,6 @@ Status TreeAHHybridResidual::BuildLeafSearchers(
   return OkStatus();
 }
 
-Status TreeAHHybridResidual::FindNeighborsImpl(const DatapointPtr<float>& query,
-                                               const SearchParameters& params,
-                                               NNResultsVector* result) const {
-  auto query_preprocessing_results =
-      params.unlocked_query_preprocessing_results<
-          UnlockedTreeAHHybridResidualPreprocessingResults>();
-  if (query_preprocessing_results) {
-    return FindNeighborsInternal1(
-        query, params, query_preprocessing_results->centers_to_search(),
-        result);
-  }
-
-  int num_centers = 0;
-  auto tree_x_params =
-      params.searcher_specific_optional_parameters<TreeXOptionalParameters>();
-  if (tree_x_params) {
-    int center_override = tree_x_params->num_partitions_to_search_override();
-    if (center_override > 0) num_centers = center_override;
-  }
-  vector<KMeansTreeSearchResult> centers_to_search;
-  SCANN_RETURN_IF_ERROR(query_tokenizer_->TokensForDatapointWithSpilling(
-      query, num_centers, &centers_to_search));
-  return FindNeighborsInternal1(query, params, centers_to_search, result);
-}
-
 namespace {
 
 bool SupportsLowLevelBatching(const TypedDataset<float>& queries,
@@ -408,14 +383,20 @@ vector<std::vector<QueryForLeaf>> InvertCentersToSearch(
     ConstSpan<vector<KMeansTreeSearchResult>> centers_to_search,
     size_t num_centers) {
   vector<std::vector<QueryForLeaf>> result(num_centers);
+  int i = 0;
   for (DatapointIndex query_index : IndicesOf(centers_to_search)) {
     ConstSpan<KMeansTreeSearchResult> cur_query_centers =
         centers_to_search[query_index];
+    int j = 0;
     for (const auto& center : cur_query_centers) {
       result[center.node->LeafId()].emplace_back(query_index,
                                                  center.distance_to_center);
+      // printf("arcm::InvertCentersToSearch::num_centers = %d, i = %d, j = %d, center.distance_to_center = %d, center.node->LeafId() = %d, query_index = %d\n", num_centers, i++, j++, center.distance_to_center, center.node->LeafId(), query_index);
+
     }
   }
+  // if (result[0].size() == 1)
+    // printf("arcm::result.size() = %d, result[0].size() = %d\n", result.size(), result[0].size());
   return result;
 }
 
@@ -468,9 +449,71 @@ inline void AssignResults(TopN* top_n, NNResultsVector* results) {
 
 }  // namespace
 
+Status TreeAHHybridResidual::FindNeighborsImpl(const DatapointPtr<float>& query,
+                                               const SearchParameters& params,
+                                               NNResultsVector* result,
+                                               float* SOW,
+                                               size_t begin,
+                                               size_t curSize) const {
+  auto query_preprocessing_results =
+      params.unlocked_query_preprocessing_results<
+          UnlockedTreeAHHybridResidualPreprocessingResults>();
+  if (query_preprocessing_results) {
+    return FindNeighborsInternal1(
+        query, params, query_preprocessing_results->centers_to_search(),
+        result, SOW, begin, curSize);
+  }
+
+  int num_centers = 0;
+  auto tree_x_params =
+      params.searcher_specific_optional_parameters<TreeXOptionalParameters>();
+  if (tree_x_params) {
+    int center_override = tree_x_params->num_partitions_to_search_override();
+    if (center_override > 0) num_centers = center_override;
+  }
+  vector<KMeansTreeSearchResult> centers_to_search;
+  SCANN_RETURN_IF_ERROR(query_tokenizer_->TokensForDatapointWithSpilling(
+      query, num_centers, &centers_to_search));
+
+  /* arcm::Below code computes SOW from here until... */
+  for (int i = 0; i < centers_to_search.size(); i++){
+    long long list_length = 0;
+    int leaf_id = centers_to_search[i].node->LeafId();
+    list_length = datapoints_by_token_[leaf_id].size();
+    SOW[0] += list_length;
+    printf("%ld\t", list_length);
+    // printf("arcm::center_to_search[%d].distance_to_center = %f, center_to_search[%d]->node.LeafId() = %ld, list_length = %ld\n", i, centers_to_search[i].distance_to_center, i, (centers_to_search[i].node)->LeafId(), datapoints_by_token_[(centers_to_search[i].node)->LeafId()].size());
+  }
+  printf("\n");
+  /* arcm::...here! SOW computation has ended. */
+
+  /* arcm:: below are outdated(wrong) codes wrt SOW from here until... */
+  // vector<vector<KMeansTreeSearchResult>> centers_to_search_wrapper(1);
+  // centers_to_search_wrapper[0] = centers_to_search;
+  // auto queries_by_leaf =
+  //     InvertCentersToSearch(centers_to_search_wrapper, query_tokenizer_->n_tokens());
+  // long long sum_data = 0L;
+  // for(int leaf_id = 0; leaf_id < queries_by_leaf.size(); ++leaf_id){
+  //   sum_data += datapoints_by_token_[leaf_id].size();
+  //   for(int num_query = 0; num_query < queries_by_leaf[leaf_id].size(); ++num_query){
+  //     auto q_idx = queries_by_leaf[leaf_id][num_query].query_index;
+  //     SOW[q_idx] += datapoints_by_token_[leaf_id].size();
+  //     printf("%d\t", datapoints_by_token_[leaf_id].size());
+  //   }
+  // }
+  // printf("\n");
+  // std::cout << " Is data all good ? : " << sum_data << std::endl;
+  /* arcm::..here! */
+
+  return FindNeighborsInternal1(query, params, centers_to_search, result, SOW, begin, curSize);
+}
+
 Status TreeAHHybridResidual::FindNeighborsBatchedImpl(
     const TypedDataset<float>& queries, ConstSpan<SearchParameters> params,
-    MutableSpan<NNResultsVector> results) const {
+    MutableSpan<NNResultsVector> results,
+    float* SOW,
+    size_t begin,
+    size_t curSize) const {
   vector<int32_t> centers_override(queries.size());
   bool centers_overridden = false;
   for (int i = 0; i < queries.size(); i++) {
@@ -507,6 +550,26 @@ Status TreeAHHybridResidual::FindNeighborsBatchedImpl(
   }
   auto queries_by_leaf =
       InvertCentersToSearch(centers_to_search, query_tokenizer_->n_tokens());
+
+  /* arcm::Below code computes SOW from here until... */
+  long long sum_data = 0L;
+  vector<float> sow(queries.size(), 0.0f);
+  for(int leaf_id = 0; leaf_id < queries_by_leaf.size(); ++leaf_id){
+    sum_data += datapoints_by_token_[leaf_id].size();
+    for(int num_query = 0; num_query < queries_by_leaf[leaf_id].size(); ++num_query){
+      auto q_idx = queries_by_leaf[leaf_id][num_query].query_index;
+      sow[q_idx] += datapoints_by_token_[leaf_id].size();
+    }
+  }
+  // std::cout << " Is data all good ? : " << sum_data << std::endl;
+  int idx = 0;
+  for (int i = begin; ; i++){
+    SOW[i] = sow[idx++];
+    if (idx == sow.size())
+      break;
+  }
+  /* arcm::...here! SOW computation has ended. */
+
   vector<shared_ptr<AsymmetricHashingOptionalParameters>> lookup_tables(
       queries.size());
   for (size_t i = 0; i < queries.size(); ++i) {
@@ -567,7 +630,10 @@ Status TreeAHHybridResidual::FindNeighborsBatchedImpl(
 Status TreeAHHybridResidual::FindNeighborsInternal1(
     const DatapointPtr<float>& query, const SearchParameters& params,
     ConstSpan<KMeansTreeSearchResult> centers_to_search,
-    NNResultsVector* result) const {
+    NNResultsVector* result,
+    float* SOW,
+    size_t begin,
+    size_t curSize) const {
   if (params.pre_reordering_crowding_enabled()) {
     return FailedPreconditionError("Crowding is not supported.");
   } else if (enable_global_topn_) {

@@ -87,11 +87,17 @@ class TreeAHHybridResidual final : public SingleMachineSearcherBase<float> {
 
   Status FindNeighborsImpl(const DatapointPtr<float>& query,
                            const SearchParameters& params,
-                           NNResultsVector* result) const final;
+                           NNResultsVector* result,
+                           float* SOW = nullptr,
+                           size_t begin = 0,
+                           size_t curSize = 0) const final;
 
   Status FindNeighborsBatchedImpl(
       const TypedDataset<float>& queries, ConstSpan<SearchParameters> params,
-      MutableSpan<NNResultsVector> results) const final;
+      MutableSpan<NNResultsVector> results,
+      float* SOW = nullptr,
+      size_t begin = 0,
+      size_t curSize = 0) const final;
 
   Status EnableCrowdingImpl(
       ConstSpan<int64_t> datapoint_index_to_crowding_attribute) final;
@@ -127,7 +133,10 @@ class TreeAHHybridResidual final : public SingleMachineSearcherBase<float> {
   Status FindNeighborsInternal1(
       const DatapointPtr<float>& query, const SearchParameters& params,
       ConstSpan<KMeansTreeSearchResult> centers_to_search,
-      NNResultsVector* result) const;
+      NNResultsVector* result,
+      float* SOW = nullptr,
+      size_t begin = 0,
+      size_t curSize = 0) const;
 
   template <typename TopN>
   Status FindNeighborsInternal2(

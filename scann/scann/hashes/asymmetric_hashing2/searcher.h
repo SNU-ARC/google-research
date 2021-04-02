@@ -135,11 +135,17 @@ class Searcher final : public SingleMachineSearcherBase<T> {
  protected:
   Status FindNeighborsImpl(const DatapointPtr<T>& query,
                            const SearchParameters& params,
-                           NNResultsVector* result) const final;
+                           NNResultsVector* result,
+                           float* SOW = nullptr,
+                           size_t begin = 0,
+                           size_t curSize = 0) const final;
 
   Status FindNeighborsBatchedImpl(
       const TypedDataset<T>& queries, ConstSpan<SearchParameters> params,
-      MutableSpan<NNResultsVector> results) const final;
+      MutableSpan<NNResultsVector> results,
+      float* SOW = nullptr,
+      size_t begin = 0,
+      size_t curSize = 0) const final;
 
  private:
   bool impl_needs_dataset() const final { return false; }

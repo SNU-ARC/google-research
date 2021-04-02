@@ -268,25 +268,43 @@ class SingleMachineSearcherBase : public UntypedSingleMachineSearcherBase {
 
   virtual Status FindNeighbors(const DatapointPtr<T>& query,
                                const SearchParameters& params,
-                               NNResultsVector* result) const;
+                               NNResultsVector* result,
+                               float* SOW = nullptr,
+                               size_t begin = 0,
+                               size_t curSize = 0) const;
 
   Status FindNeighbors(const DatapointPtr<T>& query,
-                       NNResultsVector* result) const {
-    return FindNeighbors(query, default_search_parameters_, result);
+                       NNResultsVector* result,
+                       float* SOW = nullptr,
+                       size_t begin = 0,
+                       size_t curSize = 0) const {
+    return FindNeighbors(query, default_search_parameters_, result, SOW, begin, curSize);
   }
 
   Status FindNeighborsNoSortNoExactReorder(const DatapointPtr<T>& query,
                                            const SearchParameters& params,
-                                           NNResultsVector* result) const;
+                                           NNResultsVector* result,
+                                           float* SOW = nullptr,
+                                           size_t begin = 0,
+                                           size_t curSize = 0) const;
 
   Status FindNeighborsBatched(const TypedDataset<T>& queries,
-                              MutableSpan<NNResultsVector> results) const;
+                              MutableSpan<NNResultsVector> results,
+                              float* SOW = nullptr,
+                              size_t begin = 0,
+                              size_t curSize = 0) const;
   Status FindNeighborsBatched(const TypedDataset<T>& queries,
                               ConstSpan<SearchParameters> params,
-                              MutableSpan<NNResultsVector> results) const;
+                              MutableSpan<NNResultsVector> results,
+                              float* SOW = nullptr,
+                              size_t begin = 0,
+                              size_t curSize = 0) const;
   Status FindNeighborsBatchedNoSortNoExactReorder(
       const TypedDataset<T>& queries, ConstSpan<SearchParameters> params,
-      MutableSpan<NNResultsVector> results) const;
+      MutableSpan<NNResultsVector> results,
+      float* SOW = nullptr,
+      size_t begin = 0,
+      size_t curSize = 0) const;
 
   virtual StatusOr<
       unique_ptr<SearchParameters::UnlockedQueryPreprocessingResults>>
@@ -475,11 +493,17 @@ class SingleMachineSearcherBase : public UntypedSingleMachineSearcherBase {
 
   virtual Status FindNeighborsImpl(const DatapointPtr<T>& query,
                                    const SearchParameters& params,
-                                   NNResultsVector* result) const = 0;
+                                   NNResultsVector* result,
+                                   float* SOW = nullptr,
+                                   size_t begin = 0,
+                                   size_t curSize = 0) const = 0;
 
   virtual Status FindNeighborsBatchedImpl(
       const TypedDataset<T>& queries, ConstSpan<SearchParameters> params,
-      MutableSpan<NNResultsVector> results) const;
+      MutableSpan<NNResultsVector> results,
+      float* SOW = nullptr,
+      size_t begin = 0,
+      size_t curSize = 0) const;
 
  private:
   Status PopulateDefaultParameters(const ScannConfig& config);

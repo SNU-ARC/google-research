@@ -186,7 +186,10 @@ Status ScalarQuantizedBruteForceSearcher::EnableCrowdingImpl(
 
 Status ScalarQuantizedBruteForceSearcher::FindNeighborsImpl(
     const DatapointPtr<float>& query, const SearchParameters& params,
-    NNResultsVector* result) const {
+    NNResultsVector* result,
+    float* SOW,
+    size_t begin,
+    size_t curSize) const {
   DCHECK(result);
   if (!query.IsDense()) {
     return InvalidArgumentError(

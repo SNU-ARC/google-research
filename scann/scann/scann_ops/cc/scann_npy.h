@@ -18,6 +18,7 @@
 #include <limits>
 #include <optional>
 #include <stdexcept>
+#include <tuple>
 
 #include "absl/types/span.h"
 #include "pybind11/numpy.h"
@@ -42,14 +43,14 @@ class ScannNumpy {
              std::optional<const np_row_major_arr<float>> dp_norms,
              const std::string& artifacts_dir, const std::string& coarse_path, const std::string& fine_path);
   ScannNumpy(const np_row_major_arr<float>& np_dataset, const np_row_major_arr<float>& train_set,
-             const std::string& config, 
-             const bool& load_coarse, const std::string& coarse_path, 
-             const bool& load_fine, const std::string& fine_path, 
+             const std::string& config,
+             const bool& load_coarse, const std::string& coarse_path,
+             const bool& load_fine, const std::string& fine_path,
              int training_threads);
-  std::pair<pybind11::array_t<DatapointIndex>, pybind11::array_t<float>> Search(
+  std::tuple<pybind11::array_t<float>, pybind11::array_t<DatapointIndex>, pybind11::array_t<float>> Search(
       const np_row_major_arr<float>& query, int final_nn, int pre_reorder_nn,
       int leaves);
-  std::pair<pybind11::array_t<DatapointIndex>, pybind11::array_t<float>>
+  std::tuple<pybind11::array_t<float>, pybind11::array_t<DatapointIndex>, pybind11::array_t<float>>
   SearchBatched(const np_row_major_arr<float>& queries, int final_nn,
                 int pre_reorder_nn, int leaves, int batch_size, bool parallel = false);
   void Serialize(std::string path, std::string coarse_dir, bool load_coarse, std::string fine_dir, bool load_fine);

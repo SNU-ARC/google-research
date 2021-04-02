@@ -277,13 +277,16 @@ bool UntypedSingleMachineSearcherBase::needs_hashed_dataset() const {
 template <typename T>
 Status SingleMachineSearcherBase<T>::FindNeighbors(
     const DatapointPtr<T>& query, const SearchParameters& params,
-    NNResultsVector* result) const {
+    NNResultsVector* result,
+    float* SOW,
+    size_t begin,
+    size_t curSize) const {
   SCANN_RET_CHECK(query.IsFinite())
       << "Cannot query ScaNN with vectors that contain NaNs or infinity.";
   DCHECK(result);
   DCHECK_LE((compressed_reordering_enabled() + exact_reordering_enabled()), 1);
   SCANN_RETURN_IF_ERROR(
-      FindNeighborsNoSortNoExactReorder(query, params, result));
+      FindNeighborsNoSortNoExactReorder(query, params, result, SOW, begin, curSize));
 
   if (reordering_helper_) {
     SCANN_RETURN_IF_ERROR(ReorderResults(query, params, result));
@@ -295,7 +298,10 @@ Status SingleMachineSearcherBase<T>::FindNeighbors(
 template <typename T>
 Status SingleMachineSearcherBase<T>::FindNeighborsNoSortNoExactReorder(
     const DatapointPtr<T>& query, const SearchParameters& params,
-    NNResultsVector* result) const {
+    NNResultsVector* result,
+    float* SOW,
+    size_t begin,
+    size_t curSize) const {
   DCHECK(result);
   bool reordering_enabled =
       compressed_reordering_enabled() || exact_reordering_enabled();
@@ -320,26 +326,32 @@ Status SingleMachineSearcherBase<T>::FindNeighborsNoSortNoExactReorder(
                   static_cast<uint64_t>(dataset()->dimensionality())));
   }
 
-  return FindNeighborsImpl(query, params, result);
+  return FindNeighborsImpl(query, params, result, SOW, begin, curSize);
 }
 
 template <typename T>
 Status SingleMachineSearcherBase<T>::FindNeighborsBatched(
-    const TypedDataset<T>& queries, MutableSpan<NNResultsVector> result) const {
+    const TypedDataset<T>& queries, MutableSpan<NNResultsVector> result,
+    float* SOW,
+    size_t begin,
+    size_t curSize) const {
   vector<SearchParameters> params(queries.size());
   for (auto& p : params) {
     p.SetUnspecifiedParametersFrom(default_search_parameters_);
   }
-  return FindNeighborsBatched(queries, params, result);
+  return FindNeighborsBatched(queries, params, result, SOW, begin, curSize);
 }
 
 template <typename T>
 Status SingleMachineSearcherBase<T>::FindNeighborsBatched(
     const TypedDataset<T>& queries, ConstSpan<SearchParameters> params,
-    MutableSpan<NNResultsVector> results) const {
+    MutableSpan<NNResultsVector> results,
+    float* SOW,
+    size_t begin,
+    size_t curSize) const {
   DCHECK_LE((compressed_reordering_enabled() + exact_reordering_enabled()), 1);
   SCANN_RETURN_IF_ERROR(
-      FindNeighborsBatchedNoSortNoExactReorder(queries, params, results));
+      FindNeighborsBatchedNoSortNoExactReorder(queries, params, results, SOW, begin, curSize));
 
   if (reordering_helper_) {
     for (DatapointIndex i = 0; i < queries.size(); ++i) {
@@ -357,7 +369,10 @@ Status SingleMachineSearcherBase<T>::FindNeighborsBatched(
 template <typename T>
 Status SingleMachineSearcherBase<T>::FindNeighborsBatchedNoSortNoExactReorder(
     const TypedDataset<T>& queries, ConstSpan<SearchParameters> params,
-    MutableSpan<NNResultsVector> results) const {
+    MutableSpan<NNResultsVector> results,
+    float* SOW,
+    size_t begin,
+    size_t curSize) const {
   if (queries.size() != params.size()) {
     return InvalidArgumentError(
         "queries.size != params.size in FindNeighbors batched (%d vs. %d).",
@@ -397,7 +412,7 @@ Status SingleMachineSearcherBase<T>::FindNeighborsBatchedNoSortNoExactReorder(
         queries.dimensionality(), dataset()->dimensionality());
   }
 
-  return FindNeighborsBatchedImpl(queries, params, results);
+  return FindNeighborsBatchedImpl(queries, params, results, SOW, begin, curSize);
 }
 
 template <typename T>
@@ -472,12 +487,15 @@ void SingleMachineSearcherBase<T>::ReleaseDatasetAndDocids() {
 template <typename T>
 Status SingleMachineSearcherBase<T>::FindNeighborsBatchedImpl(
     const TypedDataset<T>& queries, ConstSpan<SearchParameters> params,
-    MutableSpan<NNResultsVector> results) const {
+    MutableSpan<NNResultsVector> results,
+    float* SOW,
+    size_t begin,
+    size_t curSize) const {
   DCHECK_EQ(queries.size(), params.size());
   DCHECK_EQ(queries.size(), results.size());
   for (DatapointIndex i = 0; i < queries.size(); ++i) {
     SCANN_RETURN_IF_ERROR(
-        FindNeighborsImpl(queries[i], params[i], &results[i]));
+        FindNeighborsImpl(queries[i], params[i], &results[i], SOW, begin, curSize));
   }
 
   return OkStatus();
