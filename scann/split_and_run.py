@@ -712,7 +712,8 @@ def run_faiss(D):
 					n.append((local_neighbors+base_idx).astype(np.int32))
 					d.append(local_distances.astype(np.float32))
 				del index
-				dataset._mmap.close()
+				if is_cached == False:
+					dataset._mmap.close()
 				base_idx = base_idx + num_per_split
 				neighbors = np.append(neighbors, np.array(n, dtype=np.int32), axis=-1)
 				distances = np.append(distances, np.array(d, dtype=np.float32), axis=-1)
