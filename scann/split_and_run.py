@@ -135,6 +135,12 @@ def read_data(dataset_path, offset_=None, shape_=None, base=True):
 	if "sift1m" in args.dataset:
 		file = dataset_path + "sift_base.fvecs" if base else dataset_path
 		return mmap_fvecs(file, offset_=offset_, shape_=shape_)
+	elif "deep1m" in args.dataset:
+		file = dataset_path + "deep1m_base.fvecs" if base else dataset_path
+		return mmap_fvecs(file, offset_=offset_, shape_=shape_)
+	elif "music1m" in args.dataset:
+		file = dataset_path + "database_music100.bin" if base else dataset_path
+		return np.fromfile(file, dtype = np.float32).reshape(N, D)
 	elif "gist" in args.dataset:
 		file = dataset_path + "gist_base.fvecs" if base else dataset_path
 		return mmap_fvecs(file, offset_=offset_, shape_=shape_)
@@ -164,7 +170,7 @@ def read_data(dataset_path, offset_=None, shape_=None, base=True):
 def write_split_data(split_data_path, split_data):
 	if "sift1b" in args.dataset:
 		bvecs_write(split_data_path, split_data)
-	elif "sift1m" in args.dataset or "gist" in args.dataset or "deep1b" in args.dataset:
+	elif "sift1m" in args.dataset or "gist" in args.dataset or "deep1m" in args.dataset or "deep1b" in args.dataset or "music1m" in args.dataset:
 		fvecs_write(split_data_path, split_data)
 	elif "glove" in args.dataset:
 		hf = h5py.File(split_data_path, 'w')
@@ -173,7 +179,7 @@ def write_split_data(split_data_path, split_data):
 	print("arcm::write_split_data done\n");
 
 def write_gt_data(gt_data):
-	if "sift1b" in args.dataset or "sift1m" in args.dataset or "gist" in args.dataset or "deep1b" in args.dataset:
+	if "sift1b" in args.dataset or "sift1m" in args.dataset or "gist" in args.dataset or "deep1m" in args.dataset or "deep1b" in args.dataset or "music1m" in args.dataset:
 		ivecs_write(groundtruth_path, gt_data)
 	elif "glove" in args.dataset:
 		hf = h5py.File(groundtruth_path, 'w')
@@ -209,6 +215,9 @@ def split(filename, num_iter, N, D):
 					if "glove" in args.dataset:
 						trainset = np.random.choice(split_size, int(sampling_rate*split_size), replace=False)
 						write_split_data(split_dataset_path + args.metric + "_learn" + str(args.num_split) + "_" + str(split), dataset[count*num_per_split:][trainset])
+					elif "music1m" in args.dataset:
+						trainset = np.random.choice(split_size, int(sampling_rate*split_size), replace=False)
+						write_split_data(split_dataset_path + "learn" + str(args.num_split) + "_" + str(split), dataset[count*num_per_split:][trainset])
 					num_split_list.append(dataset[count*num_per_split:].shape[0])
 					split = split+1
 				break
@@ -220,6 +229,9 @@ def split(filename, num_iter, N, D):
 				if "glove" in args.dataset:
 					trainset = np.random.choice(split_size, int(sampling_rate*split_size), replace=False)
 					write_split_data(split_dataset_path + args.metric + "_learn" + str(args.num_split) + "_" + str(split), dataset[count*num_per_split:(count+1)*num_per_split][trainset])
+				elif "music1m" in args.dataset:
+					trainset = np.random.choice(split_size, int(sampling_rate*split_size), replace=False)
+					write_split_data(split_dataset_path + "learn" + str(args.num_split) + "_" + str(split), dataset[count*num_per_split:(count+1)*num_per_split][trainset])
 				num_split_list.append(dataset[count*num_per_split:(count+1)*num_per_split].shape[0])
 				split = split+1
 			count = count+1
@@ -251,7 +263,7 @@ def random_split(filename, num_iter, N, D):
 	print("Wrote remapping index file to ", remapping_file_path)
 
 def run_groundtruth():
-	print("Making groudtruth file")
+	print("Making groundtruth file")
 	import ctypes
 	groundtruth_dir = dataset_basedir + "groundtruth/"
 	if os.path.isdir(groundtruth_dir)!=True:
@@ -839,6 +851,9 @@ def get_train():
 		filename = dataset_basedir + 'deep1b_learn.fvecs'
 		xt = mmap_fvecs(filename, 0, 1000000)
 		return xt
+	elif "deep1m" in args.dataset:
+		filename = dataset_basedir + 'deep1m_learn.fvecs'
+		return mmap_fvecs(filename)
 	elif "gist" in args.dataset:
 		filename = dataset_basedir + 'gist_learn.fvecs'
 		return mmap_fvecs(filename)
@@ -848,6 +863,9 @@ def get_train():
 	elif "glove" in args.dataset:
 		filename = dataset_basedir + 'split_data/glove_'+args.metric+'_learn1_0'
 		return read_data(filename, base=False)
+	elif "music1m" in args.dataset:
+		filename = dataset_basedir + 'split_data/music1m_learn1_0'
+		return mmap_fvecs(filename)
 	else:
 		assert False
 
@@ -865,6 +883,10 @@ def get_groundtruth():
 def get_queries():
 	if "sift1m" in args.dataset:
 		return mmap_fvecs(dataset_basedir + 'sift_query.fvecs')
+	elif "deep1m" in args.dataset:
+		return mmap_fvecs(dataset_basedir + 'deep1m_query.fvecs')
+	elif "music1m" in args.dataset:
+		return np.fromfile(dataset_basedir + 'query_music100.bin', dtype = np.float32).reshape(qN, D)
 	elif "gist" in args.dataset:
 		return mmap_fvecs(dataset_basedir + 'gist_query.fvecs')
 	elif "sift1b" in args.dataset:
@@ -902,6 +924,26 @@ if "sift1m" in args.dataset:
 	num_iter = 1
 	qN = 10000
 	index_key = "IVF4096,PQ64"
+elif "deep1m" in args.dataset:
+	dataset_basedir = basedir + "DEEP1M/"
+	split_dataset_path = dataset_basedir+"split_data/deep1m_"
+	if args.split==False:
+		groundtruth_path = dataset_basedir + "deep1m_"+args.metric+"_gt"
+	N=1000000
+	D=256
+	num_iter = 1
+	qN = 1000
+	index_key = "IVF4096,PQ64" #arcm::FIXME
+elif "music1m" in args.dataset:
+	dataset_basedir = basedir + "MUSIC1M/"
+	split_dataset_path = dataset_basedir+"split_data/music1m_"
+	if args.split==False:
+		groundtruth_path = dataset_basedir + "music1m_"+args.metric+"_gt"
+	N=1000000
+	D=100
+	num_iter = 1
+	qN = 10000
+	index_key = "IVF4096,PQ64" #arcm::FIXME
 elif "gist" in args.dataset:
 	dataset_basedir = basedir + "GIST/"
 	split_dataset_path =dataset_basedir+"split_data/gist_"
@@ -941,7 +983,7 @@ elif "deep1b" in args.dataset:
 	num_iter = 16
 	qN = 10000
 
-if args.split == False:
+if args.split == False and args.groundtruth == False:
 	coarse_dir = basedir + args.program + '_searcher_' + args.metric + '/' + args.dataset + '/coarse_dir/'
 	os.makedirs(coarse_dir, exist_ok=True)
 	if args.program == "scann":
@@ -966,4 +1008,16 @@ if args.eval_split or args.sweep:
 		assert False
 
 if args.groundtruth:
+	# base
+	# arcm_base = read_data(dataset_basedir)
+	# print("base.shape =", arcm_base.shape, ", base =", arcm_base)
+	# train
+	# arcm_train = get_train()
+	# print("train.shape =", arcm_train.shape, ", train =", arcm_train)
+	# query
+	# arcm_query = get_queries()
+	# print("query.shape =", arcm_query.shape, ", query =", arcm_query)
+	# gt
+	# arcm_gt = ivecs_read(dataset_basedir + 'groundtruth/deep1m_groundtruth.ivecs')
+	# print("gt.shape =", arcm_gt.shape, ", gt =", arcm_gt)
 	run_groundtruth()
