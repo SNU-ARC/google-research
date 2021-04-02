@@ -711,6 +711,8 @@ def run_faiss(D):
 					# 	print(local_neighbors[3][i], " ", nn[3][i], " ", dd[3][i])
 					n.append((local_neighbors+base_idx).astype(np.int32))
 					d.append(local_distances.astype(np.float32))
+					del local_neighbors
+					del local_distances
 				del index
 				if is_cached == False:
 					dataset._mmap.close()
