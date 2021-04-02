@@ -141,7 +141,6 @@ def prepare_trained_index(preproc, coarse_quantizer, ncent, pqflat_str):
 
     coarse_quantizer.this.disown()
     idx_model.own_fields = True
-
     # finish training on CPU
     t0 = time.time()
     print("Training vector codes")
@@ -340,6 +339,7 @@ def build_faiss(args, cacheroot, coarse_dir, split, N_, D, index_key, is_cached,
         # train index
         coarse_quantizer = prepare_coarse_quantizer(preproc, cent_cachefile, ncentroid, args.is_gpu)
         index_trained = prepare_trained_index(preproc, coarse_quantizer, ncentroid, pqflat_str)
+
         centroids = faiss.vector_to_array(index_trained.pq.centroids).reshape(index_trained.pq.M, index_trained.pq.ksub, index_trained.pq.dsub)
         print("index_load: ", centroids.shape)
         print("index_load: ", centroids)

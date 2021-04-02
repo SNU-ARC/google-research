@@ -682,7 +682,7 @@ def run_faiss(D):
 					else:
 						padded_dataset = dataset
 					print("[YJ] reading done")
-					index, preproc = build_faiss(args, searcher_dir, coarse_dir, split, N, padded_D, index_key_manual, is_cached, padded_queries, padded_train_dataset, padded_dataset)
+					index, preproc = build_faiss(args, searcher_dir, coarse_dir, split, N/args.num_split, padded_D, index_key_manual, is_cached, padded_queries, padded_train_dataset, padded_dataset)
 					# index, preproc = build_faiss(args, "./temp2/", "./temp2/", split, N, padded_D, index_key_manual, is_cached, padded_queries, padded_train_dataset, padded_dataset)
 
 				n = list()
