@@ -132,14 +132,14 @@ class TreeXHybridSMMD : public SingleMachineSearcherBase<T> {
   Status FindNeighborsImpl(const DatapointPtr<T>& query,
                            const SearchParameters& params,
                            NNResultsVector* result,
-                           float* SOW = nullptr,
+                           unsigned long long int* SOW = nullptr,
                            size_t begin = 0,
                            size_t curSize = 0) const final;
 
   Status FindNeighborsBatchedImpl(
       const TypedDataset<T>& queries, ConstSpan<SearchParameters> params,
       MutableSpan<NNResultsVector> results,
-      float* SOW = nullptr,
+      unsigned long long int* SOW = nullptr,
       size_t begin = 0,
       size_t curSize = 0) const final;
 

@@ -293,7 +293,7 @@ template <typename T>
 Status BruteForceSearcher<T>::FindNeighborsBatchedImpl(
     const TypedDataset<T>& queries, ConstSpan<SearchParameters> params,
     MutableSpan<NNResultsVector> results,
-    float* SOW,
+    unsigned long long int* SOW,
     size_t begin,
     size_t curSize) const {
   if (!supports_low_level_batching_ || !queries.IsDense()) {
@@ -319,7 +319,7 @@ template <typename T>
 Status BruteForceSearcher<T>::FindNeighborsImpl(const DatapointPtr<T>& query,
                                                 const SearchParameters& params,
                                                 NNResultsVector* result,
-                                                float* SOW,
+                                                unsigned long long int* SOW,
                                                 size_t begin,
                                                 size_t curSize) const {
   DCHECK(result);

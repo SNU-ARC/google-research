@@ -278,7 +278,7 @@ template <typename T>
 Status SingleMachineSearcherBase<T>::FindNeighbors(
     const DatapointPtr<T>& query, const SearchParameters& params,
     NNResultsVector* result,
-    float* SOW,
+    unsigned long long int* SOW,
     size_t begin,
     size_t curSize) const {
   SCANN_RET_CHECK(query.IsFinite())
@@ -299,7 +299,7 @@ template <typename T>
 Status SingleMachineSearcherBase<T>::FindNeighborsNoSortNoExactReorder(
     const DatapointPtr<T>& query, const SearchParameters& params,
     NNResultsVector* result,
-    float* SOW,
+    unsigned long long int* SOW,
     size_t begin,
     size_t curSize) const {
   DCHECK(result);
@@ -332,7 +332,7 @@ Status SingleMachineSearcherBase<T>::FindNeighborsNoSortNoExactReorder(
 template <typename T>
 Status SingleMachineSearcherBase<T>::FindNeighborsBatched(
     const TypedDataset<T>& queries, MutableSpan<NNResultsVector> result,
-    float* SOW,
+    unsigned long long int* SOW,
     size_t begin,
     size_t curSize) const {
   vector<SearchParameters> params(queries.size());
@@ -346,7 +346,7 @@ template <typename T>
 Status SingleMachineSearcherBase<T>::FindNeighborsBatched(
     const TypedDataset<T>& queries, ConstSpan<SearchParameters> params,
     MutableSpan<NNResultsVector> results,
-    float* SOW,
+    unsigned long long int* SOW,
     size_t begin,
     size_t curSize) const {
   DCHECK_LE((compressed_reordering_enabled() + exact_reordering_enabled()), 1);
@@ -370,7 +370,7 @@ template <typename T>
 Status SingleMachineSearcherBase<T>::FindNeighborsBatchedNoSortNoExactReorder(
     const TypedDataset<T>& queries, ConstSpan<SearchParameters> params,
     MutableSpan<NNResultsVector> results,
-    float* SOW,
+    unsigned long long int* SOW,
     size_t begin,
     size_t curSize) const {
   if (queries.size() != params.size()) {
@@ -488,7 +488,7 @@ template <typename T>
 Status SingleMachineSearcherBase<T>::FindNeighborsBatchedImpl(
     const TypedDataset<T>& queries, ConstSpan<SearchParameters> params,
     MutableSpan<NNResultsVector> results,
-    float* SOW,
+    unsigned long long int* SOW,
     size_t begin,
     size_t curSize) const {
   DCHECK_EQ(queries.size(), params.size());

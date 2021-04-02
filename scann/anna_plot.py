@@ -51,7 +51,8 @@ def calculate_traffic_theory(args, result, w):
 
     assert m != -1 and log2kstar != -1 and log2n != -1 and SOW != -1 and n != -1 and qn != -1
 
-    mem_traffic = int(qn) * ( int(m) * int(log2kstar) + float(log2n) ) * float(SOW) / (1024 * 1024 * 1024 * 8)
+    #arcm::FIXME::SOW is actually unsigned long long int
+    mem_traffic = int(qn) * ( int(m) * int(log2kstar) + float(log2n) ) * long(SOW) / (1024 * 1024 * 1024 * 8)
     return mem_traffic
 
 
@@ -95,7 +96,7 @@ def calculate_traffic(args, result, SOW):
 
     assert m != -1 and log2kstar != -1 and log2n != -1 and n != -1 and qn != -1
 
-    mem_traffic = int(qn) * ( int(m) * int(log2kstar) + float(log2n) ) * float(SOW) / (1024 * 1024 * 1024 * 8)
+    mem_traffic = int(qn) * ( int(m) * int(log2kstar) + float(log2n) ) * long(SOW) / (1024 * 1024 * 1024 * 8)
     return mem_traffic
 
 
@@ -212,7 +213,7 @@ def create_traffic_plot(dataset, results, linestyles, build_config):
     for idx, algo in enumerate(results):
         xs = list()
         for i, sc in enumerate(algo['search_key']):
-            x_val = calculate_traffic(args, results[idx], float(results[idx]['SOW_avg'][i]))
+            x_val = calculate_traffic(args, results[idx], long(results[idx]['SOW_avg'][i]))
             xs.append(x_val)
         ys = algo['time']
         if build_config:
@@ -459,8 +460,8 @@ def collect_traffic_result(path, args):
                 else:
                     acc.append(float(result[6]))
                 time.append(float(result[8]))
-                SOW_avg.append(float(result[9]))
-                SOW_per_time.append(float(result[10]))
+                SOW_avg.append(long(result[9]))
+                SOW_per_time.append(long(result[10]))
                 sc.append(search_key)
                 if max_time < float(result[8]):
                     max_time = float(result[8])

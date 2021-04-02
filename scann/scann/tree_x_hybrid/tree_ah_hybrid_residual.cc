@@ -452,7 +452,7 @@ inline void AssignResults(TopN* top_n, NNResultsVector* results) {
 Status TreeAHHybridResidual::FindNeighborsImpl(const DatapointPtr<float>& query,
                                                const SearchParameters& params,
                                                NNResultsVector* result,
-                                               float* SOW,
+                                               unsigned long long int* SOW,
                                                size_t begin,
                                                size_t curSize) const {
   auto query_preprocessing_results =
@@ -476,8 +476,9 @@ Status TreeAHHybridResidual::FindNeighborsImpl(const DatapointPtr<float>& query,
       query, num_centers, &centers_to_search));
 
   /* arcm::Below code computes SOW from here until... */
+  SOW[0] = 0;
   for (int i = 0; i < centers_to_search.size(); i++){
-    long long list_length = 0;
+    unsigned long long int list_length = 0;
     int leaf_id = centers_to_search[i].node->LeafId();
     list_length = datapoints_by_token_[leaf_id].size();
     SOW[0] += list_length;
@@ -511,7 +512,7 @@ Status TreeAHHybridResidual::FindNeighborsImpl(const DatapointPtr<float>& query,
 Status TreeAHHybridResidual::FindNeighborsBatchedImpl(
     const TypedDataset<float>& queries, ConstSpan<SearchParameters> params,
     MutableSpan<NNResultsVector> results,
-    float* SOW,
+    unsigned long long int* SOW,
     size_t begin,
     size_t curSize) const {
   vector<int32_t> centers_override(queries.size());
@@ -552,8 +553,8 @@ Status TreeAHHybridResidual::FindNeighborsBatchedImpl(
       InvertCentersToSearch(centers_to_search, query_tokenizer_->n_tokens());
 
   /* arcm::Below code computes SOW from here until... */
-  long long sum_data = 0L;
-  vector<float> sow(queries.size(), 0.0f);
+  unsigned long long int sum_data = 0L;
+  vector<unsigned long long int> sow(queries.size(), 0L);
   for(int leaf_id = 0; leaf_id < queries_by_leaf.size(); ++leaf_id){
     sum_data += datapoints_by_token_[leaf_id].size();
     for(int num_query = 0; num_query < queries_by_leaf[leaf_id].size(); ++num_query){
@@ -631,7 +632,7 @@ Status TreeAHHybridResidual::FindNeighborsInternal1(
     const DatapointPtr<float>& query, const SearchParameters& params,
     ConstSpan<KMeansTreeSearchResult> centers_to_search,
     NNResultsVector* result,
-    float* SOW,
+    unsigned long long int* SOW,
     size_t begin,
     size_t curSize) const {
   if (params.pre_reordering_crowding_enabled()) {

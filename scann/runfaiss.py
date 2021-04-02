@@ -404,7 +404,7 @@ def faiss_search(index, preproc, args, reorder, w):
     nq = query.shape[0]
     I = np.empty((nq, args.topk), dtype='int32')
     D = np.empty((nq, args.topk), dtype='float32')
-    SOW = np.empty((nq, 1), dtype='float32')
+    SOW = np.empty((nq, 1), dtype='int64')
 
     total_latency = 0.0
     for i0, xs in dataset_iterator(query, preproc, args.batch):

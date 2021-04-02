@@ -348,7 +348,7 @@ template <typename T>
 Status TreeXHybridSMMD<T>::FindNeighborsImpl(const DatapointPtr<T>& query,
                                              const SearchParameters& params,
                                              NNResultsVector* result,
-                                             float* SOW,
+                                             unsigned long long int* SOW,
                                              size_t begin,
                                              size_t curSize) const {
   SCANN_RETURN_IF_ERROR(CheckReadyToQuery(params));
@@ -394,8 +394,8 @@ Status TreeXHybridSMMD<T>::FindNeighborsImpl(const DatapointPtr<T>& query,
   }
 
   /* arcm::Below code computes SOW from here until... */
-  long long sum_data = 0L;
-
+  unsigned long long int sum_data = 0L;
+  SOW[0] = 0;
   for (int num_center = 0; num_center < query_tokens.size(); ++num_center)
     SOW[0] += datapoints_by_token_[query_tokens[num_center]].size();
 
@@ -424,7 +424,7 @@ template <typename T>
 Status TreeXHybridSMMD<T>::FindNeighborsBatchedImpl(
     const TypedDataset<T>& queries, ConstSpan<SearchParameters> params,
     MutableSpan<NNResultsVector> results,
-    float* SOW,
+    unsigned long long int* SOW,
     size_t begin,
     size_t curSize) const {
   if (params.empty()) {
@@ -515,8 +515,8 @@ Status TreeXHybridSMMD<T>::FindNeighborsBatchedImpl(
   }
 
   /* arcm::Below code computes SOW from here until... */
-  long long sum_data = 0L;
-  vector<float> sow(queries.size(), 0.0f);
+  unsigned long long int sum_data = 0L;
+  vector<unsigned long long int> sow(queries.size(), 0L);
   for(int q_idx = 0; q_idx < query_tokens.size(); ++q_idx){
     for(int num_center = 0; num_center < query_tokens[q_idx].size(); ++num_center){
       sow[q_idx] += datapoints_by_token_[query_tokens[q_idx][num_center]].size();

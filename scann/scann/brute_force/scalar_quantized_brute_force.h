@@ -89,7 +89,7 @@ class ScalarQuantizedBruteForceSearcher final
   Status FindNeighborsImpl(const DatapointPtr<float>& query,
                            const SearchParameters& params,
                            NNResultsVector* result,
-                           float* SOW = nullptr,
+                           unsigned long long int* SOW = nullptr,
                            size_t begin = 0,
                            size_t curSize = 0) const final;
 

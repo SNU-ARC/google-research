@@ -88,14 +88,14 @@ class TreeAHHybridResidual final : public SingleMachineSearcherBase<float> {
   Status FindNeighborsImpl(const DatapointPtr<float>& query,
                            const SearchParameters& params,
                            NNResultsVector* result,
-                           float* SOW = nullptr,
+                           unsigned long long int* SOW = nullptr,
                            size_t begin = 0,
                            size_t curSize = 0) const final;
 
   Status FindNeighborsBatchedImpl(
       const TypedDataset<float>& queries, ConstSpan<SearchParameters> params,
       MutableSpan<NNResultsVector> results,
-      float* SOW = nullptr,
+      unsigned long long int* SOW = nullptr,
       size_t begin = 0,
       size_t curSize = 0) const final;
 
@@ -134,7 +134,7 @@ class TreeAHHybridResidual final : public SingleMachineSearcherBase<float> {
       const DatapointPtr<float>& query, const SearchParameters& params,
       ConstSpan<KMeansTreeSearchResult> centers_to_search,
       NNResultsVector* result,
-      float* SOW = nullptr,
+      unsigned long long int* SOW = nullptr,
       size_t begin = 0,
       size_t curSize = 0) const;
 

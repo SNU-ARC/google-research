@@ -187,7 +187,7 @@ Status ScalarQuantizedBruteForceSearcher::EnableCrowdingImpl(
 Status ScalarQuantizedBruteForceSearcher::FindNeighborsImpl(
     const DatapointPtr<float>& query, const SearchParameters& params,
     NNResultsVector* result,
-    float* SOW,
+    unsigned long long int* SOW,
     size_t begin,
     size_t curSize) const {
   DCHECK(result);

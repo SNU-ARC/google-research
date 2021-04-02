@@ -184,7 +184,7 @@ Status ScannInterface::Initialize(shared_ptr<DenseDataset<float>> dataset,
 Status ScannInterface::Search(const DatapointPtr<float> query,
                               NNResultsVector* res, int final_nn,
                               int pre_reorder_nn, int leaves,
-                              float* SOW,
+                              unsigned long long int* SOW,
                               size_t begin,
                               size_t curSize) const { // [ANNA] SOW added
   if (query.dimensionality() != dimensionality_)
@@ -213,7 +213,7 @@ Status ScannInterface::SearchBatched(const DenseDataset<float>& queries,
                                      MutableSpan<NNResultsVector> res,
                                      int final_nn, int pre_reorder_nn,
                                      int leaves,
-                                     float* SOW,
+                                     unsigned long long int* SOW,
                                      size_t begin,
                                      size_t curSize) const {
   if (queries.dimensionality() != dimensionality_)
@@ -252,7 +252,7 @@ Status ScannInterface::SearchBatchedParallel(const DenseDataset<float>& queries,
                                              int final_nn, int pre_reorder_nn,
                                              int leaves,
                                              int batch_size,
-                                             float* SOW,
+                                             unsigned long long int* SOW,
                                              size_t begin_,
                                              size_t curSize_) const {    // [ANNA] batch_size added
   const size_t numQueries = queries.size();

@@ -39,10 +39,10 @@ read_file_location = "./"
 write_file_location = "../../ANNA_chisel/simulator/trace/"
 read_file_name = "temp.out"
 if args.program == 'scann':
-	write_file_name = "trace_scann_"+args.dataset+"_"+args.metric+"_"+str(args.L)+"L_"+str(args.w)+"w_"+str(args.threshold)+"thresholdTEMP"
+	write_file_name = "trace_scann_"+args.dataset+"_"+args.metric+"_"+str(args.L)+"L_"+str(args.w)+"w_"+str(args.threshold)+"threshold"
 	num_query = 10000
 elif args.program == 'faiss':
-	write_file_name = "trace_faiss_"+args.dataset+"_"+args.metric+"_"+str(args.L)+"L_"+str(args.w)+"wTEMP"
+	write_file_name = "trace_faiss_"+args.dataset+"_"+args.metric+"_"+str(args.L)+"L_"+str(args.w)+"w"
 	num_query = 10000
 
 def is_valid_format(filename):
@@ -60,20 +60,30 @@ write_file = open(write_file_location+write_file_name, "w")
 
 lines = read_file.readlines()
 line_number = 0
+scann_spotted = 0
+faiss_spotted = 0
 for line in lines:
 	line_number += 1
 	if args.program == 'scann':
 		if line_number <= 3:
 			continue
-		if line_number < num_query + 3:
-			write_file.write(line)
-		elif line_number == num_query + 3:
-			parsed_line = line.split("Reading")[0]
-		elif line_number > num_query + 3 and line_number < num_query + 26:
-			continue
-		elif line_number == num_query + 26:
+		if scann_spotted == 0:
+			if "Reading" in line:
+				parsed_line = line.split("Reading")[0]
+				scann_spotted = 1
+			else:
+				write_file.write(line)
+		elif scann_spotted == 1:
+			if "End of File" in line:
+				scann_spotted = 2
+			else:
+				continue
+		elif scann_spotted == 2:
+			scann_spotted = 3
+		elif scann_spotted ==3:
 			parsed_line += line
 			write_file.write(parsed_line)
+			scann_spotted = 0
 		else:
 			assert False
 	elif args.program == 'faiss':

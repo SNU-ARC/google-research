@@ -153,7 +153,7 @@ template <typename T>
 Status Searcher<T>::FindNeighborsImpl(const DatapointPtr<T>& query,
                                       const SearchParameters& params,
                                       NNResultsVector* result,
-                                      float* SOW,
+                                      unsigned long long int* SOW,
                                       size_t begin,
                                       size_t curSize) const {
   if (limited_inner_product_) {
@@ -186,7 +186,7 @@ template <typename T>
 Status Searcher<T>::FindNeighborsBatchedImpl(
     const TypedDataset<T>& queries, ConstSpan<SearchParameters> params,
     MutableSpan<NNResultsVector> results,
-    float* SOW,
+    unsigned long long int* SOW,
     size_t begin,
     size_t curSize) const {
   bool crowding_enabled_for_any_query = false;
