@@ -141,7 +141,6 @@ def prepare_trained_index(preproc, coarse_quantizer, ncent, pqflat_str):
 
     coarse_quantizer.this.disown()
     idx_model.own_fields = True
-
     # finish training on CPU
     t0 = time.time()
     print("Training vector codes")
