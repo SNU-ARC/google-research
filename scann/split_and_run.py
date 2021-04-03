@@ -887,7 +887,8 @@ def get_queries():
 	elif "deep1m" in args.dataset:
 		return mmap_fvecs(dataset_basedir + 'deep1m_query.fvecs')
 	elif "music1m" in args.dataset:
-		return np.fromfile(dataset_basedir + 'query_music100.bin', dtype = np.float32).reshape(qN, D)
+		# return np.fromfile(dataset_basedir + 'query_music100.bin', dtype = np.float32).reshape(qN, D)
+		return mmap_fvecs(split_dataset_path + 'query1_0')
 	elif "gist" in args.dataset:
 		return mmap_fvecs(dataset_basedir + 'gist_query.fvecs')
 	elif "sift1b" in args.dataset:
