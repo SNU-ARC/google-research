@@ -139,8 +139,10 @@ def read_data(dataset_path, offset_=None, shape_=None, base=True):
 		file = dataset_path + "deep1m_base.fvecs" if base else dataset_path
 		return mmap_fvecs(file, offset_=offset_, shape_=shape_)
 	elif "music1m" in args.dataset:
-		file = dataset_path + "database_music100.bin" if base else dataset_path
-		return np.fromfile(file, dtype = np.float32).reshape(N, D)
+		# file = dataset_path + "database_music100.bin" if base else dataset_path
+		# return np.fromfile(file, dtype = np.float32).reshape(N, D)
+		file = dataset_path + "split_data/music1m_1_0" if base else dataset_path
+		return mmap_fvecs(file, offset_=offset_, shape_=shape_)
 	elif "gist" in args.dataset:
 		file = dataset_path + "gist_base.fvecs" if base else dataset_path
 		return mmap_fvecs(file, offset_=offset_, shape_=shape_)
