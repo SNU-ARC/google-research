@@ -269,7 +269,7 @@ def build_faiss(args, cacheroot, coarse_dir, split, N_, D, index_key, is_cached,
         xt = sanitize(train)
     global xb
     if is_cached == False:
-        xb = sanitize(base)
+        xb = base
     global dbname
     dbname = args.dataset
     global dim
