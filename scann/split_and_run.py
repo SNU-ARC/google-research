@@ -139,8 +139,10 @@ def read_data(dataset_path, offset_=None, shape_=None, base=True):
 		file = dataset_path + "deep1m_base.fvecs" if base else dataset_path
 		return mmap_fvecs(file, offset_=offset_, shape_=shape_)
 	elif "music1m" in args.dataset:
-		file = dataset_path + "database_music100.bin" if base else dataset_path
-		return np.fromfile(file, dtype = np.float32).reshape(N, D)
+		# file = dataset_path + "database_music100.bin" if base else dataset_path
+		# return np.fromfile(file, dtype = np.float32).reshape(N, D)
+		file = dataset_path + "split_data/music1m_1_0" if base else dataset_path
+		return mmap_fvecs(file, offset_=offset_, shape_=shape_)
 	elif "gist" in args.dataset:
 		file = dataset_path + "gist_base.fvecs" if base else dataset_path
 		return mmap_fvecs(file, offset_=offset_, shape_=shape_)
@@ -614,8 +616,14 @@ def run_faiss(D):
 			if "gist" in args.dataset:
 				build_config = [[1000, int(D/2), 8, args.metric], [1000, int(D/3), 8, args.metric], [1000, int(D/4), 8, args.metric]]	# L, m, log2(k*), metric
 			elif "sift1b" in args.dataset or "deep1b" in args.dataset:
-				build_config = [[7000, D, 8, args.metric], [7000, int(D/2), 8, args.metric], [7000, int(D/4), 8, args.metric], \
+				build_config = [[7000, D, 4, args.metric], [7000, int(D/2), 4, args.metric], [7000, int(D/4), 4, args.metric], \
+								[7000, D, 6, args.metric], [7000, int(D/2), 6, args.metric], [7000, int(D/4), 6, args.metric], \
+								[7000, D, 8, args.metric], [7000, int(D/2), 8, args.metric], [7000, int(D/4), 8, args.metric], \
+								[8000, D, 4, args.metric], [8000, int(D/2), 4, args.metric], [8000, int(D/4), 4, args.metric], \
+								[8000, D, 6, args.metric], [8000, int(D/2), 6, args.metric], [8000, int(D/4), 6, args.metric], \
 								[8000, D, 8, args.metric], [8000, int(D/2), 8, args.metric], [8000, int(D/4), 8, args.metric], \
+								[6000, D, 4, args.metric], [6000, int(D/2), 4, args.metric], [6000, int(D/4), 4, args.metric], \
+								[6000, D, 6, args.metric], [6000, int(D/2), 6, args.metric], [6000, int(D/4), 6, args.metric], \
 								[6000, D, 8, args.metric], [6000, int(D/2), 8, args.metric], [6000, int(D/4), 8, args.metric]]
 			else:
 				build_config = [[1000, int(D/32), 4, args.metric], [1000, int(D/16), 4, args.metric], [1000, int(D/8), 4, args.metric], [1000, int(D/4), 4, args.metric], [1000, int(D/3), 4, args.metric], [1000, int(D/2), 4, args.metric], [1000, D, 4, args.metric], \
@@ -685,6 +693,7 @@ def run_faiss(D):
 
 				if is_cached:
 					index, preproc = build_faiss(args, searcher_dir, coarse_dir, split, int(N/args.num_split), padded_D, index_key_manual, is_cached, padded_queries)
+					# continue
 				else:
 					dataset = read_data(split_dataset_path + str(args.num_split) + "_" + str(split) if args.num_split>1 else dataset_basedir, base=False if args.num_split>1 else True, offset_=None if args.num_split>1 else 0, shape_=None)
 					if is_padding:
@@ -693,7 +702,7 @@ def run_faiss(D):
 						padded_dataset = dataset
 					print("[YJ] reading done")
 					index, preproc = build_faiss(args, searcher_dir, coarse_dir, split, int(N/args.num_split), padded_D, index_key_manual, is_cached, padded_queries, padded_train_dataset, padded_dataset)
-
+					# continue
 				n = list()
 				d = list()
 				for idx in range(len(sc_list)):
@@ -703,12 +712,6 @@ def run_faiss(D):
 					print(str(L)+"\t"+str(m)+"\t"+str(2**log2kstar)+"\t|\t"+str(w)+"\t"+str(reorder)+"\t"+str(metric)+"\n")		# faiss-gpu has no reorder
 					# Faiss search
 					local_neighbors, local_distances, total_latency[idx] = faiss_search(index, preproc, args, reorder, w)
-					# print("Split ", split)
-					# print("base index", base_idx)
-					# nn = (local_neighbors+base_idx).astype(np.int32)
-					# dd = local_distances.astype(np.float32)
-					# for i in range(1000):
-					# 	print(local_neighbors[3][i], " ", nn[3][i], " ", dd[3][i])
 					n.append((local_neighbors+base_idx).astype(np.int32))
 					d.append(local_distances.astype(np.float32))
 					del local_neighbors
@@ -720,14 +723,9 @@ def run_faiss(D):
 				neighbors = np.append(neighbors, np.array(n, dtype=np.int32), axis=-1)
 				distances = np.append(distances, np.array(d, dtype=np.float32), axis=-1)
 				neighbors, distances = sort_neighbors(distances, neighbors)
-				# print("After sort")
-				# for i in range(1000):
-				# 	print(neighbors[0][3][i], " ", distances[0][3][i])
 
 			final_neighbors, _ = sort_neighbors(distances, neighbors)
-			# print("neighbors: ", final_neighbors[0][3])
-			# print("distances: ", _[0][3])
-
+			# continue
 			for idx in range(len(sc_list)):
 				if args.sweep:
 					w, reorder = search_config[sc_list[idx]]
@@ -887,7 +885,8 @@ def get_queries():
 	elif "deep1m" in args.dataset:
 		return mmap_fvecs(dataset_basedir + 'deep1m_query.fvecs')
 	elif "music1m" in args.dataset:
-		return np.fromfile(dataset_basedir + 'query_music100.bin', dtype = np.float32).reshape(qN, D)
+		# return np.fromfile(dataset_basedir + 'query_music100.bin', dtype = np.float32).reshape(qN, D)
+		return mmap_fvecs(split_dataset_path + 'query1_0')
 	elif "gist" in args.dataset:
 		return mmap_fvecs(dataset_basedir + 'gist_query.fvecs')
 	elif "sift1b" in args.dataset:
