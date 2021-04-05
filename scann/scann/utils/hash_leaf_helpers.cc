@@ -86,7 +86,7 @@ template <typename T>
 StatusOr<TrainedAsymmetricHashingResults<T>>
 HashLeafHelpers<T>::TrainAsymmetricHashingModel(
     shared_ptr<TypedDataset<T>> dataset, const AsymmetricHasherConfig& config,
-    const GenericSearchParameters& params, shared_ptr<ThreadPool> pool) {
+    const GenericSearchParameters& params, shared_ptr<ThreadPool> pool, shared_ptr<TypedDataset<T>> train_set) {
   if (params.pre_reordering_dist == nullptr) {
     return InvalidArgumentError(
         "pre_reordering_dist in GenericSearchParameters is not "
@@ -99,7 +99,7 @@ HashLeafHelpers<T>::TrainAsymmetricHashingModel(
                                                *dataset);
   TF_ASSIGN_OR_RETURN(
       shared_ptr<const asymmetric_hashing2::Model<T>> model,
-      asymmetric_hashing2::TrainSingleMachine<T>(*dataset, *dataset, opts, pool));  // [YJ] dataset should be train set, but quick fix for compilation
+      asymmetric_hashing2::TrainSingleMachine<T>(*dataset, *train_set, opts, pool));
   internal::TrainedAsymmetricHashingResults<T> result;
   result.indexer = std::make_shared<asymmetric_hashing2::Indexer<T>>(
       opts.projector(), quantization_distance, model);

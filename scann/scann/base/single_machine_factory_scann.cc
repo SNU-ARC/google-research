@@ -455,16 +455,18 @@ StatusOrSearcherUntyped NonResidualTreeXHybridFactory(
     internal::TrainedAsymmetricHashingResults<T> training_results;
     if (config.hash().asymmetric_hash().has_centers_filename() ||
         opts->ah_codebook.get()) {
+      std::cout << "[YJ] Fine codebook already exits, just loading" << std::endl;
       TF_ASSIGN_OR_RETURN(
           training_results,
           internal::HashLeafHelpers<T>::LoadAsymmetricHashingModel(
               ah_config, params, opts->parallelization_pool,
               opts->ah_codebook.get()));
     } else {
+      std::cout << "[YJ] Fine codebook does NOT exits, training..." << std::endl;
       TF_ASSIGN_OR_RETURN(
           training_results,
           internal::HashLeafHelpers<T>::TrainAsymmetricHashingModel(
-              dataset, ah_config, params, opts->parallelization_pool));
+              dataset, ah_config, params, opts->parallelization_pool, train_set));
     }
     auto leaf_searcher_builder_lambda =
         [&](shared_ptr<TypedDataset<T>> leaf_dataset,
