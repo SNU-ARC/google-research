@@ -404,15 +404,25 @@ def faiss_search(index, preproc, args, reorder, w):
     nq = query.shape[0]
     I = np.empty((nq, args.topk), dtype='int32')
     D = np.empty((nq, args.topk), dtype='float32')
-    SOW = np.empty((nq, 1), dtype=np.uint)
+    SOW = np.empty((nq*(w+1), 1), dtype=np.uint)
 
     total_latency = 0.0
+    iter = 0
+    previous_end = 0
     for i0, xs in dataset_iterator(query, preproc, args.batch):
         i1 = i0 + xs.shape[0]
         start = time.time()
-        Di, Ii, SOWi = index_ready.search(xs, args.topk)
+        Di, Ii, SOWi = index_ready.search(xs, args.topk, None, None, None, w)
         total_latency += 1000*(time.time()-start)
         I[i0:i1] = Ii
         D[i0:i1] = Di
-        SOW[i0:i1] = SOWi
+        curr_batch = i1 - i0
+        chunk_size = curr_batch * (w+1)
+        # print("start =", previous_end, ", chunk_size =", chunk_size)
+        # SOW[ chunk_size*iter : chunk_size*iter+chunk_size ] = SOWi
+        SOW[ previous_end : previous_end+chunk_size ] = SOWi
+        previous_end = chunk_size*iter+chunk_size
+        iter += 1
+    # for i in range(nq*(w+1)):
+    #     print("SOW[", i, "] =", SOW[i])
     return I, D, SOW, total_latency

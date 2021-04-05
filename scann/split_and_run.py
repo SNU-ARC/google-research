@@ -43,6 +43,7 @@ parser.add_argument('--split', action='store_true')
 parser.add_argument('--eval_split', action='store_true')
 parser.add_argument('--groundtruth', action='store_true')
 parser.add_argument('--sweep', action='store_true')
+parser.add_argument('--trace', action='store_true')
 args = parser.parse_args()
 
 assert args.dataset != None and args.topk <= 1000
@@ -652,6 +653,7 @@ def run_faiss(D):
 		search_config = [[args.w, args.reorder]]
 	for bc in build_config:
 		SOW_list = list()
+		SOW_elements_list = list()
 		SOW = np.zeros((queries.shape[0], 1))
 		L, m, log2kstar, metric = bc
 		# assert (not args.is_gpu and log2kstar<=8) or (log2kstar == 8)
@@ -706,6 +708,7 @@ def run_faiss(D):
 				for idx in range(len(sc_list)):
 					SOW = np.zeros((queries.shape[0], 1))
 					w, reorder = search_config[sc_list[idx]]
+					SOW_elements = np.zeros((queries.shape[0], w))
 					assert reorder == args.reorder
 					# Build Faiss index
 					print(str(L)+"\t"+str(m)+"\t"+str(2**log2kstar)+"\t|\t"+str(w)+"\t"+str(reorder)+"\t"+str(metric)+"\n")		# faiss-gpu has no reorder
@@ -719,8 +722,35 @@ def run_faiss(D):
 					# 	print(local_neighbors[3][i], " ", nn[3][i], " ", dd[3][i])
 					n.append((local_neighbors+base_idx).astype(np.int32))
 					d.append(local_distances.astype(np.float32))
-					SOW += local_SOW
+					# print("local_SOW shape =", np.shape(local_SOW), ", local_SOW =", local_SOW)
+					n_times_w_plus_1, _ = np.shape(local_SOW)
+					SOW_idx = 0
+					SOW_elements_outer_idx = 0
+					SOW_elements_inner_idx = 0
+					SOW_location = w
+					# local_SOW_idx = 0
+					# for i in range(n_times_w_plus_1):
+					# 	if i == SOW_location:
+					# 		print("\nlocal_SOW(sow)[", local_SOW_idx, "] =", local_SOW[i])
+					# 		SOW_location += w + 1
+					# 		local_SOW_idx += 1
+					# 	else:
+					# 		print(local_SOW[i], end = "\t")
+					# SOW_location = w
+					for i in range(n_times_w_plus_1):
+						if i == SOW_location:
+							SOW[SOW_idx] = local_SOW[i]
+							SOW_idx += 1
+							SOW_location += w + 1
+						else:
+							SOW_elements[SOW_elements_outer_idx, SOW_elements_inner_idx] = local_SOW[i]
+							SOW_elements_inner_idx += 1
+							if SOW_elements_inner_idx == w:
+								SOW_elements_inner_idx = 0
+								SOW_elements_outer_idx += 1
+					# SOW += local_SOW
 					SOW_list.append(SOW)
+					SOW_elements_list.append(SOW_elements)
 				del index
 				base_idx = base_idx + num_per_split
 				neighbors = np.append(neighbors, np.array(n, dtype=np.int32), axis=-1)
@@ -733,9 +763,24 @@ def run_faiss(D):
 			final_neighbors, _ = sort_neighbors(distances, neighbors)
 			# print("neighbors: ", final_neighbors[0][3])
 			# print("distances: ", _[0][3])
-
+			arcm_w, _ = search_config[sc_list[idx]]
 			for idx in range(len(sc_list)):
 				current_SOW = SOW_list[idx]
+				current_SOW_elements = SOW_elements_list[idx]
+				if args.trace:
+					trace_f = open(trace_result_path, "w")
+					for i in range(qN):
+						for j in range(arcm_w):
+							trace_f.write(str(int(current_SOW_elements[i, j]))+"\t")
+						trace_f.write("\n")
+					trace_f.close()
+				# for i in range(qN):
+				# 	print("current_SOW(sow)[", i, "] =", current_SOW[i])
+				# w, _ = search_config[sc_list[idx]]
+				# for i in range(qN):
+				# 	for j in range(w):
+				# 		print(current_SOW_elements[i, j], end = "\t")
+				# 	print("\narcm::endline")
 				SOW_avg = np.average(current_SOW)
 				SOW_per_time = np.sum(current_SOW) / total_latency[idx]
 				if args.sweep:
@@ -910,6 +955,8 @@ os.makedirs("./result", exist_ok=True)
 split_dataset_path = None
 if args.sweep:
 	sweep_result_path = "./result/"+args.program+("GPU_" if args.is_gpu else "_")+args.dataset+"_topk_"+str(args.topk)+"_num_split_"+str(args.num_split)+"_batch_"+str(args.batch)+"_"+args.metric+"_reorder_"+str(args.reorder)+"_sweep_result.txt"
+if args.trace:
+	trace_result_path = "../../ANNA_chisel/simulator/trace/trace_"+args.program+("GPU_" if args.is_gpu else "_")+args.dataset+"_topk_"+str(args.topk)+"_num_split_"+str(args.num_split)+"_batch_"+str(args.batch)+"_"+args.metric+"_L_"+str(args.L)+"_m_"+str(args.m)+"_w_"+str(args.w)+"_threshold_"+(str(args.threshold) if args.program == "scann" else "None")
 index_key = None
 N = -1
 D = -1
