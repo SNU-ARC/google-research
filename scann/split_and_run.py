@@ -410,6 +410,7 @@ def run_scann():
 
 	for bc in build_config:
 		SOW_list = list()
+		SOW_elements_list = list()
 		SOW = np.zeros((queries.shape[0], 1))
 		num_leaves, threshold, dims, metric = bc
 		sc_list = check_available_search_config(args.program, bc, search_config)
@@ -460,6 +461,7 @@ def run_scann():
 					# if idx < len(sc_list)-2:
 					# 	continue
 					leaves_to_search, reorder = search_config[sc_list[idx]]
+					SOW_elements = np.zeros((queries.shape[0], leaves_to_search))
 					assert D%dims == 0
 
 					if args.reorder!=-1:
@@ -478,7 +480,33 @@ def run_scann():
 						total_latency[idx] = total_latency[idx] + 1000*(end - start)
 						n.append(local_neighbors+base_idx)
 						d.append(local_distances)
+						n_times_w_plus_1, _ = np.shape(local_SOW)
+						SOW_idx = 0
+						SOW_elements_outer_idx = 0
+						SOW_elements_inner_idx = 0
+						SOW_location = leaves_to_search
 						SOW += local_SOW
+						# local_SOW_idx = 0
+						# for i in range(n_times_w_plus_1):
+						# 	if i == SOW_location:
+						# 		print("\nlocal_SOW(sow)[", local_SOW_idx, "] =", local_SOW[i])
+						# 		SOW_location += leaves_to_search + 1
+						# 		local_SOW_idx += 1
+						# 	else:
+						# 		print(local_SOW[i], end = "\t")
+						# SOW_location = leaves_to_search
+						for i in range(n_times_w_plus_1):
+							if i == SOW_location:
+								SOW[SOW_idx] = local_SOW[i]
+								SOW_idx += 1
+								SOW_location += leaves_to_search + 1
+							else:
+								SOW_elements[SOW_elements_outer_idx, SOW_elements_inner_idx] = local_SOW[i]
+								SOW_elements_inner_idx += 1
+								if SOW_elements_inner_idx == leaves_to_search:
+									SOW_elements_inner_idx = 0
+									SOW_elements_outer_idx += 1
+						# SOW += local_SOW
 					else:
 						# ScaNN search
 						def single_query(query, base_idx):
@@ -492,12 +520,24 @@ def run_scann():
 						total_latency[idx] += (np.sum(np.array([time for time, local_SOW, _ in local_results]).reshape(queries.shape[0], 1)))*1000
 						nd = [nd for _, local_SOW, nd in local_results]
 						idx_SOW = 0
+						outer_idx_SOW_elements = 0
+						inner_idx_SOW_elements = 0
 						for time_, local_SOW_, nd_ in local_results:
-							SOW[idx_SOW] += local_SOW_[0]
-							idx_SOW += 1
+							w_plus_1, _ = np.shape(local_SOW_)
+							for i in range(w_plus_1):
+								if i != w_plus_1 - 1:
+									SOW_elements[outer_idx_SOW_elements, inner_idx_SOW_elements] = local_SOW_[i]
+									inner_idx_SOW_elements += 1
+								else:
+									SOW[idx_SOW] += local_SOW_[i]
+									idx_SOW += 1
+									outer_idx_SOW_elements += 1
+									idx_SOW_elements = 0
+
 						n.append(np.vstack([n for n,d in nd])+base_idx)
 						d.append(np.vstack([d for n,d in nd]))
 					SOW_list.append(SOW)
+					SOW_elements_list.append(SOW_elements)
 				base_idx = base_idx + num_per_split
 				neighbors = np.append(neighbors, np.array(n, dtype=np.int32), axis=-1)
 				distances = np.append(distances, np.array(d, dtype=np.float32), axis=-1)
@@ -509,7 +549,16 @@ def run_scann():
 
 			final_neighbors, _ = sort_neighbors(distances, neighbors)
 			for idx in range(len(sc_list)):
+				arcm_w, _ = search_config[sc_list[idx]]
 				current_SOW = SOW_list[idx]
+				current_SOW_elements = SOW_elements_list[idx]
+				if args.trace:
+					trace_f = open(trace_result_path, "w")
+					for i in range(qN):
+						for j in range(arcm_w):
+							trace_f.write(str(int(current_SOW_elements[i, j]))+"\t")
+						trace_f.write("\n")
+					trace_f.close()
 				SOW_avg = np.average(current_SOW)
 				SOW_per_time = np.sum(current_SOW) / total_latency[idx]
 				if args.sweep:
@@ -763,8 +812,8 @@ def run_faiss(D):
 			final_neighbors, _ = sort_neighbors(distances, neighbors)
 			# print("neighbors: ", final_neighbors[0][3])
 			# print("distances: ", _[0][3])
-			arcm_w, _ = search_config[sc_list[idx]]
 			for idx in range(len(sc_list)):
+				arcm_w, _ = search_config[sc_list[idx]]
 				current_SOW = SOW_list[idx]
 				current_SOW_elements = SOW_elements_list[idx]
 				if args.trace:
