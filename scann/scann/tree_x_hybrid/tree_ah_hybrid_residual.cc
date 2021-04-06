@@ -19,6 +19,8 @@
 #include <algorithm>
 #include <numeric>
 #include <unordered_set>
+#include <utility>
+#include <unordered_map>
 
 #include "absl/flags/flag.h"
 #include "absl/synchronization/mutex.h"
@@ -382,21 +384,27 @@ struct QueryForLeaf {
 vector<std::vector<QueryForLeaf>> InvertCentersToSearch(
     ConstSpan<vector<KMeansTreeSearchResult>> centers_to_search,
     size_t num_centers) {
-  vector<std::vector<QueryForLeaf>> result(num_centers);
+  vector<std::vector<QueryForLeaf>> result(num_centers); // L sized
+  // printf("num_centers = %d\n", num_centers); // L
   int i = 0;
-  for (DatapointIndex query_index : IndicesOf(centers_to_search)) {
+  for (DatapointIndex query_index : IndicesOf(centers_to_search)) { // batch_size times
+    // printf("query_index in InvertCentersToSearch = %d\n", query_index);
     ConstSpan<KMeansTreeSearchResult> cur_query_centers =
         centers_to_search[query_index];
+        i++;
     int j = 0;
-    for (const auto& center : cur_query_centers) {
+    for (const auto& center : cur_query_centers) { // w times
+      j++;
       result[center.node->LeafId()].emplace_back(query_index,
                                                  center.distance_to_center);
       // printf("arcm::InvertCentersToSearch::num_centers = %d, i = %d, j = %d, center.distance_to_center = %d, center.node->LeafId() = %d, query_index = %d\n", num_centers, i++, j++, center.distance_to_center, center.node->LeafId(), query_index);
 
     }
+    // printf("arcm::result.size() = %d, result[0].size() = %d, j = %d\n", result.size(), result[0].size(), j);
+
   }
   // if (result[0].size() == 1)
-    // printf("arcm::result.size() = %d, result[0].size() = %d\n", result.size(), result[0].size());
+    // printf("arcm::result.size() = %d, result[0].size() = %d, i = %d\n", result.size(), result[0].size(), i);
   return result;
 }
 
@@ -517,6 +525,14 @@ Status TreeAHHybridResidual::FindNeighborsImpl(const DatapointPtr<float>& query,
   return FindNeighborsInternal1(query, params, centers_to_search, result, SOW, begin, curSize, arcm_w);
 }
 
+bool compare_descending_dot_product (pair<int, float> first, pair<int, float> second)
+{
+  if (first.second < second.second)
+    return true;
+  else
+    return false;
+}
+
 Status TreeAHHybridResidual::FindNeighborsBatchedImpl(
     const TypedDataset<float>& queries, ConstSpan<SearchParameters> params,
     MutableSpan<NNResultsVector> results,
@@ -561,23 +577,65 @@ Status TreeAHHybridResidual::FindNeighborsBatchedImpl(
   auto queries_by_leaf =
       InvertCentersToSearch(centers_to_search, query_tokenizer_->n_tokens());
 
+  // printf("centers_to_search.size() = %d, centers_to_search[0].size() = %d\n", centers_to_search.size(), centers_to_search[0].size()); // batch_size, w
+
+  // for (int qid_in_batch = 0; qid_in_batch < centers_to_search.size(); qid_in_batch ++){
+  //   for (int w_id = 0; w_id < centers_to_search[qid_in_batch].size(); w_id++){
+  //     unsigned long long int llist_length = 0;
+  //     int lleaf_id = centers_to_search[qid_in_batch][w_id].node->LeafId();
+  //     llist_length = datapoints_by_token_[lleaf_id].size();
+      // printf("arcm::lleaf_id = %d, llist_length = %ld, distance = %f\n", lleaf_id, llist_length, centers_to_search[qid_in_batch][w_id].distance_to_center);
+      // printf("%ld\t", llist_length);
+    // }
+    // printf("\n");
+  // }
+
   /* arcm::Below code computes SOW from here until... */
-  unsigned long long int sum_data = 0L;
-  vector<unsigned long long int> sow(queries.size(), 0L);
-  for(int leaf_id = 0; leaf_id < queries_by_leaf.size(); ++leaf_id){
-    sum_data += datapoints_by_token_[leaf_id].size();
+  // unsigned long long int sum_data = 0L;
+  // vector<unsigned long long int> sow(queries.size(), 0L);
+  vector<unsigned long long int> sow(centers_to_search.size() * (arcm_w + 1), 0L);
+  std::unordered_map< DatapointIndex, vector<pair<unsigned long long int, float> > > qid_ll_dist;
+  // printf("arcm_w = %d\n", arcm_w); // w
+  for(int leaf_id = 0; leaf_id < queries_by_leaf.size(); ++leaf_id){ // L sized
+    // sum_data += datapoints_by_token_[leaf_id].size();
     for(int num_query = 0; num_query < queries_by_leaf[leaf_id].size(); ++num_query){
+      // printf("queries_by_leaf.size() = %ld, queries_by_leaf[%d].size() = %ld\n", queries_by_leaf.size(), leaf_id, queries_by_leaf[leaf_id].size());
       auto q_idx = queries_by_leaf[leaf_id][num_query].query_index;
-      sow[q_idx] += datapoints_by_token_[leaf_id].size();
+      qid_ll_dist[q_idx].push_back( std::make_pair(datapoints_by_token_[leaf_id].size(), queries_by_leaf[leaf_id][num_query].distance_to_center) );
+      // printf("q_idx = %ld, list_length = %ld, distance_to_center = %f\n", q_idx, datapoints_by_token_[leaf_id].size(), queries_by_leaf[leaf_id][num_query].distance_to_center);
+      // sow[q_idx] += datapoints_by_token_[leaf_id].size();
+      // printf("%ld\t", datapoints_by_token_[leaf_id].size());
     }
   }
-  // std::cout << " Is data all good ? : " << sum_data << std::endl;
-  int idx = 0;
-  for (int i = begin; ; i++){
-    SOW[i] = sow[idx++];
-    if (idx == sow.size())
-      break;
+
+  for (int qid = 0; qid < qid_ll_dist.size(); qid++) {
+    sort(qid_ll_dist[qid].begin(), qid_ll_dist[qid].end(), compare_descending_dot_product);
+    int sow_inner_idx = 0;
+    for (auto& elem : qid_ll_dist[qid]) {
+      unsigned long long int list_length = 0;
+      list_length = elem.first;
+      sow[ qid*(arcm_w + 1) + sow_inner_idx ] = list_length;
+      sow[ qid*(arcm_w + 1) + arcm_w ] += list_length;
+      sow_inner_idx++;
+    }
   }
+
+  // for (auto& elem : qid_ll_dist[0]){
+  //   printf("%ld (%f)\t", elem.first, elem.second);
+  // }
+  // printf("\n");
+  // std::cout << " Is data all good ? : " << sum_data << std::endl;
+  int SOW_idx = begin * (arcm_w + 1);
+  // printf("begin = %d, curSize = %d\n", begin, curSize);
+  for (int i = 0; i < centers_to_search.size() * (arcm_w + 1) ; i++){
+    SOW[SOW_idx + i] = sow[i];
+  }
+  // int idx = 0;
+  // for (int i = begin; ; i++){
+  //   SOW[i] = sow[idx++];
+  //   if (idx == sow.size())
+  //     break;
+  // }
   /* arcm::...here! SOW computation has ended. */
 
   vector<shared_ptr<AsymmetricHashingOptionalParameters>> lookup_tables(
