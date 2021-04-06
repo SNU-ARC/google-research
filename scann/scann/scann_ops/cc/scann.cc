@@ -186,7 +186,8 @@ Status ScannInterface::Search(const DatapointPtr<float> query,
                               int pre_reorder_nn, int leaves,
                               unsigned long long int* SOW,
                               size_t begin,
-                              size_t curSize) const { // [ANNA] SOW added
+                              size_t curSize,
+                              int arcm_w) const { // [ANNA] SOW added
   if (query.dimensionality() != dimensionality_)
     return InvalidArgumentError("Query doesn't match dataset dimsensionality");
   bool has_reordering =
@@ -206,7 +207,8 @@ Status ScannInterface::Search(const DatapointPtr<float> query,
     params.set_searcher_specific_optional_parameters(tree_params);
   }
   scann_->SetUnspecifiedParametersToDefaults(&params);
-  return scann_->FindNeighbors(query, params, res, SOW);
+  arcm_w = leaves;
+  return scann_->FindNeighbors(query, params, res, SOW, arcm_w);
 }
 
 Status ScannInterface::SearchBatched(const DenseDataset<float>& queries,
@@ -215,7 +217,8 @@ Status ScannInterface::SearchBatched(const DenseDataset<float>& queries,
                                      int leaves,
                                      unsigned long long int* SOW,
                                      size_t begin,
-                                     size_t curSize) const {
+                                     size_t curSize,
+                                     int arcm_w) const {
   if (queries.dimensionality() != dimensionality_)
     return InvalidArgumentError("Query doesn't match dataset dimsensionality");
   if (!std::isinf(scann_->default_pre_reordering_epsilon()) ||
@@ -242,8 +245,8 @@ Status ScannInterface::SearchBatched(const DenseDataset<float>& queries,
     if (tree_params) p.set_searcher_specific_optional_parameters(tree_params);
     scann_->SetUnspecifiedParametersToDefaults(&p);
   }
-
-  auto test = scann_->FindNeighborsBatched(queries, params, MakeMutableSpan(res), SOW, begin, curSize);
+  arcm_w = leaves;
+  auto test = scann_->FindNeighborsBatched(queries, params, MakeMutableSpan(res), SOW, begin, curSize, arcm_w);
   return test;
 }
 
@@ -254,7 +257,8 @@ Status ScannInterface::SearchBatchedParallel(const DenseDataset<float>& queries,
                                              int batch_size,
                                              unsigned long long int* SOW,
                                              size_t begin_,
-                                             size_t curSize_) const {    // [ANNA] batch_size added
+                                             size_t curSize_,
+                                             int arcm_w) const {    // [ANNA] batch_size added
   const size_t numQueries = queries.size();
   const size_t numCPUs = GetNumCPUs();
   // const size_t kBatchSize = std::min(
@@ -272,8 +276,9 @@ Status ScannInterface::SearchBatchedParallel(const DenseDataset<float>& queries,
             queries.data().begin() + begin * dimensionality_,
             queries.data().begin() + (begin + curSize) * dimensionality_);
         DenseDataset<float> curQueryDataset(queryCopy, curSize);
+        arcm_w = leaves;
         return SearchBatched(curQueryDataset, {res.begin() + begin, curSize},
-                             final_nn, pre_reorder_nn, leaves, SOW, begin, curSize);
+                             final_nn, pre_reorder_nn, leaves, SOW, begin, curSize, arcm_w);
       });
 }
 

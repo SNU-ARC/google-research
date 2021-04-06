@@ -295,16 +295,17 @@ Status BruteForceSearcher<T>::FindNeighborsBatchedImpl(
     MutableSpan<NNResultsVector> results,
     unsigned long long int* SOW,
     size_t begin,
-    size_t curSize) const {
+    size_t curSize,
+    int arcm_w) const {
   if (!supports_low_level_batching_ || !queries.IsDense()) {
     return SingleMachineSearcherBase<T>::FindNeighborsBatchedImpl(
-        queries, params, results, SOW, begin, curSize);
+        queries, params, results, SOW, begin, curSize, arcm_w);
   }
 
   for (const SearchParameters& p : params) {
     if (p.restricts_enabled()) {
       return SingleMachineSearcherBase<T>::FindNeighborsBatchedImpl(
-          queries, params, results, SOW, begin, curSize);
+          queries, params, results, SOW, begin, curSize, arcm_w);
     }
   }
   const DenseDataset<T>& database =
@@ -321,7 +322,8 @@ Status BruteForceSearcher<T>::FindNeighborsImpl(const DatapointPtr<T>& query,
                                                 NNResultsVector* result,
                                                 unsigned long long int* SOW,
                                                 size_t begin,
-                                                size_t curSize) const {
+                                                size_t curSize,
+                                                int arcm_w) const {
   DCHECK(result);
   if (params.pre_reordering_crowding_enabled()) {
     return FailedPreconditionError("Crowding is not supported.");

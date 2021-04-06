@@ -106,7 +106,7 @@ ScannNumpy::Search(const np_row_major_arr<float>& query, int final_nn,
   if (query.ndim() != 1)
     throw std::invalid_argument("Query must be one-dimensional");
 
-  pybind11::array_t<unsigned long long int> SOW({static_cast<long>(1), 1L});  // ADD FOR SOW INFO, one query at a time
+  pybind11::array_t<unsigned long long int> SOW({static_cast<long>(1 * (leaves + 1)), 1L});  // ADD FOR SOW INFO, one query at a time
   auto sow_ptr = reinterpret_cast<unsigned long long int*>(SOW.request().ptr);
   size_t begin = 0;
   size_t curSize = 0;
@@ -135,7 +135,10 @@ ScannNumpy::SearchBatched(const np_row_major_arr<float>& queries, int final_nn,
   vector<float> queries_vec(queries.data(), queries.data() + queries.size());
   auto query_dataset = DenseDataset<float>(queries_vec, queries.shape()[0]);
 
-  pybind11::array_t<unsigned long long int> SOW({static_cast<long>(query_dataset.size()), 1L});  // ADD FOR SOW INFO
+  pybind11::array_t<unsigned long long int> SOW({static_cast<long>(query_dataset.size() * (leaves + 1)), 1L});
+  // pybind11::array_t<unsigned long long int> SOW({static_cast<long>(batch_size * (leaves + 1)), 1L});
+  // printf("query_dataset.size() = %d, batch_size = %d\n", query_dataset.size(), batch_size);
+  // ADD FOR SOW INFO
   auto sow_ptr = reinterpret_cast<unsigned long long int*>(SOW.request().ptr);                   // ADD FOR SOW INFO
   size_t begin = 0;
   size_t curSize = 0;

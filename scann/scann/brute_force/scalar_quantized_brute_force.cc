@@ -189,7 +189,8 @@ Status ScalarQuantizedBruteForceSearcher::FindNeighborsImpl(
     NNResultsVector* result,
     unsigned long long int* SOW,
     size_t begin,
-    size_t curSize) const {
+    size_t curSize,
+    int arcm_w) const {
   DCHECK(result);
   if (!query.IsDense()) {
     return InvalidArgumentError(

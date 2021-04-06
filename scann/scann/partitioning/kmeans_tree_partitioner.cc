@@ -30,6 +30,9 @@
 #include "scann/utils/zip_sort.h"
 #include "tensorflow/core/lib/core/errors.h"
 
+#include <algorithm>
+#include <utility>
+
 namespace research_scann {
 
 template <typename T>
@@ -319,6 +322,7 @@ Status KMeansTreePartitioner<T>::TokensForDatapointWithSpillingAndOverride(
   result->reserve(result_raw.size());
   for (auto& elem : result_raw) {
     result->push_back(elem.node->LeafId());
+    // printf("leaf id = %d, distance = %f\n", elem.node->LeafId(), elem.distance_to_center);
   }
   return OkStatus();
 }
@@ -580,6 +584,14 @@ KMeansTreePartitioner<T>::PostprocessNearestCenters(
   return datapoint_index_to_result;
 }
 
+bool compare_ascending (pair<int, float> first, pair<int, float> second)
+{
+  if (first.second < second.second)
+    return true;
+  else
+    return false;
+}
+
 template <typename T>
 Status
 KMeansTreePartitioner<T>::TokensForDatapointWithSpillingBatchedAndOverride(
@@ -588,14 +600,36 @@ KMeansTreePartitioner<T>::TokensForDatapointWithSpillingBatchedAndOverride(
   vector<vector<KMeansTreeSearchResult>> raw_results(queries.size());
   SCANN_RETURN_IF_ERROR(TokensForDatapointWithSpillingBatched(
       queries, max_centers_override, MakeMutableSpan(raw_results)));
+  // printf("arcm::TokensForDatapointWithSpillingBatchedAndOverride\n");
   for (size_t i = 0; i < results.size(); ++i) {
     vector<int32_t>& cur_results = results[i];
     auto& cur_raw_results = raw_results[i];
     cur_results.clear();
     cur_results.reserve(cur_raw_results.size());
+
+    // int num_cur_raw_results = 0;
+    // for (auto& elem : cur_raw_results) {
+    //   num_cur_raw_results ++;
+    // }
+
+    vector<pair<int, float> > sorted_cur_raw_results;
+    sorted_cur_raw_results.reserve(cur_raw_results.size());
+
     for (auto& elem : cur_raw_results) {
-      cur_results.push_back(elem.node->LeafId());
+      sorted_cur_raw_results.push_back(std::make_pair(elem.node->LeafId(), elem.distance_to_center));
     }
+
+    sort(sorted_cur_raw_results.begin(), sorted_cur_raw_results.end(), compare_ascending);
+
+    for (int j = 0; j < cur_raw_results.size(); j++) {
+      cur_results.push_back( sorted_cur_raw_results[j].first );
+      // printf("i = %d, leaf id = %d, distance = %f\n", i, sorted_cur_raw_results[j].first, sorted_cur_raw_results[j].second);
+    }
+
+    // for (auto& elem : cur_raw_results) {
+    //   cur_results.push_back(elem.node->LeafId());
+    //   printf("i = %d, leaf id = %d, distance = %f\n", i, elem.node->LeafId(), elem.distance_to_center);
+    // }
   }
   return OkStatus();
 }

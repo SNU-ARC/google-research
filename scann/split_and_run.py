@@ -485,7 +485,7 @@ def run_scann():
 						SOW_elements_outer_idx = 0
 						SOW_elements_inner_idx = 0
 						SOW_location = leaves_to_search
-						SOW += local_SOW
+						# SOW += local_SOW
 						# local_SOW_idx = 0
 						# for i in range(n_times_w_plus_1):
 						# 	if i == SOW_location:
@@ -526,12 +526,16 @@ def run_scann():
 							w_plus_1, _ = np.shape(local_SOW_)
 							for i in range(w_plus_1):
 								if i != w_plus_1 - 1:
+									# print("outer_idx_SOW_elements =", outer_idx_SOW_elements, ", inner_idx_SOW_elements =", inner_idx_SOW_elements, ", i =", i)
 									SOW_elements[outer_idx_SOW_elements, inner_idx_SOW_elements] = local_SOW_[i]
+									# if i == 0:
+									# 	print("local_SOW_[0] =", local_SOW_[0])
 									inner_idx_SOW_elements += 1
 								else:
 									SOW[idx_SOW] += local_SOW_[i]
 									idx_SOW += 1
 									outer_idx_SOW_elements += 1
+									inner_idx_SOW_elements = 0
 									idx_SOW_elements = 0
 
 						n.append(np.vstack([n for n,d in nd])+base_idx)
@@ -552,6 +556,7 @@ def run_scann():
 				arcm_w, _ = search_config[sc_list[idx]]
 				current_SOW = SOW_list[idx]
 				current_SOW_elements = SOW_elements_list[idx]
+				# print("current_SOW_elements[0, 0] =", current_SOW_elements[0, 0])
 				if args.trace:
 					trace_f = open(trace_result_path, "w")
 					for i in range(qN):

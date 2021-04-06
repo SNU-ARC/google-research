@@ -155,7 +155,8 @@ Status Searcher<T>::FindNeighborsImpl(const DatapointPtr<T>& query,
                                       NNResultsVector* result,
                                       unsigned long long int* SOW,
                                       size_t begin,
-                                      size_t curSize) const {
+                                      size_t curSize,
+                                      int arcm_w) const {
   if (limited_inner_product_) {
     if (opts_.symmetric_queryer_) {
       return FailedPreconditionError(
@@ -188,7 +189,8 @@ Status Searcher<T>::FindNeighborsBatchedImpl(
     MutableSpan<NNResultsVector> results,
     unsigned long long int* SOW,
     size_t begin,
-    size_t curSize) const {
+    size_t curSize,
+    int arcm_w) const {
   bool crowding_enabled_for_any_query = false;
   for (const auto& p : params) {
     if (p.pre_reordering_crowding_enabled()) {
@@ -200,7 +202,7 @@ Status Searcher<T>::FindNeighborsBatchedImpl(
       crowding_enabled_for_any_query ||
       opts_.quantization_scheme() == AsymmetricHasherConfig::PRODUCT_AND_BIAS) {
     return SingleMachineSearcherBase<T>::FindNeighborsBatchedImpl(
-        queries, params, results, SOW, begin, curSize);
+        queries, params, results, SOW, begin, curSize, arcm_w);
   }
   return FindNeighborsBatchedInternal<
       asymmetric_hashing_internal::IdentityPostprocessFunctor>(

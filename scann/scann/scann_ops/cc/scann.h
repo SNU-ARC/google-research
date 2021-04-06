@@ -58,20 +58,23 @@ class ScannInterface {
                 int final_nn, int pre_reorder_nn, int leaves,
                 unsigned long long int* SOW = nullptr,
                 size_t begin = 0,
-                size_t curSize = 0) const; // [ANNA] SOW
+                size_t curSize = 0,
+                int arcm_w = 0) const; // [ANNA] SOW
   Status SearchBatched(const DenseDataset<float>& queries,
                        MutableSpan<NNResultsVector> res, int final_nn,
                        int pre_reorder_nn, int leaves,
                        unsigned long long int* SOW = nullptr,
                        size_t begin = 0,
-                       size_t curSize = 0) const;
+                       size_t curSize = 0,
+                       int arcm_w = 0) const;
   Status SearchBatchedParallel(const DenseDataset<float>& queries,
                                MutableSpan<NNResultsVector> res, int final_nn,
                                int pre_reorder_nn, int leaves,
                                int batch_size,
                                unsigned long long int* SOW = nullptr,
                                size_t begin = 0,
-                               size_t curSize = 0) const;   // [ANNA] batch_size, SOW
+                               size_t curSize = 0,
+                               int arcm_w = 0) const;   // [ANNA] batch_size, SOW
   Status Serialize(std::string path, std::string coarse_path, bool load_coarse, std::string fine_path, bool load_fine);
   StatusOr<SingleMachineFactoryOptions> ExtractOptions();
 
