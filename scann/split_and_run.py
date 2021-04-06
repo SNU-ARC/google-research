@@ -716,7 +716,7 @@ def run_faiss(D):
 		L, m, log2kstar, metric = bc
 		# assert (not args.is_gpu and log2kstar<=8) or (log2kstar == 8)
 		if args.trace:
-			search_config = [[L/2, args.reorder]]
+			search_config = [[int(L/2), args.reorder]]
 		sc_list = check_available_search_config(args.program, bc, search_config)
 		print(bc)
 		print(sc_list)
@@ -768,7 +768,7 @@ def run_faiss(D):
 				for idx in range(len(sc_list)):
 					SOW = np.zeros((queries.shape[0], 1))
 					w, reorder = search_config[sc_list[idx]]
-					SOW_elements = np.zeros((queries.shape[0], int(w)))
+					SOW_elements = np.zeros((queries.shape[0], w))
 					assert reorder == args.reorder
 					if args.trace:
 						print("L = ", L, ", w = ", w, " ... Running !")
