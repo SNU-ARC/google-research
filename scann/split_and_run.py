@@ -400,9 +400,9 @@ def run_scann():
 							 [170, args.reorder], [200, args.reorder], [220, args.reorder], [250, args.reorder], [310, args.reorder], [400, args.reorder], [500, args.reorder], [800, args.reorder], [1000, args.reorder], \
 							 [1250, args.reorder], [1500, args.reorder], [1750, args.reorder], [1900, args.reorder], [2000, args.reorder], [2048, args.reorder]]
 
-		f = open(sweep_result_path, "w")
-		f.write("Program: " + args.program + " Topk: " + str(args.topk) + " Num_split: " + str(args.num_split)+ " Batch: "+str(args.batch)+"\n")
-		f.write("L\tThreshold\tm\t|\tw\tr\tMetric\tSOW_avg\tSOW_per_time\n")
+		# f = open(sweep_result_path, "w")
+		# f.write("Program: " + args.program + " Topk: " + str(args.topk) + " Num_split: " + str(args.num_split)+ " Batch: "+str(args.batch)+"\n")
+		# f.write("L\tThreshold\tm\t|\tw\tr\tMetric\tSOW_avg\tSOW_per_time\n")
 	else:
 		# assert D%args.m == 0
 		build_config = [(args.L, args.threshold, int(D/args.m), args.metric)]
@@ -411,10 +411,19 @@ def run_scann():
 	for bc in build_config:
 		SOW_list = list()
 		SOW_elements_list = list()
-		SOW = np.zeros((queries.shape[0], 1))
+		# SOW = np.zeros((queries.shape[0], 1))
 		num_leaves, threshold, dims, metric = bc
+		if args.trace:
+			search_config = [[int(num_leaves/2), args.reorder]]
+			trace_w = int(num_leaves/2)
 		sc_list = check_available_search_config(args.program, bc, search_config)
-
+		trace_L = num_leaves
+		trace_m = D / dims
+		trace_threshold = threshold
+		trace_log2kstar = 4
+		# assert (not args.is_gpu and log2kstar<=8) or (log2kstar == 8)
+		if args.trace:
+			trace_result_path = "../../ANNA_chisel/simulator/final_trace/trace_"+args.program+("GPU_" if args.is_gpu else "_")+args.dataset+"_topk_"+str(args.topk)+"_num_split_"+str(args.num_split)+"_batch_"+str(args.batch)+"_"+args.metric+"_L_"+str(trace_L)+"_m_"+str(trace_m)+"_w_"+str(trace_w)+"_threshold_"+str(trace_threshold)+"_log2kstar_"+str(trace_log2kstar)
 		if len(sc_list) > 0:
 			neighbors=np.empty((len(sc_list), queries.shape[0],0), dtype=np.int32)
 			distances=np.empty((len(sc_list), queries.shape[0],0), dtype=np.float32)
@@ -424,6 +433,9 @@ def run_scann():
 			coarse_path = coarse_dir+"coarse_codebook_L_"+str(num_leaves)+"_threshold_"+str(threshold)+"_dims_"+str(dims)+"_metric_"+metric
 			fine_path = scann_fine_dir+"fine_codebook_L_"+str(num_leaves)+"_threshold_"+str(threshold)+"_dims_"+str(dims)+"_metric_"+metric
 
+			w_, _ = search_config[sc_list[idx]]
+			SOW = np.zeros((queries.shape[0], 1))
+			SOW_elements = np.zeros((queries.shape[0], w_))
 			for split in range(args.num_split):
 				searcher_dir, searcher_path = get_searcher_path(split)
 				print("Split ", split)
@@ -460,12 +472,8 @@ def run_scann():
 					# if idx < len(sc_list)-2:
 					# 	continue
 					leaves_to_search, reorder = search_config[sc_list[idx]]
-					SOW = np.zeros((queries.shape[0], 1))
-					SOW_elements = np.zeros((queries.shape[0], leaves_to_search))
-					if args.trace and leaves_to_search != num_leaves / 2:
-						SOW_list.append(SOW)
-						SOW_elements_list.append(SOW_elements)
-						continue
+					# SOW = np.zeros((queries.shape[0], 1))
+					# SOW_elements = np.zeros((queries.shape[0], leaves_to_search))
 					assert D%dims == 0
 
 					if args.reorder!=-1:
@@ -501,11 +509,11 @@ def run_scann():
 						# SOW_location = leaves_to_search
 						for i in range(n_times_w_plus_1):
 							if i == SOW_location:
-								SOW[SOW_idx] = local_SOW[i]
+								SOW[SOW_idx] += local_SOW[i]
 								SOW_idx += 1
 								SOW_location += leaves_to_search + 1
 							else:
-								SOW_elements[SOW_elements_outer_idx, SOW_elements_inner_idx] = local_SOW[i]
+								SOW_elements[SOW_elements_outer_idx, SOW_elements_inner_idx] += local_SOW[i]
 								SOW_elements_inner_idx += 1
 								if SOW_elements_inner_idx == leaves_to_search:
 									SOW_elements_inner_idx = 0
@@ -531,7 +539,7 @@ def run_scann():
 							for i in range(w_plus_1):
 								if i != w_plus_1 - 1:
 									# print("outer_idx_SOW_elements =", outer_idx_SOW_elements, ", inner_idx_SOW_elements =", inner_idx_SOW_elements, ", i =", i)
-									SOW_elements[outer_idx_SOW_elements, inner_idx_SOW_elements] = local_SOW_[i]
+									SOW_elements[outer_idx_SOW_elements, inner_idx_SOW_elements] += local_SOW_[i]
 									# if i == 0:
 									# 	print("local_SOW_[0] =", local_SOW_[0])
 									inner_idx_SOW_elements += 1
@@ -544,8 +552,6 @@ def run_scann():
 
 						n.append(np.vstack([n for n,d in nd])+base_idx)
 						d.append(np.vstack([d for n,d in nd]))
-					SOW_list.append(SOW)
-					SOW_elements_list.append(SOW_elements)
 				base_idx = base_idx + num_per_split
 				neighbors = np.append(neighbors, np.array(n, dtype=np.int32), axis=-1)
 				distances = np.append(distances, np.array(d, dtype=np.float32), axis=-1)
@@ -554,6 +560,9 @@ def run_scann():
 				neighbors, distances = sort_neighbors(distances, neighbors)
 				print("neighbors: ", neighbors.shape)
 				print("distances: ", distances.shape)
+
+			SOW_list.append(SOW)
+			SOW_elements_list.append(SOW_elements)
 
 			final_neighbors, _ = sort_neighbors(distances, neighbors)
 			for idx in range(len(sc_list)):
@@ -712,11 +721,18 @@ def run_faiss(D):
 	for bc in build_config:
 		SOW_list = list()
 		SOW_elements_list = list()
-		SOW = np.zeros((queries.shape[0], 1))
+		# SOW = np.zeros((queries.shape[0], 1))
 		L, m, log2kstar, metric = bc
+		trace_L = L
+		trace_m = m
+		trace_threshold = "None"
+		trace_log2kstar = log2kstar
 		# assert (not args.is_gpu and log2kstar<=8) or (log2kstar == 8)
 		if args.trace:
-			search_config = [[int(L/2), args.reorder]]
+			search_config = [[256, args.reorder]]
+			trace_w = 256
+		if args.trace:
+			trace_result_path = "../../ANNA_chisel/simulator/final_trace/trace_"+args.program+("GPU_" if args.is_gpu else "_")+args.dataset+"_topk_"+str(args.topk)+"_num_split_"+str(args.num_split)+"_batch_"+str(args.batch)+"_"+args.metric+"_L_"+str(trace_L)+"_m_"+str(trace_m)+"_w_"+str(trace_w)+"_threshold_"+str(trace_threshold)+"_log2kstar_"+str(trace_log2kstar)
 		sc_list = check_available_search_config(args.program, bc, search_config)
 		print(bc)
 		print(sc_list)
@@ -740,7 +756,9 @@ def run_faiss(D):
 			else:
 				index_key_manual = "OPQ"+str(faiss_m)+"_"+str(args.opq)+",IVF"+str(L)+",PQ"+str(faiss_m)+"x"+str(log2kstar)
 
-
+			SOW = np.zeros((queries.shape[0], 1))
+			w_, _ = search_config[sc_list[0]]
+			SOW_elements = np.zeros((queries.shape[0], w_))
 			for split in range(args.num_split):
 				print("Split ", split)
 				num_per_split = int(N/args.num_split) if split < args.num_split-1 else N-base_idx
@@ -766,12 +784,12 @@ def run_faiss(D):
 				n = list()
 				d = list()
 				for idx in range(len(sc_list)):
-					SOW = np.zeros((queries.shape[0], 1))
+					# SOW = np.zeros((queries.shape[0], 1))
 					w, reorder = search_config[sc_list[idx]]
-					SOW_elements = np.zeros((queries.shape[0], w))
+					# SOW_elements = np.zeros((queries.shape[0], w))
 					assert reorder == args.reorder
 					if args.trace:
-						print("L = ", L, ", w = ", w, " ... Running !")
+						print("arcm::trace::L = ", L, ", w = ", w, " ... Running !")
 					# Build Faiss index
 					print(str(L)+"\t"+str(m)+"\t"+str(2**log2kstar)+"\t|\t"+str(w)+"\t"+str(reorder)+"\t"+str(metric)+"\n")		# faiss-gpu has no reorder
 					# Faiss search
@@ -801,23 +819,25 @@ def run_faiss(D):
 					# SOW_location = w
 					for i in range(n_times_w_plus_1):
 						if i == SOW_location:
-							SOW[SOW_idx] = local_SOW[i]
+							SOW[SOW_idx] += local_SOW[i]
 							SOW_idx += 1
 							SOW_location += w + 1
 						else:
-							SOW_elements[SOW_elements_outer_idx, SOW_elements_inner_idx] = local_SOW[i]
+							SOW_elements[SOW_elements_outer_idx, SOW_elements_inner_idx] += local_SOW[i]
 							SOW_elements_inner_idx += 1
 							if SOW_elements_inner_idx == w:
 								SOW_elements_inner_idx = 0
 								SOW_elements_outer_idx += 1
 					# SOW += local_SOW
-					SOW_list.append(SOW)
-					SOW_elements_list.append(SOW_elements)
+					# SOW_list.append(SOW)
+					# SOW_elements_list.append(SOW_elements)
 				del index
 				base_idx = base_idx + num_per_split
 				neighbors = np.append(neighbors, np.array(n, dtype=np.int32), axis=-1)
 				distances = np.append(distances, np.array(d, dtype=np.float32), axis=-1)
 				neighbors, distances = sort_neighbors(distances, neighbors)
+			SOW_list.append(SOW)
+			SOW_elements_list.append(SOW_elements)
 				# print("After sort")
 				# for i in range(1000):
 				# 	print(neighbors[0][3][i], " ", distances[0][3][i])
@@ -1017,8 +1037,6 @@ os.makedirs("./result", exist_ok=True)
 split_dataset_path = None
 if args.sweep:
 	sweep_result_path = "./result/"+args.program+("GPU_" if args.is_gpu else "_")+args.dataset+"_topk_"+str(args.topk)+"_num_split_"+str(args.num_split)+"_batch_"+str(args.batch)+"_"+args.metric+"_reorder_"+str(args.reorder)+"_sweep_result.txt"
-if args.trace:
-	trace_result_path = "../../ANNA_chisel/simulator/final_trace/trace_"+args.program+("GPU_" if args.is_gpu else "_")+args.dataset+"_topk_"+str(args.topk)+"_num_split_"+str(args.num_split)+"_batch_"+str(args.batch)+"_"+args.metric+"_L_"+str(args.L)+"_m_"+str(args.m)+"_w_"+str(args.w)+"_threshold_"+(str(args.threshold) if args.program == "scann" else "None")
 index_key = None
 N = -1
 D = -1
