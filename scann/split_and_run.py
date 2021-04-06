@@ -672,7 +672,6 @@ def run_faiss(D):
 							 [5120, args.reorder], [5632, args.reorder], [6144, args.reorder], [6656, args.reorder], [7168, args.reorder], [7680, args.reorder], \
 							 [8192, args.reorder], [16384, args.reorder]]
 
-
 		else:
 			if "gist" in args.dataset:
 				build_config = [[1000, int(D/2), 8, args.metric], [1000, int(D/3), 8, args.metric], [1000, int(D/4), 8, args.metric]]	# L, m, log2(k*), metric
@@ -698,10 +697,9 @@ def run_faiss(D):
 						 [45, args.reorder], [50, args.reorder], [55, args.reorder], [60, args.reorder], [65, args.reorder], [75, args.reorder], [90, args.reorder], [110, args.reorder], [130, args.reorder], [150, args.reorder], \
 						 [170, args.reorder], [200, args.reorder], [220, args.reorder], [250, args.reorder], [310, args.reorder], [400, args.reorder], [500, args.reorder], [800, args.reorder], [1000, args.reorder], \
 						 [1250, args.reorder], [1500, args.reorder], [1750, args.reorder], [1900, args.reorder], [2000, args.reorder], [2250, args.reorder], [2500, args.reorder], [2750, args.reorder], [3000, args.reorder], [3500, args.reorder], [4000, args.reorder]]
-
-		f = open(sweep_result_path, "w")
-		f.write("Program: " + args.program + ("GPU" if args.is_gpu else "") + " Topk: " + str(args.topk) + " Num_split: " + str(args.num_split)+ " Batch: "+str(args.batch)+"\n")
-		f.write("L\tm\tk_star\t|\tw\tReorder\tMetric\tSOW_avg\tSOW_per_time\n")
+		# f = open(sweep_result_path, "w")
+		# f.write("Program: " + args.program + ("GPU" if args.is_gpu else "") + " Topk: " + str(args.topk) + " Num_split: " + str(args.num_split)+ " Batch: "+str(args.batch)+"\n")
+		# f.write("L\tm\tk_star\t|\tw\tReorder\tMetric\tSOW_avg\tSOW_per_time\n")
 	else:
 		if args.opq != -1:
 			assert args.opq % args.m == 0 and args.sq == -1
@@ -717,6 +715,8 @@ def run_faiss(D):
 		SOW = np.zeros((queries.shape[0], 1))
 		L, m, log2kstar, metric = bc
 		# assert (not args.is_gpu and log2kstar<=8) or (log2kstar == 8)
+		if args.trace:
+			search_config = [[L/2, args.reorder]]
 		sc_list = check_available_search_config(args.program, bc, search_config)
 		print(bc)
 		print(sc_list)
@@ -768,13 +768,10 @@ def run_faiss(D):
 				for idx in range(len(sc_list)):
 					SOW = np.zeros((queries.shape[0], 1))
 					w, reorder = search_config[sc_list[idx]]
-					SOW_elements = np.zeros((queries.shape[0], w))
+					SOW_elements = np.zeros((queries.shape[0], int(w)))
 					assert reorder == args.reorder
-					if args.trace and w != L / 2:
-						SOW_list.append(SOW)
-						SOW_elements_list.append(SOW_elements)
-						continue
-
+					if args.trace:
+						print("L = ", L, ", w = ", w, " ... Running !")
 					# Build Faiss index
 					print(str(L)+"\t"+str(m)+"\t"+str(2**log2kstar)+"\t|\t"+str(w)+"\t"+str(reorder)+"\t"+str(metric)+"\n")		# faiss-gpu has no reorder
 					# Faiss search
@@ -830,8 +827,6 @@ def run_faiss(D):
 			# print("distances: ", _[0][3])
 			for idx in range(len(sc_list)):
 				arcm_w, _ = search_config[sc_list[idx]]
-				if args.trace and arcm_w != L / 2:
-					continue
 				current_SOW = SOW_list[idx]
 				current_SOW_elements = SOW_elements_list[idx]
 				if args.trace:
@@ -850,18 +845,18 @@ def run_faiss(D):
 				# 	print("\narcm::endline")
 				SOW_avg = np.average(current_SOW)
 				SOW_per_time = np.sum(current_SOW) / total_latency[idx]
-				if args.sweep:
-					w, reorder = search_config[sc_list[idx]]
-					f.write(str(L)+"\t"+str(m)+"\t"+str(2**log2kstar)+"\t|\t"+str(w)+"\t"+str(reorder)+"\t"+str(metric)+"\n")		# faiss-gpu has no reorder
+				# if args.sweep:
+					# w, reorder = search_config[sc_list[idx]]
+					# f.write(str(L)+"\t"+str(m)+"\t"+str(2**log2kstar)+"\t|\t"+str(w)+"\t"+str(reorder)+"\t"+str(metric)+"\n")		# faiss-gpu has no reorder
 				top1, top10, top100, top1000 = print_recall(final_neighbors[idx], gt)
 				print("Top ", args.topk, " Total latency (ms): ", total_latency[idx])
 				print("SOW shape :", current_SOW.shape, ", min :", np.min(current_SOW), ", max :", np.max(current_SOW), ", avg :", np.average(current_SOW))
 				print("Sum of SOW per total latency: ", SOW_per_time)
 				print("arcm::Latency written. End of File.\n");
-				if args.sweep:
-					f.write(str(top1)+" %\t"+str(top10)+" %\t"+str(top100)+" %\t"+str(top1000)+"%\t"+str(total_latency[idx])+"\t"+str(SOW_avg)+"\t"+str(SOW_per_time)+"\n")
-	if args.sweep:
-		f.close()
+				# if args.sweep:
+					# f.write(str(top1)+" %\t"+str(top10)+" %\t"+str(top100)+" %\t"+str(top1000)+"%\t"+str(total_latency[idx])+"\t"+str(SOW_avg)+"\t"+str(SOW_per_time)+"\n")
+	# if args.sweep:
+		# f.close()
 
 def run_annoy(D):
 	gt, queries = prepare_eval()
