@@ -457,11 +457,15 @@ def run_scann():
 				n = list()
 				d = list()
 				for idx in range(len(sc_list)):
-					SOW = np.zeros((queries.shape[0], 1))
 					# if idx < len(sc_list)-2:
 					# 	continue
 					leaves_to_search, reorder = search_config[sc_list[idx]]
+					SOW = np.zeros((queries.shape[0], 1))
 					SOW_elements = np.zeros((queries.shape[0], leaves_to_search))
+					if args.trace and leaves_to_search != num_leaves / 2:
+						SOW_list.append(SOW)
+						SOW_elements_list.append(SOW_elements)
+						continue
 					assert D%dims == 0
 
 					if args.reorder!=-1:
@@ -554,6 +558,8 @@ def run_scann():
 			final_neighbors, _ = sort_neighbors(distances, neighbors)
 			for idx in range(len(sc_list)):
 				arcm_w, _ = search_config[sc_list[idx]]
+				if args.trace and arcm_w != num_leaves / 2:
+					continue
 				current_SOW = SOW_list[idx]
 				current_SOW_elements = SOW_elements_list[idx]
 				# print("current_SOW_elements[0, 0] =", current_SOW_elements[0, 0])
@@ -764,6 +770,11 @@ def run_faiss(D):
 					w, reorder = search_config[sc_list[idx]]
 					SOW_elements = np.zeros((queries.shape[0], w))
 					assert reorder == args.reorder
+					if args.trace and w != L / 2:
+						SOW_list.append(SOW)
+						SOW_elements_list.append(SOW_elements)
+						continue
+
 					# Build Faiss index
 					print(str(L)+"\t"+str(m)+"\t"+str(2**log2kstar)+"\t|\t"+str(w)+"\t"+str(reorder)+"\t"+str(metric)+"\n")		# faiss-gpu has no reorder
 					# Faiss search
@@ -819,6 +830,8 @@ def run_faiss(D):
 			# print("distances: ", _[0][3])
 			for idx in range(len(sc_list)):
 				arcm_w, _ = search_config[sc_list[idx]]
+				if args.trace and arcm_w != L / 2:
+					continue
 				current_SOW = SOW_list[idx]
 				current_SOW_elements = SOW_elements_list[idx]
 				if args.trace:
@@ -1010,7 +1023,7 @@ split_dataset_path = None
 if args.sweep:
 	sweep_result_path = "./result/"+args.program+("GPU_" if args.is_gpu else "_")+args.dataset+"_topk_"+str(args.topk)+"_num_split_"+str(args.num_split)+"_batch_"+str(args.batch)+"_"+args.metric+"_reorder_"+str(args.reorder)+"_sweep_result.txt"
 if args.trace:
-	trace_result_path = "../../ANNA_chisel/simulator/trace/trace_"+args.program+("GPU_" if args.is_gpu else "_")+args.dataset+"_topk_"+str(args.topk)+"_num_split_"+str(args.num_split)+"_batch_"+str(args.batch)+"_"+args.metric+"_L_"+str(args.L)+"_m_"+str(args.m)+"_w_"+str(args.w)+"_threshold_"+(str(args.threshold) if args.program == "scann" else "None")
+	trace_result_path = "../../ANNA_chisel/simulator/final_trace/trace_"+args.program+("GPU_" if args.is_gpu else "_")+args.dataset+"_topk_"+str(args.topk)+"_num_split_"+str(args.num_split)+"_batch_"+str(args.batch)+"_"+args.metric+"_L_"+str(args.L)+"_m_"+str(args.m)+"_w_"+str(args.w)+"_threshold_"+(str(args.threshold) if args.program == "scann" else "None")
 index_key = None
 N = -1
 D = -1
