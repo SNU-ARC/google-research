@@ -350,6 +350,9 @@ def sort_neighbors(distances, neighbors):
 def prepare_eval():
 	gt = get_groundtruth()
 	queries = get_queries()
+	# gt = gt[0:args.batch, :]
+	# queries = queries[0:args.batch, :]
+	# qN = args.batch
 	print("gt shape: ", np.shape(gt))
 	print("queries shape: ", np.shape(queries))
 	# print("gt: ", gt[0])
@@ -471,6 +474,8 @@ def run_scann():
 			fine_path = scann_fine_dir+"fine_codebook_L_"+str(num_leaves)+"_threshold_"+str(threshold)+"_dims_"+str(dims)+"_metric_"+metric
 
 			for split in range(args.num_split):
+				# if split > 0:
+					# break
 				searcher_dir, searcher_path = get_searcher_path(split)
 				print("Split ", split)
 				# Load splitted dataset
@@ -722,6 +727,8 @@ def run_faiss(D):
 
 
 			for split in range(args.num_split):
+				# if split > 0:
+					# break
 				print("Split ", split)
 				num_per_split = int(N/args.num_split) if split < args.num_split-1 else N-base_idx
 				searcher_dir, searcher_path = get_searcher_path(split)
