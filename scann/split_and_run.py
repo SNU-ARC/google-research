@@ -563,7 +563,7 @@ def run_scann():
 				print("Top ", args.topk, " Total latency (ms): ", total_latency[idx])
 				print("arcm::Latency written. End of File.\n");
 				if args.sweep:
-					f.write(str(top1)+" %\t"+str(top10)+" %\t"+str(top100)+" %\t"+str(top1000)+" %\t|\t"+str(top1_10)+" %\t"+str(top1_100)+" %\t"+str(top10_100)+" %\t"+str(top1_1000)+" %\t"str(top10_1000)+" %\t"+str(top100_1000)+" %\t"+str(total_latency[idx])+"\n")
+					f.write(str(top1)+" %\t"+str(top10)+" %\t"+str(top100)+" %\t"+str(top1000)+" %\t|\t"+str(top1_10)+" %\t"+str(top1_100)+" %\t"+str(top10_100)+" %\t"+str(top1_1000)+" %\t"+str(top10_1000)+" %\t"+str(top100_1000)+" %\t"+str(total_latency[idx])+"\n")
 	if args.sweep:
 		f.close()
 
@@ -773,7 +773,7 @@ def run_faiss(D):
 				print("Top ", args.topk, " Total latency (ms): ", total_latency[idx])
 				print("arcm::Latency written. End of File.\n");
 				if args.sweep:
-					f.write(str(top1)+" %\t"+str(top10)+" %\t"+str(top100)+" %\t"+str(top1000)+" %\t|\t"+str(top1_10)+" %\t"+str(top1_100)+" %\t"+str(top10_100)+" %\t"+str(top1_1000)+" %\t"str(top10_1000)+" %\t"+str(top100_1000)+" %\t"+str(total_latency[idx])+"\n")
+					f.write(str(top1)+" %\t"+str(top10)+" %\t"+str(top100)+" %\t"+str(top1000)+" %\t|\t"+str(top1_10)+" %\t"+str(top1_100)+" %\t"+str(top10_100)+" %\t"+str(top1_1000)+" %\t"+str(top10_1000)+" %\t"+str(top100_1000)+" %\t"+str(total_latency[idx])+"\n")
 	if args.sweep:
 		f.close()
 
