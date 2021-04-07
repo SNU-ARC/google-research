@@ -168,10 +168,13 @@ def collect_result(path, args):
                     acc.append(float(result[4]))
                 else:
                     acc.append(float(result[6]))
-                time.append(float(result[8]))
+                # time.append(float(result[8]))
+                time.append(float(result[-1]))
                 sc.append(search_key)
-                if max_time < float(result[8]):
-                    max_time = float(result[8])
+                # if max_time < float(result[8]):
+                    # max_time = float(result[8])
+                if max_time < float(result[-1]):
+                    max_time = float(result[-1])
 
     res = sorted(zip(acc, time, sc), key = lambda x: x[0])
     acc, time, sc = zip(*res)
