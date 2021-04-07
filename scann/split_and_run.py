@@ -1196,7 +1196,7 @@ elif "deep1b" in args.dataset:
 	num_iter = 16
 	qN = 10000
 
-if args.split == False and args.groudtruth == False:
+if args.split == False and args.groundtruth == False:
 	coarse_dir = basedir + args.program + '_searcher_' + args.metric + '/' + args.dataset + '/coarse_dir/'
 	os.makedirs(coarse_dir, exist_ok=True)
 	if args.program == "scann":
