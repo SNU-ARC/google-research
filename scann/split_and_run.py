@@ -79,8 +79,43 @@ elif args.program == "annoy":
 def compute_recall(neighbors, true_neighbors):
 	total = 0
 	for gt_row, row in zip(true_neighbors, neighbors):
+		# print("SHAPE =", np.shape(np.intersect1d(gt_row, row)))
 		total += np.intersect1d(gt_row, row).shape[0]
 	return total / true_neighbors.size
+
+def compute_more_recalls(neighbors, true_neighbors, target, base):
+	total = 0
+	trimmed_neighbors = neighbors[:,:base]
+	trimmed_gt = true_neighbors[:,:target]
+	num_queries, _ = np.shape(trimmed_gt)
+	# print("trimmed_neighbors shape =", np.shape(trimmed_neighbors))
+	# print("trimmed_gt shape =", np.shape(trimmed_gt))
+	for i in range(num_queries):
+		curr_neighbors_row = trimmed_neighbors[i]
+		curr_gt_row = trimmed_gt[i]
+		for curr_gt_elem in curr_gt_row:
+			if curr_gt_elem in curr_neighbors_row:
+				total += 1
+	return total / trimmed_gt.size
+
+def print_more_recalls(final_neighbors, gt):
+	print("final_neighbors :", final_neighbors.shape)
+	print("gt :", gt.shape)
+
+	top1_10 = compute_more_recalls(final_neighbors, gt, 1, 10)
+	top1_100 = compute_more_recalls(final_neighbors, gt, 1, 100)
+	top10_100 = compute_more_recalls(final_neighbors, gt, 10, 100)
+	top1_1000 = compute_more_recalls(final_neighbors, gt, 1, 1000)
+	top10_1000 = compute_more_recalls(final_neighbors, gt, 10, 1000)
+	top100_1000 = compute_more_recalls(final_neighbors, gt, 100, 1000)
+
+	print("Recall 1@10:", top1_10)
+	print("Recall 1@100:", top1_100)
+	print("Recall 10@100:", top10_100)
+	print("Recall 1@1000:", top1_1000)
+	print("Recall 10@1000:", top10_1000)
+	print("Recall 100@1000:", top100_1000)
+	return top1_10, top1_100, top10_100, top1_1000, top10_1000, top100_1000
 
 def ivecs_read(fname):
 	a = np.fromfile(fname, dtype='int32')
@@ -315,7 +350,8 @@ def sort_neighbors(distances, neighbors):
 def prepare_eval():
 	gt = get_groundtruth()
 	queries = get_queries()
-	print("gt shape: ", gt.shape)
+	print("gt shape: ", np.shape(gt))
+	print("queries shape: ", np.shape(queries))
 	# print("gt: ", gt[0])
 	assert gt.shape[1] == 1000
 	return gt, queries
@@ -521,11 +557,13 @@ def run_scann():
 				# 	top1, top10, top100, top1000 = print_recall(remap_index[final_neighbors[idx]], gt)
 				# else:
 				# 	top1, top10, top100, top1000 = print_recall(final_neighbors[idx], gt)
+				top1_10, top1_100, top10_100, top1_1000, top10_1000, top100_1000 = print_more_recalls(final_neighbors[idx], gt)
+				print()
 				top1, top10, top100, top1000 = print_recall(final_neighbors[idx], gt)
 				print("Top ", args.topk, " Total latency (ms): ", total_latency[idx])
 				print("arcm::Latency written. End of File.\n");
 				if args.sweep:
-					f.write(str(top1)+" %\t"+str(top10)+" %\t"+str(top100)+" %\t"+str(top1000)+" %\t"+str(total_latency[idx])+"\n")
+					f.write(str(top1)+" %\t"+str(top10)+" %\t"+str(top100)+" %\t"+str(top1000)+" %\t|\t"+str(top1_10)+" %\t"+str(top1_100)+" %\t"+str(top10_100)+" %\t"+str(top1_1000)+" %\t"str(top10_1000)+" %\t"+str(top100_1000)+" %\t"+str(total_latency[idx])+"\n")
 	if args.sweep:
 		f.close()
 
@@ -730,13 +768,15 @@ def run_faiss(D):
 				if args.sweep:
 					w, reorder = search_config[sc_list[idx]]
 					f.write(str(L)+"\t"+str(m)+"\t"+str(2**log2kstar)+"\t|\t"+str(w)+"\t"+str(reorder)+"\t"+str(metric)+"\n")		# faiss-gpu has no reorder
+				top1_10, top1_100, top10_100, top1_1000, top10_1000, top100_1000 = print_more_recalls(final_neighbors[idx], gt)
 				top1, top10, top100, top1000 = print_recall(final_neighbors[idx], gt)
 				print("Top ", args.topk, " Total latency (ms): ", total_latency[idx])
 				print("arcm::Latency written. End of File.\n");
 				if args.sweep:
-					f.write(str(top1)+" %\t"+str(top10)+" %\t"+str(top100)+" %\t"+str(top1000)+" %\t"+str(total_latency[idx])+"\n")
+					f.write(str(top1)+" %\t"+str(top10)+" %\t"+str(top100)+" %\t"+str(top1000)+" %\t|\t"+str(top1_10)+" %\t"+str(top1_100)+" %\t"+str(top10_100)+" %\t"+str(top1_1000)+" %\t"str(top10_1000)+" %\t"+str(top100_1000)+" %\t"+str(total_latency[idx])+"\n")
 	if args.sweep:
 		f.close()
+
 
 def run_annoy(D):
 	gt, queries = prepare_eval()
