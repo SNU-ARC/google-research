@@ -100,6 +100,7 @@ def prepare_coarse_quantizer(preproc, cent_cachefile, ncent, is_gpu):
         print("train coarse quantizer...")
         t0 = time.time()
         centroids = train_coarse_quantizer(xt, ncent, preproc, is_gpu)
+        print("centroids:", centroids[128])
         print("Coarse train time: %.3f s" % (time.time() - t0))
         if cent_cachefile:
             print("store centroids", cent_cachefile)
@@ -111,7 +112,7 @@ def prepare_coarse_quantizer(preproc, cent_cachefile, ncent, is_gpu):
     return coarse_quantizer
 
 
-def prepare_trained_index(preproc, coarse_quantizer, ncent, pqflat_str, nprobe):
+def prepare_trained_index(preproc, coarse_quantizer, ncent, pqflat_str):
 
     d = preproc.d_out
     if pqflat_str == 'Flat':
@@ -129,7 +130,6 @@ def prepare_trained_index(preproc, coarse_quantizer, ncent, pqflat_str, nprobe):
             name = "QT_" + str(pqflat_str.split("SQ")[1]) + "bit"
         qtype = getattr(faiss.ScalarQuantizer, name)
         idx_model = faiss.IndexIVFScalarQuantizer(quantizer, d, ncent, qtype, fmetric)
-        # idx_model.nprobe = nprobe
     else:
         key = pqflat_str[2:].split("x")
         assert len(key) == 2, "use format PQ(m)x(log2kstar)"
@@ -141,7 +141,6 @@ def prepare_trained_index(preproc, coarse_quantizer, ncent, pqflat_str, nprobe):
 
     coarse_quantizer.this.disown()
     idx_model.own_fields = True
-
     # finish training on CPU
     t0 = time.time()
     print("Training vector codes")
@@ -153,7 +152,6 @@ def prepare_trained_index(preproc, coarse_quantizer, ncent, pqflat_str, nprobe):
 
 
 def add_vectors(index_cpu, preproc, is_gpu, addBatchSize):
-
     # copy to GPU
     if is_gpu:
         index = copyToGpu(index_cpu)
@@ -170,7 +168,6 @@ def add_vectors(index_cpu, preproc, is_gpu, addBatchSize):
             i0, nb, time.time() - t0), end=' ')
         sys.stdout.flush()
     print("Add time: %.3f s" % (time.time() - t0))
-
     # copy to CPU
     if is_gpu:
         index_all = index_cpu
@@ -187,9 +184,7 @@ def add_vectors(index_cpu, preproc, is_gpu, addBatchSize):
             # simple index
             index_src = faiss.index_gpu_to_cpu(index)
             index_src.copy_subset_to(index_all, 0, 0, nb)
-
         print("  done in %.3f s" % (time.time() - t0))
-
         return index_all, index
     else:
         return index, None
@@ -274,7 +269,7 @@ def build_faiss(args, cacheroot, coarse_dir, split, N_, D, index_key, is_cached,
         xt = sanitize(train)
     global xb
     if is_cached == False:
-        xb = sanitize(base)
+        xb = base
     global dbname
     dbname = args.dataset
     global dim
@@ -324,6 +319,10 @@ def build_faiss(args, cacheroot, coarse_dir, split, N_, D, index_key, is_cached,
     index_cachefile = '%s%s_%s_%s_%s_%s%s,%s.index' % (
         cacheroot, args.metric, dbname, split, args.num_split, preproc_str, ivf_str, pqflat_str)
     print(index_cachefile)
+    
+    first_index_cachefile = '%s%s_%s_0_%s_%s%s,%s.index' % (
+        cacheroot, args.metric, dbname, args.num_split, preproc_str, ivf_str, pqflat_str)
+    print(index_cachefile)
 
     # GPU resources
     if args.is_gpu:
@@ -341,7 +340,17 @@ def build_faiss(args, cacheroot, coarse_dir, split, N_, D, index_key, is_cached,
     if not index_cachefile or not os.path.exists(index_cachefile):
         # train index
         coarse_quantizer = prepare_coarse_quantizer(preproc, cent_cachefile, ncentroid, args.is_gpu)
-        index_trained = prepare_trained_index(preproc, coarse_quantizer, ncentroid, pqflat_str, args.w)
+        if split == 0:
+            index_trained = prepare_trained_index(preproc, coarse_quantizer, ncentroid, pqflat_str)
+        else:
+            index_trained = faiss.read_index(first_index_cachefile)
+            index_trained.ntotal = 0
+            index_trained.invlists.reset()
+        
+        # centroids = faiss.vector_to_array(index_trained.pq.centroids).reshape(index_trained.pq.M, index_trained.pq.ksub, index_trained.pq.dsub)
+        # print("index_load: ", centroids.shape)
+        # print("index_load: ", centroids)
+
         index_all, index_gpu = add_vectors(index_trained, preproc, args.is_gpu, addBatchSize)
 
         if index_cachefile:
@@ -362,6 +371,17 @@ def build_faiss(args, cacheroot, coarse_dir, split, N_, D, index_key, is_cached,
             del index_load
         else:
             index = index_load
+
+    global ps
+    index.use_precomputed_table = usePrecomputed
+    if args.is_gpu:
+        ps = faiss.GpuParameterSpace()
+        ps.initialize(index)
+        # ps.set_index_parameter(index, 'nprobe', w)
+    else:
+        faiss.omp_set_num_threads(faiss.omp_get_max_threads())
+        # index.nprobe = w
+
     return index, preproc
 
 def check_cached(cacheroot, args, dbname, split, num_split, index_key):
@@ -380,13 +400,20 @@ def check_cached(cacheroot, args, dbname, split, num_split, index_key):
 
 def faiss_search(index, preproc, args, reorder, w):
     # search environment
-    index.use_precomputed_table = usePrecomputed
+    # index.use_precomputed_table = usePrecomputed
+    # if args.is_gpu:
+    #     ps = faiss.GpuParameterSpace()
+    #     ps.initialize(index)
+    #     ps.set_index_parameter(index, 'nprobe', w)
+    # else:
+    #     faiss.omp_set_num_threads(faiss.omp_get_max_threads())
+    #     index.nprobe = w
     if args.is_gpu:
-        ps = faiss.GpuParameterSpace()
-        ps.initialize(index)
+        # ps = faiss.GpuParameterSpace()
+        # ps.initialize(index)
         ps.set_index_parameter(index, 'nprobe', w)
     else:
-        faiss.omp_set_num_threads(faiss.omp_get_max_threads())
+        # faiss.omp_set_num_threads(faiss.omp_get_max_threads())
         index.nprobe = w
 
     # reorder
@@ -412,4 +439,3 @@ def faiss_search(index, preproc, args, reorder, w):
         I[i0:i1] = Ii
         D[i0:i1] = Di
     return I, D, total_latency
-

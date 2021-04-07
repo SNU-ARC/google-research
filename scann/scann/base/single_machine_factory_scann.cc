@@ -58,13 +58,11 @@ StatusOr<unique_ptr<Partitioner<T>>> CreateTreeXPartitioner(
     return InvalidArgumentError(
         "num_partitioning_epochs must be == 1 for tree-X hybrids.");
   }
-  std::cout << "[YJ] CreateTreeXPartitioner" << std::endl;
   unique_ptr<Partitioner<T>> partitioner;
   if (opts->kmeans_tree) {
     return InvalidArgumentError(
         "pre-trained kmeans-tree partitioners are not supported.");
   } else if (opts->serialized_partitioner) {
-    std::cout << "[YJ] serialized_partitioner" << std::endl;
     TF_ASSIGN_OR_RETURN(
         partitioner, PartitionerFromSerialized<T>(*opts->serialized_partitioner,
                                                   config.partitioning()));
@@ -203,6 +201,7 @@ StatusOrSearcherUntyped TreeAhHybridResidualFactory<float>(
 
   shared_ptr<const asymmetric_hashing2::Model<float>> ah_model;
   if (opts->ah_codebook) {
+    std::cout << "[YJ] Not training fine codebook, loading from trained file" << std::endl;
     TF_ASSIGN_OR_RETURN(ah_model, asymmetric_hashing2::Model<float>::FromProto(
                                       *opts->ah_codebook));
   } else if (config.hash().asymmetric_hash().has_centers_filename()) {
@@ -213,6 +212,7 @@ StatusOrSearcherUntyped TreeAhHybridResidualFactory<float>(
           "If a pre-computed hashed database is specified for tree-AH hybrid "
           "then pre-computed AH centers must be specified too.");
     }
+    std::cout << "[YJ] Training Finecodebook" << std::endl;
     TF_ASSIGN_OR_RETURN(
         auto quantization_distance,
         GetDistanceMeasure(
@@ -228,7 +228,7 @@ StatusOrSearcherUntyped TreeAhHybridResidualFactory<float>(
         config.hash().asymmetric_hash(), quantization_distance, residuals);
     TF_ASSIGN_OR_RETURN(
         ah_model, asymmetric_hashing2::TrainSingleMachine(
-                      residuals, training_opts, opts->parallelization_pool));
+                      residuals, *train_set, training_opts, opts->parallelization_pool));
   } else {
     return InvalidArgumentError(
         "For Tree-AH hybrid with residual quantization, either "
@@ -455,16 +455,18 @@ StatusOrSearcherUntyped NonResidualTreeXHybridFactory(
     internal::TrainedAsymmetricHashingResults<T> training_results;
     if (config.hash().asymmetric_hash().has_centers_filename() ||
         opts->ah_codebook.get()) {
+      std::cout << "[YJ] Fine codebook already exits, just loading" << std::endl;
       TF_ASSIGN_OR_RETURN(
           training_results,
           internal::HashLeafHelpers<T>::LoadAsymmetricHashingModel(
               ah_config, params, opts->parallelization_pool,
               opts->ah_codebook.get()));
     } else {
+      std::cout << "[YJ] Fine codebook does NOT exits, training..." << std::endl;
       TF_ASSIGN_OR_RETURN(
           training_results,
           internal::HashLeafHelpers<T>::TrainAsymmetricHashingModel(
-              dataset, ah_config, params, opts->parallelization_pool));
+              dataset, ah_config, params, opts->parallelization_pool, train_set));
     }
     auto leaf_searcher_builder_lambda =
         [&](shared_ptr<TypedDataset<T>> leaf_dataset,

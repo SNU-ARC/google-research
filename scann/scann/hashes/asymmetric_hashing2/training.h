@@ -33,7 +33,7 @@ namespace asymmetric_hashing2 {
 
 template <typename T>
 StatusOr<unique_ptr<Model<T>>> TrainSingleMachine(
-    const TypedDataset<T>& dataset, const TrainingOptions<T>& params,
+    const TypedDataset<T>& dataset, const TypedDataset<T>& train_set, const TrainingOptions<T>& params,
     shared_ptr<ThreadPool> pool = nullptr) {
   if (params.config().quantization_scheme() ==
       AsymmetricHasherConfig::STACKED) {
@@ -62,7 +62,7 @@ StatusOr<unique_ptr<Model<T>>> TrainSingleMachine(
     TF_ASSIGN_OR_RETURN(
         auto centers,
         ::research_scann::asymmetric_hashing_internal::TrainAsymmetricHashing(
-            dataset_no_bias, params, pool));
+            dataset_no_bias, params, pool, train_set));
     auto converted = asymmetric_hashing_internal::ConvertCentersIfNecessary<T>(
         std::move(centers));
     return Model<T>::FromCenters(std::move(converted),
@@ -71,7 +71,7 @@ StatusOr<unique_ptr<Model<T>>> TrainSingleMachine(
     TF_ASSIGN_OR_RETURN(
         auto centers,
         ::research_scann::asymmetric_hashing_internal::TrainAsymmetricHashing(
-            dataset, params, pool));
+            dataset, params, pool, train_set));
     auto converted = asymmetric_hashing_internal::ConvertCentersIfNecessary<T>(
         std::move(centers));
     return Model<T>::FromCenters(std::move(converted),

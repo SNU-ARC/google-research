@@ -58,7 +58,7 @@ struct AhImpl {
 
   static StatusOr<std::vector<DenseDataset<double>>> TrainAsymmetricHashing(
       const TypedDataset<T>& dataset, const TrainingOptionsT& opts,
-      shared_ptr<ThreadPool> pool);
+      shared_ptr<ThreadPool> pool, const TypedDataset<T>& train_set);
 
   static Status IndexDatapoint(const DatapointPtr<T>& input,
                                const ChunkingProjection<T>& projection,
@@ -91,8 +91,8 @@ template <typename T>
 StatusOr<std::vector<DenseDataset<double>>> TrainAsymmetricHashing(
     const TypedDataset<T>& dataset,
     const asymmetric_hashing2::TrainingOptionsTyped<T>& opts,
-    shared_ptr<ThreadPool> pool) {
-  return AhImpl<T>::TrainAsymmetricHashing(dataset, opts, std::move(pool));
+    shared_ptr<ThreadPool> pool, const TypedDataset<T>& train_set) {
+  return AhImpl<T>::TrainAsymmetricHashing(dataset, opts, std::move(pool), train_set);
 }
 
 template <typename T>

@@ -45,7 +45,8 @@ struct HashLeafHelpers {
   TrainAsymmetricHashingModel(shared_ptr<TypedDataset<T>> dataset,
                               const AsymmetricHasherConfig& config,
                               const GenericSearchParameters& params,
-                              shared_ptr<ThreadPool> pool);
+                              shared_ptr<ThreadPool> pool,
+                              shared_ptr<TypedDataset<T>> train_set=nullptr);
 
   static StatusOr<unique_ptr<SingleMachineSearcherBase<T>>>
   AsymmetricHasherFactory(

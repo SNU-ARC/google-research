@@ -476,6 +476,8 @@ KMeansTreePartitioner<T>::TokenizeDatabase(const TypedDataset<T>& database,
           DatabaseSpillingConfig::NO_SPILLING &&
       (IsSame<T, float>() || IsSame<T, double>()) &&
       (database_tokenization_type_ == FLOAT)) {
+    // [YJ] MIPS, L2 both comes here..
+    // std::cout << "TokenizeDatabase, squared_L2" << std::endl;
     const DenseDataset<T>& dense_database =
         *down_cast<const DenseDataset<T>*>(&database);
     TF_ASSIGN_OR_RETURN(
@@ -493,7 +495,6 @@ KMeansTreePartitioner<T>::TokenizeDatabase(const TypedDataset<T>& database,
     }
     return std::move(token_to_datapoint_index);
   }
-
   return Partitioner<T>::TokenizeDatabase(database, pool_or_null);
 }
 

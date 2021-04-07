@@ -50,15 +50,16 @@ Status ScannInterface::Initialize(
     ConstSpan<float> dataset, ConstSpan<int32_t> datapoint_to_token,
     ConstSpan<uint8_t> hashed_dataset, ConstSpan<int8_t> int8_dataset,
     ConstSpan<float> int8_multipliers, ConstSpan<float> dp_norms,
-    DatapointIndex n_points, const std::string& artifacts_dir, const std::string& coarse_path) {
+    DatapointIndex n_points, const std::string& artifacts_dir, const std::string& coarse_path, const std::string& fine_path) {
   ScannConfig config;
   SCANN_RETURN_IF_ERROR(
       ReadProtobufFromFile(artifacts_dir + "/scann_config.pb", &config));
   SingleMachineFactoryOptions opts;
   if (!hashed_dataset.empty()) {
+    std::cout << "[YJ] Reading fine codebook from " << fine_path << std::endl;
     opts.ah_codebook = std::make_shared<CentersForAllSubspaces>();
     SCANN_RETURN_IF_ERROR(ReadProtobufFromFile(
-        artifacts_dir + "/ah_codebook.pb", opts.ah_codebook.get()));
+        fine_path, opts.ah_codebook.get()));
   }
   if (!datapoint_to_token.empty()) {
     opts.serialized_partitioner = std::make_shared<SerializedPartitioner>();
@@ -119,6 +120,8 @@ Status ScannInterface::Initialize(ConstSpan<float> dataset,
                                   const std::string& config,
                                   const bool& load_coarse,
                                   const std::string& coarse_path,
+                                  const bool& load_fine,
+                                  const std::string& fine_path,
                                   int training_threads) {
   ParseTextProto(&config_, config);
   if (training_threads < 0)
@@ -134,6 +137,13 @@ Status ScannInterface::Initialize(ConstSpan<float> dataset,
     SCANN_RETURN_IF_ERROR(
         ReadProtobufFromFile(coarse_path,
                              opts.serialized_partitioner.get()));
+  }
+  if (load_fine) {
+    opts.ah_codebook = std::make_shared<CentersForAllSubspaces>();
+    std::cout << "[YJ] Reading fine codebook from " << fine_path << std::endl;
+    SCANN_RETURN_IF_ERROR(
+        ReadProtobufFromFile(fine_path,
+                             opts.ah_codebook.get()));
   }
 
   return Initialize(InitDataset(dataset, n_points), opts, InitDataset(train_set, t_points));
@@ -257,14 +267,15 @@ Status ScannInterface::SearchBatchedParallel(const DenseDataset<float>& queries,
       });
 }
 
-Status ScannInterface::Serialize(std::string path,std::string coarse_path, bool load_coarse) {
+Status ScannInterface::Serialize(std::string path,std::string coarse_path, bool load_coarse, std::string fine_path, bool load_fine) {
   TF_ASSIGN_OR_RETURN(auto opts, scann_->ExtractSingleMachineFactoryOptions());
 
   SCANN_RETURN_IF_ERROR(
       WriteProtobufToFile(path + "/scann_config.pb", &config_));
-  if (opts.ah_codebook != nullptr) {
+  if (opts.ah_codebook != nullptr && load_fine == false) {
+    std::cout << "[YJ] Saving fine codebook to " << fine_path << std::endl;
     SCANN_RETURN_IF_ERROR(
-        WriteProtobufToFile(path + "/ah_codebook.pb", opts.ah_codebook.get()));
+        WriteProtobufToFile(fine_path, opts.ah_codebook.get()));
   }
   if (opts.serialized_partitioner != nullptr && load_coarse == false) {
     std::cout << "[YJ] Saving coase codebook to " << coarse_path << std::endl;

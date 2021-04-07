@@ -39,7 +39,6 @@ CreateRecommendedAsymmetricSearcher(
     bool with_exact_reordering = true, shared_ptr<ThreadPool> pool = nullptr,
     int num_clusters_per_block = 16, int num_dimension_per_block = 2) {
   DCHECK(dataset);
-
   if (dataset->size() < num_clusters_per_block ||
       dataset->dimensionality() < num_dimension_per_block) {
     unique_ptr<SingleMachineSearcherBase<float>> bf_searcher(
@@ -70,7 +69,7 @@ CreateRecommendedAsymmetricSearcher(
       hasher_config, quantization_distance, *dataset);
   TF_ASSIGN_OR_RETURN(shared_ptr<asymmetric_hashing2::Model<float>> model,
                       asymmetric_hashing2::TrainSingleMachine<float>(
-                          *dataset, training_opts, pool));
+                          *dataset, *dataset, training_opts, pool));   // [YJ] dataset should be train set, but quick fix for compilation
   auto indexer = make_unique<asymmetric_hashing2::Indexer<float>>(
       training_opts.projector(), quantization_distance, model);
 
