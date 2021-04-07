@@ -323,6 +323,10 @@ def build_faiss(args, cacheroot, coarse_dir, split, N_, D, index_key, is_cached,
         cacheroot, args.metric, dbname, split, args.num_split, preproc_str, ivf_str, pqflat_str)
     print(index_cachefile)
 
+    first_index_cachefile = '%s%s_%s_0_%s_%s%s,%s.index' % (
+        cacheroot, args.metric, dbname, args.num_split, preproc_str, ivf_str, pqflat_str)
+    print(index_cachefile)
+
     # GPU resources
     if args.is_gpu:
         gpu_resources = []
@@ -339,10 +343,16 @@ def build_faiss(args, cacheroot, coarse_dir, split, N_, D, index_key, is_cached,
     if not index_cachefile or not os.path.exists(index_cachefile):
         # train index
         coarse_quantizer = prepare_coarse_quantizer(preproc, cent_cachefile, ncentroid, args.is_gpu)
-        index_trained = prepare_trained_index(preproc, coarse_quantizer, ncentroid, pqflat_str)
-        centroids = faiss.vector_to_array(index_trained.pq.centroids).reshape(index_trained.pq.M, index_trained.pq.ksub, index_trained.pq.dsub)
-        print("index_load: ", centroids.shape)
-        print("index_load: ", centroids)
+        if split == 0:
+            index_trained = prepare_trained_index(preproc, coarse_quantizer, ncentroid, pqflat_str)
+        else:
+            index_trained = faiss.read_index(first_index_cachefile)
+            index_trained.ntotal = 0
+            index_trained.invlists.reset()
+
+        # centroids = faiss.vector_to_array(index_trained.pq.centroids).reshape(index_trained.pq.M, index_trained.pq.ksub, index_trained.pq.dsub)
+        # print("index_load: ", centroids.shape)
+        # print("index_load: ", centroids)
 
         index_all, index_gpu = add_vectors(index_trained, preproc, args.is_gpu, addBatchSize)
 
@@ -364,6 +374,17 @@ def build_faiss(args, cacheroot, coarse_dir, split, N_, D, index_key, is_cached,
             del index_load
         else:
             index = index_load
+
+    global ps
+    index.use_precomputed_table = usePrecomputed
+    if args.is_gpu:
+        ps = faiss.GpuParameterSpace()
+        ps.initialize(index)
+        # ps.set_index_parameter(index, 'nprobe', w)
+    else:
+        faiss.omp_set_num_threads(faiss.omp_get_max_threads())
+        # index.nprobe = w
+
     return index, preproc
 
 def check_cached(cacheroot, args, dbname, split, num_split, index_key):
@@ -382,13 +403,20 @@ def check_cached(cacheroot, args, dbname, split, num_split, index_key):
 
 def faiss_search(index, preproc, args, reorder, w):
     # search environment
-    index.use_precomputed_table = usePrecomputed
+    # index.use_precomputed_table = usePrecomputed
+    # if args.is_gpu:
+    #     ps = faiss.GpuParameterSpace()
+    #     ps.initialize(index)
+    #     ps.set_index_parameter(index, 'nprobe', w)
+    # else:
+    #     faiss.omp_set_num_threads(faiss.omp_get_max_threads())
+    #     index.nprobe = w
     if args.is_gpu:
-        ps = faiss.GpuParameterSpace()
-        ps.initialize(index)
+        # ps = faiss.GpuParameterSpace()
+        # ps.initialize(index)
         ps.set_index_parameter(index, 'nprobe', w)
     else:
-        faiss.omp_set_num_threads(faiss.omp_get_max_threads())
+        # faiss.omp_set_num_threads(faiss.omp_get_max_threads())
         index.nprobe = w
 
     # reorder

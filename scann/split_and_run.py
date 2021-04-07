@@ -83,6 +83,40 @@ def compute_recall(neighbors, true_neighbors):
 		total += np.intersect1d(gt_row, row).shape[0]
 	return total / true_neighbors.size
 
+def compute_more_recalls(neighbors, true_neighbors, target, base):
+	total = 0
+	trimmed_neighbors = neighbors[:,:base]
+	trimmed_gt = true_neighbors[:,:target]
+	num_queries, _ = np.shape(trimmed_gt)
+	# print("trimmed_neighbors shape =", np.shape(trimmed_neighbors))
+	# print("trimmed_gt shape =", np.shape(trimmed_gt))
+	for i in range(num_queries):
+		curr_neighbors_row = trimmed_neighbors[i]
+		curr_gt_row = trimmed_gt[i]
+		for curr_gt_elem in curr_gt_row:
+			if curr_gt_elem in curr_neighbors_row:
+				total += 1
+	return total / trimmed_gt.size
+
+def print_more_recalls(final_neighbors, gt):
+	print("final_neighbors :", final_neighbors.shape)
+	print("gt :", gt.shape)
+
+	top1_10 = compute_more_recalls(final_neighbors, gt, 1, 10)
+	top1_100 = compute_more_recalls(final_neighbors, gt, 1, 100)
+	top10_100 = compute_more_recalls(final_neighbors, gt, 10, 100)
+	top1_1000 = compute_more_recalls(final_neighbors, gt, 1, 1000)
+	top10_1000 = compute_more_recalls(final_neighbors, gt, 10, 1000)
+	top100_1000 = compute_more_recalls(final_neighbors, gt, 100, 1000)
+
+	print("Recall 1@10:", top1_10)
+	print("Recall 1@100:", top1_100)
+	print("Recall 10@100:", top10_100)
+	print("Recall 1@1000:", top1_1000)
+	print("Recall 10@1000:", top10_1000)
+	print("Recall 100@1000:", top100_1000)
+	return top1_10, top1_100, top10_100, top1_1000, top10_1000, top100_1000
+
 def ivecs_read(fname):
 	a = np.fromfile(fname, dtype='int32')
 	d = a[0]
@@ -136,6 +170,14 @@ def read_data(dataset_path, offset_=None, shape_=None, base=True):
 	if "sift1m" in args.dataset:
 		file = dataset_path + "sift_base.fvecs" if base else dataset_path
 		return mmap_fvecs(file, offset_=offset_, shape_=shape_)
+	elif "deep1m" in args.dataset:
+		file = dataset_path + "deep1m_base.fvecs" if base else dataset_path
+		return mmap_fvecs(file, offset_=offset_, shape_=shape_)
+	elif "music1m" in args.dataset:
+		# file = dataset_path + "database_music100.bin" if base else dataset_path
+		# return np.fromfile(file, dtype = np.float32).reshape(N, D)
+		file = dataset_path + "split_data/music1m_1_0" if base else dataset_path
+		return mmap_fvecs(file, offset_=offset_, shape_=shape_)
 	elif "gist" in args.dataset:
 		file = dataset_path + "gist_base.fvecs" if base else dataset_path
 		return mmap_fvecs(file, offset_=offset_, shape_=shape_)
@@ -165,7 +207,7 @@ def read_data(dataset_path, offset_=None, shape_=None, base=True):
 def write_split_data(split_data_path, split_data):
 	if "sift1b" in args.dataset:
 		bvecs_write(split_data_path, split_data)
-	elif "sift1m" in args.dataset or "gist" in args.dataset or "deep1b" in args.dataset:
+	elif "sift1m" in args.dataset or "gist" in args.dataset or "deep1m" in args.dataset or "deep1b" in args.dataset or "music1m" in args.dataset:
 		fvecs_write(split_data_path, split_data)
 	elif "glove" in args.dataset:
 		hf = h5py.File(split_data_path, 'w')
@@ -174,7 +216,7 @@ def write_split_data(split_data_path, split_data):
 	print("arcm::write_split_data done\n");
 
 def write_gt_data(gt_data):
-	if "sift1b" in args.dataset or "sift1m" in args.dataset or "gist" in args.dataset or "deep1b" in args.dataset:
+	if "sift1b" in args.dataset or "sift1m" in args.dataset or "gist" in args.dataset or "deep1m" in args.dataset or "deep1b" in args.dataset or "music1m" in args.dataset:
 		ivecs_write(groundtruth_path, gt_data)
 	elif "glove" in args.dataset:
 		hf = h5py.File(groundtruth_path, 'w')
@@ -210,6 +252,9 @@ def split(filename, num_iter, N, D):
 					if "glove" in args.dataset:
 						trainset = np.random.choice(split_size, int(sampling_rate*split_size), replace=False)
 						write_split_data(split_dataset_path + args.metric + "_learn" + str(args.num_split) + "_" + str(split), dataset[count*num_per_split:][trainset])
+					elif "music1m" in args.dataset:
+						trainset = np.random.choice(split_size, int(sampling_rate*split_size), replace=False)
+						write_split_data(split_dataset_path + "learn" + str(args.num_split) + "_" + str(split), dataset[count*num_per_split:][trainset])
 					num_split_list.append(dataset[count*num_per_split:].shape[0])
 					split = split+1
 				break
@@ -221,6 +266,9 @@ def split(filename, num_iter, N, D):
 				if "glove" in args.dataset:
 					trainset = np.random.choice(split_size, int(sampling_rate*split_size), replace=False)
 					write_split_data(split_dataset_path + args.metric + "_learn" + str(args.num_split) + "_" + str(split), dataset[count*num_per_split:(count+1)*num_per_split][trainset])
+				elif "music1m" in args.dataset:
+					trainset = np.random.choice(split_size, int(sampling_rate*split_size), replace=False)
+					write_split_data(split_dataset_path + "learn" + str(args.num_split) + "_" + str(split), dataset[count*num_per_split:(count+1)*num_per_split][trainset])
 				num_split_list.append(dataset[count*num_per_split:(count+1)*num_per_split].shape[0])
 				split = split+1
 			count = count+1
@@ -302,7 +350,11 @@ def sort_neighbors(distances, neighbors):
 def prepare_eval():
 	gt = get_groundtruth()
 	queries = get_queries()
-	print("gt shape: ", gt.shape)
+	# gt = gt[0:args.batch, :]
+	# queries = queries[0:args.batch, :]
+	# qN = args.batch
+	print("gt shape: ", np.shape(gt))
+	print("queries shape: ", np.shape(queries))
 	# print("gt: ", gt[0])
 	assert gt.shape[1] == 1000
 	return gt, queries
@@ -400,9 +452,10 @@ def run_scann():
 							 [170, args.reorder], [200, args.reorder], [220, args.reorder], [250, args.reorder], [310, args.reorder], [400, args.reorder], [500, args.reorder], [800, args.reorder], [1000, args.reorder], \
 							 [1250, args.reorder], [1500, args.reorder], [1750, args.reorder], [1900, args.reorder], [2000, args.reorder], [2048, args.reorder]]
 
-		# f = open(sweep_result_path, "w")
-		# f.write("Program: " + args.program + " Topk: " + str(args.topk) + " Num_split: " + str(args.num_split)+ " Batch: "+str(args.batch)+"\n")
+		f = open(sweep_result_path, "w")
+		f.write("Program: " + args.program + " Topk: " + str(args.topk) + " Num_split: " + str(args.num_split)+ " Batch: "+str(args.batch)+"\n")
 		# f.write("L\tThreshold\tm\t|\tw\tr\tMetric\tSOW_avg\tSOW_per_time\n")
+		f.write("L\tThreshold\tm\t|\tw\tr\tMetric\n")
 	else:
 		# assert D%args.m == 0
 		build_config = [(args.L, args.threshold, int(D/args.m), args.metric)]
@@ -589,13 +642,16 @@ def run_scann():
 				# 	top1, top10, top100, top1000 = print_recall(remap_index[final_neighbors[idx]], gt)
 				# else:
 				# 	top1, top10, top100, top1000 = print_recall(final_neighbors[idx], gt)
+				top1_10, top1_100, top10_100, top1_1000, top10_1000, top100_1000 = print_more_recalls(final_neighbors[idx], gt)
+				print()
 				top1, top10, top100, top1000 = print_recall(final_neighbors[idx], gt)
 				print("Top ", args.topk, " Total latency (ms): ", total_latency[idx])
 				print("SOW shape :", current_SOW.shape, ", min :", np.min(current_SOW), ", max :", np.max(current_SOW), ", avg :", np.average(current_SOW))
 				print("Sum of SOW per total latency: ", SOW_per_time)
 				print("arcm::Latency written. End of File.\n");
 				if args.sweep:
-					f.write(str(top1)+" %\t"+str(top10)+" %\t"+str(top100)+" %\t"+str(top1000)+"%\t"+str(total_latency[idx])+"\t"+str(SOW_avg)+"\t"+str(SOW_per_time)+"\n")
+					f.write(str(top1)+" %\t"+str(top10)+" %\t"+str(top100)+" %\t"+str(top1000)+" %\t|\t"+str(top1_10)+" %\t"+str(top1_100)+" %\t"+str(top10_100)+" %\t"+str(top1_1000)+" %\t"+str(top10_1000)+" %\t"+str(top100_1000)+" %\t"+str(total_latency[idx])+"\n")
+					# f.write(str(top1)+" %\t"+str(top10)+" %\t"+str(top100)+" %\t"+str(top1000)+"%\t"+str(total_latency[idx])+"\t"+str(SOW_avg)+"\t"+str(SOW_per_time)+"\n")
 	if args.sweep:
 		f.close()
 
@@ -685,8 +741,14 @@ def run_faiss(D):
 			if "gist" in args.dataset:
 				build_config = [[1000, int(D/2), 8, args.metric], [1000, int(D/3), 8, args.metric], [1000, int(D/4), 8, args.metric]]	# L, m, log2(k*), metric
 			elif "sift1b" in args.dataset or "deep1b" in args.dataset:
-				build_config = [[7000, D, 8, args.metric], [7000, int(D/2), 8, args.metric], [7000, int(D/4), 8, args.metric], \
+				build_config = [[7000, D, 4, args.metric], [7000, int(D/2), 4, args.metric], [7000, int(D/4), 4, args.metric], \
+								[7000, D, 6, args.metric], [7000, int(D/2), 6, args.metric], [7000, int(D/4), 6, args.metric], \
+								[7000, D, 8, args.metric], [7000, int(D/2), 8, args.metric], [7000, int(D/4), 8, args.metric], \
+								[8000, D, 4, args.metric], [8000, int(D/2), 4, args.metric], [8000, int(D/4), 4, args.metric], \
+								[8000, D, 6, args.metric], [8000, int(D/2), 6, args.metric], [8000, int(D/4), 6, args.metric], \
 								[8000, D, 8, args.metric], [8000, int(D/2), 8, args.metric], [8000, int(D/4), 8, args.metric], \
+								[6000, D, 4, args.metric], [6000, int(D/2), 4, args.metric], [6000, int(D/4), 4, args.metric], \
+								[6000, D, 6, args.metric], [6000, int(D/2), 6, args.metric], [6000, int(D/4), 6, args.metric], \
 								[6000, D, 8, args.metric], [6000, int(D/2), 8, args.metric], [6000, int(D/4), 8, args.metric]]
 			else:
 				build_config = [[1000, int(D/32), 4, args.metric], [1000, int(D/16), 4, args.metric], [1000, int(D/8), 4, args.metric], [1000, int(D/4), 4, args.metric], [1000, int(D/3), 4, args.metric], [1000, int(D/2), 4, args.metric], [1000, D, 4, args.metric], \
@@ -702,13 +764,19 @@ def run_faiss(D):
 								[500, int(D/8), 8, args.metric], [500, int(D/4), 8, args.metric], [500, int(D/3), 8, args.metric], [500, int(D/2), 8, args.metric], [500, D, 8, args.metric], \
 								[600, int(D/8), 8, args.metric], [600, int(D/4), 8, args.metric], [600, int(D/3), 8, args.metric], [600, int(D/2), 8, args.metric], [600, D, 8, args.metric]]	# L, m, log2(k*), metric
 
-		search_config = [[1, args.reorder], [2, args.reorder], [4, args.reorder], [8, args.reorder], [16, args.reorder], [25, args.reorder], [30, args.reorder], [35, args.reorder], [40, args.reorder], \
-						 [45, args.reorder], [50, args.reorder], [55, args.reorder], [60, args.reorder], [65, args.reorder], [75, args.reorder], [90, args.reorder], [110, args.reorder], [130, args.reorder], [150, args.reorder], \
-						 [170, args.reorder], [200, args.reorder], [220, args.reorder], [250, args.reorder], [310, args.reorder], [400, args.reorder], [500, args.reorder], [800, args.reorder], [1000, args.reorder], \
-						 [1250, args.reorder], [1500, args.reorder], [1750, args.reorder], [1900, args.reorder], [2000, args.reorder], [2250, args.reorder], [2500, args.reorder], [2750, args.reorder], [3000, args.reorder], [3500, args.reorder], [4000, args.reorder]]
-		# f = open(sweep_result_path, "w")
-		# f.write("Program: " + args.program + ("GPU" if args.is_gpu else "") + " Topk: " + str(args.topk) + " Num_split: " + str(args.num_split)+ " Batch: "+str(args.batch)+"\n")
+		# search_config = [[1, args.reorder], [2, args.reorder], [4, args.reorder], [8, args.reorder], [16, args.reorder], [25, args.reorder], [30, args.reorder], [35, args.reorder], [40, args.reorder], \
+		# 				 [45, args.reorder], [50, args.reorder], [55, args.reorder], [60, args.reorder], [65, args.reorder], [75, args.reorder], [90, args.reorder], [110, args.reorder], [130, args.reorder], [150, args.reorder], \
+		# 				 [170, args.reorder], [200, args.reorder], [220, args.reorder], [250, args.reorder], [310, args.reorder], [400, args.reorder], [500, args.reorder], [800, args.reorder], [1000, args.reorder], \
+		# 				 [1250, args.reorder], [1500, args.reorder], [1750, args.reorder], [1900, args.reorder], [2000, args.reorder], [2250, args.reorder], [2500, args.reorder], [2750, args.reorder], [3000, args.reorder], [3500, args.reorder], [4000, args.reorder]]
+			search_config = [[1, args.reorder], [2, args.reorder], [4, args.reorder], [8, args.reorder], [16, args.reorder], [25, args.reorder], [30, args.reorder], [35, args.reorder], [40, args.reorder], \
+							 [45, args.reorder], [50, args.reorder], [55, args.reorder], [60, args.reorder], [65, args.reorder], [75, args.reorder], [90, args.reorder], [110, args.reorder], [130, args.reorder], [150, args.reorder], \
+							 [170, args.reorder], [200, args.reorder], [220, args.reorder], [250, args.reorder], [310, args.reorder], [400, args.reorder], [500, args.reorder], [800, args.reorder], [1000, args.reorder], \
+							 [1250, args.reorder], [1500, args.reorder], [1750, args.reorder], [1900, args.reorder], [2000, args.reorder], [2250, args.reorder], [2500, args.reorder], [2750, args.reorder], [3000, args.reorder], [3500, args.reorder], [4000, args.reorder]]
+
+		f = open(sweep_result_path, "w")
+		f.write("Program: " + args.program + ("GPU" if args.is_gpu else "") + " Topk: " + str(args.topk) + " Num_split: " + str(args.num_split)+ " Batch: "+str(args.batch)+"\n")
 		# f.write("L\tm\tk_star\t|\tw\tReorder\tMetric\tSOW_avg\tSOW_per_time\n")
+		f.write("L\tm\tk_star\t|\tw\tReorder\tMetric\n")
 	else:
 		if args.opq != -1:
 			assert args.opq % args.m == 0 and args.sq == -1
@@ -832,6 +900,8 @@ def run_faiss(D):
 					# SOW_list.append(SOW)
 					# SOW_elements_list.append(SOW_elements)
 				del index
+				if is_cached == False:
+					dataset._mmap.close()
 				base_idx = base_idx + num_per_split
 				neighbors = np.append(neighbors, np.array(n, dtype=np.int32), axis=-1)
 				distances = np.append(distances, np.array(d, dtype=np.float32), axis=-1)
@@ -865,18 +935,20 @@ def run_faiss(D):
 				# 	print("\narcm::endline")
 				SOW_avg = np.average(current_SOW)
 				SOW_per_time = np.sum(current_SOW) / total_latency[idx]
-				# if args.sweep:
-					# w, reorder = search_config[sc_list[idx]]
-					# f.write(str(L)+"\t"+str(m)+"\t"+str(2**log2kstar)+"\t|\t"+str(w)+"\t"+str(reorder)+"\t"+str(metric)+"\n")		# faiss-gpu has no reorder
+				if args.sweep:
+					w, reorder = search_config[sc_list[idx]]
+					f.write(str(L)+"\t"+str(m)+"\t"+str(2**log2kstar)+"\t|\t"+str(w)+"\t"+str(reorder)+"\t"+str(metric)+"\n")		# faiss-gpu has no reorder
+				top1_10, top1_100, top10_100, top1_1000, top10_1000, top100_1000 = print_more_recalls(final_neighbors[idx], gt)
 				top1, top10, top100, top1000 = print_recall(final_neighbors[idx], gt)
 				print("Top ", args.topk, " Total latency (ms): ", total_latency[idx])
 				print("SOW shape :", current_SOW.shape, ", min :", np.min(current_SOW), ", max :", np.max(current_SOW), ", avg :", np.average(current_SOW))
 				print("Sum of SOW per total latency: ", SOW_per_time)
 				print("arcm::Latency written. End of File.\n");
-				# if args.sweep:
+				if args.sweep:
+					f.write(str(top1)+" %\t"+str(top10)+" %\t"+str(top100)+" %\t"+str(top1000)+" %\t|\t"+str(top1_10)+" %\t"+str(top1_100)+" %\t"+str(top10_100)+" %\t"+str(top1_1000)+" %\t"+str(top10_1000)+" %\t"+str(top100_1000)+" %\t"+str(total_latency[idx])+"\n")
 					# f.write(str(top1)+" %\t"+str(top10)+" %\t"+str(top100)+" %\t"+str(top1000)+"%\t"+str(total_latency[idx])+"\t"+str(SOW_avg)+"\t"+str(SOW_per_time)+"\n")
-	# if args.sweep:
-		# f.close()
+	if args.sweep:
+		f.close()
 
 def run_annoy(D):
 	gt, queries = prepare_eval()
@@ -990,6 +1062,9 @@ def get_train():
 		filename = dataset_basedir + 'deep1b_learn.fvecs'
 		xt = mmap_fvecs(filename, 0, 1000000)
 		return xt
+	elif "deep1m" in args.dataset:
+		filename = dataset_basedir + 'deep1m_learn.fvecs'
+		return mmap_fvecs(filename)
 	elif "gist" in args.dataset:
 		filename = dataset_basedir + 'gist_learn.fvecs'
 		return mmap_fvecs(filename)
@@ -999,6 +1074,9 @@ def get_train():
 	elif "glove" in args.dataset:
 		filename = dataset_basedir + 'split_data/glove_'+args.metric+'_learn1_0'
 		return read_data(filename, base=False)
+	elif "music1m" in args.dataset:
+		filename = dataset_basedir + 'split_data/music1m_learn1_0'
+		return mmap_fvecs(filename)
 	else:
 		assert False
 
@@ -1016,6 +1094,11 @@ def get_groundtruth():
 def get_queries():
 	if "sift1m" in args.dataset:
 		return mmap_fvecs(dataset_basedir + 'sift_query.fvecs')
+	elif "deep1m" in args.dataset:
+		return mmap_fvecs(dataset_basedir + 'deep1m_query.fvecs')
+	elif "music1m" in args.dataset:
+		# return np.fromfile(dataset_basedir + 'query_music100.bin', dtype = np.float32).reshape(qN, D)
+		return mmap_fvecs(split_dataset_path + 'query1_0')
 	elif "gist" in args.dataset:
 		return mmap_fvecs(dataset_basedir + 'gist_query.fvecs')
 	elif "sift1b" in args.dataset:
@@ -1036,7 +1119,8 @@ else:
 os.makedirs("./result", exist_ok=True)
 split_dataset_path = None
 if args.sweep:
-	sweep_result_path = "./result/"+args.program+("GPU_" if args.is_gpu else "_")+args.dataset+"_topk_"+str(args.topk)+"_num_split_"+str(args.num_split)+"_batch_"+str(args.batch)+"_"+args.metric+"_reorder_"+str(args.reorder)+"_sweep_result.txt"
+	# sweep_result_path = "./result/"+args.program+("GPU_" if args.is_gpu else "_")+args.dataset+"_topk_"+str(args.topk)+"_num_split_"+str(args.num_split)+"_batch_"+str(args.batch)+"_"+args.metric+"_reorder_"+str(args.reorder)+"_sweep_result.txt"
+	sweep_result_path = "./final_result/"+args.program+("GPU_" if args.is_gpu else "_")+args.dataset+"_topk_"+str(args.topk)+"_num_split_"+str(args.num_split)+"_batch_"+str(args.batch)+"_"+args.metric+"_reorder_"+str(args.reorder)+"_sweep_result.txt"
 index_key = None
 N = -1
 D = -1
@@ -1053,6 +1137,26 @@ if "sift1m" in args.dataset:
 	num_iter = 1
 	qN = 10000
 	index_key = "IVF4096,PQ64"
+elif "deep1m" in args.dataset:
+	dataset_basedir = basedir + "DEEP1M/"
+	split_dataset_path = dataset_basedir+"split_data/deep1m_"
+	if args.split==False:
+		groundtruth_path = dataset_basedir + "deep1m_"+args.metric+"_gt"
+	N=1000000
+	D=256
+	num_iter = 1
+	qN = 1000
+	index_key = "IVF4096,PQ64" #arcm::FIXME
+elif "music1m" in args.dataset:
+	dataset_basedir = basedir + "MUSIC1M/"
+	split_dataset_path = dataset_basedir+"split_data/music1m_"
+	if args.split==False:
+		groundtruth_path = dataset_basedir + "music1m_"+args.metric+"_gt"
+	N=1000000
+	D=100
+	num_iter = 1
+	qN = 10000
+	index_key = "IVF4096,PQ64" #arcm::FIXME
 elif "gist" in args.dataset:
 	dataset_basedir = basedir + "GIST/"
 	split_dataset_path =dataset_basedir+"split_data/gist_"
@@ -1092,7 +1196,7 @@ elif "deep1b" in args.dataset:
 	num_iter = 16
 	qN = 10000
 
-if args.split == False:
+if args.split == False and args.groudtruth == False:
 	coarse_dir = basedir + args.program + '_searcher_' + args.metric + '/' + args.dataset + '/coarse_dir/'
 	os.makedirs(coarse_dir, exist_ok=True)
 	if args.program == "scann":
