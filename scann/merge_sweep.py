@@ -102,22 +102,27 @@ new_write_file.write(new_file_second_line)
 
 assert original_read_line_number == new_read_line_number
 
+configs_idx = 0
+recalls_idx = 0
+
 for i in range(original_read_line_number-2):
 	if i % 2 == 0:
-		assert original_configs[i] == new_configs[i]
-		new_write_file.write(original_configs[i])
+		assert original_configs[configs_idx] == new_configs[configs_idx]
+		new_write_file.write(original_configs[configs_idx])
+		configs_idx += 1
 	else:
-		top1 = original_recalls[i][0]
-		top10 = original_recalls[i][1]
-		top100 = original_recalls[i][2]
-		top1000 = original_recalls[i][3]
-		top1_10 = new_recalls[i][0]
-		top1_100 = new_recalls[i][1]
-		top10_100 = new_recalls[i][2]
-		top1_1000 = new_recalls[i][3]
-		top10_1000 = new_recalls[i][4]
-		top100_1000 = new_recalls[i][5]
-		latency = original_latencies[i]
+		top1 = original_recalls[recalls_idx][0]
+		top10 = original_recalls[recalls_idx][1]
+		top100 = original_recalls[recalls_idx][2]
+		top1000 = original_recalls[recalls_idx][3]
+		top1_10 = new_recalls[recalls_idx][0]
+		top1_100 = new_recalls[recalls_idx][1]
+		top10_100 = new_recalls[recalls_idx][2]
+		top1_1000 = new_recalls[recalls_idx][3]
+		top10_1000 = new_recalls[recalls_idx][4]
+		top100_1000 = new_recalls[recalls_idx][5]
+		latency = original_latencies[recalls_idx]
 		new_write_file.write(str(top1)+" %\t"+str(top10)+" %\t"+str(top100)+" %\t"+str(top1000)+" %\t|\t"+str(top1_10)+" %\t"+str(top1_100)+" %\t"+str(top10_100)+" %\t"+str(top1_1000)+" %\t"+str(top10_1000)+" %\t"+str(top100_1000)+" %\t"+str(latency)+"\n")
+		recalls_idx += 1
 
 new_write_file.close()
