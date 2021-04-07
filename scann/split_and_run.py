@@ -687,8 +687,8 @@ def run_faiss(D):
 			# 				 [170, args.reorder], [200, args.reorder], [220, args.reorder], [250, args.reorder], [310, args.reorder], [400, args.reorder], [500, args.reorder], [800, args.reorder], [1000, args.reorder], \
 			# 				 [1250, args.reorder], [1500, args.reorder], [1750, args.reorder], [1900, args.reorder], [2000, args.reorder], [2250, args.reorder], [2500, args.reorder], [2750, args.reorder], [3000, args.reorder], [3500, args.reorder], [4000, args.reorder]]
 
-			search_config = [[1, args.reorder], [2, args.reorder], [4, args.reorder], [8, args.reorder], [16, args.reorder], [32, args.reorder], [64, args.reorder], [128, args.reorder], [256, args.reorder], \
-							 [512, args.reorder], [1024, args.reorder]]
+			search_config = [[1, args.reorder], [2, args.reorder], [4, args.reorder], [8, args.reorder], [16, args.reorder], [32, args.reorder], [64, args.reorder], [128, args.reorder], [192, args.reorder], [256, args.reorder], \
+							 [384, args.reorder], [512, args.reorder], [1024, args.reorder]]
 		f = open(sweep_result_path, "w")
 		f.write("Program: " + args.program + ("GPU" if args.is_gpu else "") + " Topk: " + str(args.topk) + " Num_split: " + str(args.num_split)+ " Batch: "+str(args.batch)+"\n")
 		f.write("L\tm\tk_star\t|\tw\tReorder\tMetric\n")
