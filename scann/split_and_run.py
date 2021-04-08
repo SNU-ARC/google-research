@@ -466,17 +466,15 @@ def run_scann():
 		SOW_elements_list = list()
 		# SOW = np.zeros((queries.shape[0], 1))
 		num_leaves, threshold, dims, metric = bc
-		if args.trace:
-			search_config = [[int(num_leaves/2), args.reorder]]
-			trace_w = int(num_leaves/2)
+		# if args.trace:
+			# search_config = [[int(num_leaves/2), args.reorder]]
+			# trace_w = int(num_leaves/2)
 		sc_list = check_available_search_config(args.program, bc, search_config)
 		trace_L = num_leaves
 		trace_m = D / dims
 		trace_threshold = threshold
 		trace_log2kstar = 4
 		# assert (not args.is_gpu and log2kstar<=8) or (log2kstar == 8)
-		if args.trace:
-			trace_result_path = "../../ANNA_chisel/simulator/final_trace/trace_"+args.program+("GPU_" if args.is_gpu else "_")+args.dataset+"_topk_"+str(args.topk)+"_num_split_"+str(args.num_split)+"_batch_"+str(args.batch)+"_"+args.metric+"_L_"+str(trace_L)+"_m_"+str(trace_m)+"_w_"+str(trace_w)+"_threshold_"+str(trace_threshold)+"_log2kstar_"+str(trace_log2kstar)
 		if len(sc_list) > 0:
 			neighbors=np.empty((len(sc_list), queries.shape[0],0), dtype=np.int32)
 			distances=np.empty((len(sc_list), queries.shape[0],0), dtype=np.float32)
@@ -486,7 +484,11 @@ def run_scann():
 			coarse_path = coarse_dir+"coarse_codebook_L_"+str(num_leaves)+"_threshold_"+str(threshold)+"_dims_"+str(dims)+"_metric_"+metric
 			fine_path = scann_fine_dir+"fine_codebook_L_"+str(num_leaves)+"_threshold_"+str(threshold)+"_dims_"+str(dims)+"_metric_"+metric
 
-			w_, _ = search_config[sc_list[idx]]
+			if args.trace:
+				trace_w, _ = search_config[sc_list[-1]]
+				trace_result_path = "../../ANNA_chisel/simulator/final_trace/trace_"+args.program+("GPU_" if args.is_gpu else "_")+args.dataset+"_topk_"+str(args.topk)+"_num_split_"+str(args.num_split)+"_batch_"+str(args.batch)+"_"+args.metric+"_L_"+str(trace_L)+"_m_"+str(trace_m)+"_w_"+str(trace_w)+"_threshold_"+str(trace_threshold)+"_log2kstar_"+str(trace_log2kstar)
+
+			w_, _ = search_config[sc_list[-1]]
 			SOW = np.zeros((queries.shape[0], 1))
 			SOW_elements = np.zeros((queries.shape[0], w_))
 			for split in range(args.num_split):
@@ -560,17 +562,18 @@ def run_scann():
 						# 	else:
 						# 		print(local_SOW[i], end = "\t")
 						# SOW_location = leaves_to_search
-						for i in range(n_times_w_plus_1):
-							if i == SOW_location:
-								SOW[SOW_idx] += local_SOW[i]
-								SOW_idx += 1
-								SOW_location += leaves_to_search + 1
-							else:
-								SOW_elements[SOW_elements_outer_idx, SOW_elements_inner_idx] += local_SOW[i]
-								SOW_elements_inner_idx += 1
-								if SOW_elements_inner_idx == leaves_to_search:
-									SOW_elements_inner_idx = 0
-									SOW_elements_outer_idx += 1
+						if idx == len(sc_list) - 1:
+							for i in range(n_times_w_plus_1):
+								if i == SOW_location:
+									SOW[SOW_idx] += local_SOW[i]
+									SOW_idx += 1
+									SOW_location += leaves_to_search + 1
+								else:
+									SOW_elements[SOW_elements_outer_idx, SOW_elements_inner_idx] += local_SOW[i]
+									SOW_elements_inner_idx += 1
+									if SOW_elements_inner_idx == leaves_to_search:
+										SOW_elements_inner_idx = 0
+										SOW_elements_outer_idx += 1
 						# SOW += local_SOW
 					else:
 						# ScaNN search
@@ -587,21 +590,22 @@ def run_scann():
 						idx_SOW = 0
 						outer_idx_SOW_elements = 0
 						inner_idx_SOW_elements = 0
-						for time_, local_SOW_, nd_ in local_results:
-							w_plus_1, _ = np.shape(local_SOW_)
-							for i in range(w_plus_1):
-								if i != w_plus_1 - 1:
-									# print("outer_idx_SOW_elements =", outer_idx_SOW_elements, ", inner_idx_SOW_elements =", inner_idx_SOW_elements, ", i =", i)
-									SOW_elements[outer_idx_SOW_elements, inner_idx_SOW_elements] += local_SOW_[i]
-									# if i == 0:
-									# 	print("local_SOW_[0] =", local_SOW_[0])
-									inner_idx_SOW_elements += 1
-								else:
-									SOW[idx_SOW] += local_SOW_[i]
-									idx_SOW += 1
-									outer_idx_SOW_elements += 1
-									inner_idx_SOW_elements = 0
-									idx_SOW_elements = 0
+						if idx == len(sc_list) - 1:
+							for time_, local_SOW_, nd_ in local_results:
+								w_plus_1, _ = np.shape(local_SOW_)
+								for i in range(w_plus_1):
+									if i != w_plus_1 - 1:
+										# print("outer_idx_SOW_elements =", outer_idx_SOW_elements, ", inner_idx_SOW_elements =", inner_idx_SOW_elements, ", i =", i)
+										SOW_elements[outer_idx_SOW_elements, inner_idx_SOW_elements] += local_SOW_[i]
+										# if i == 0:
+										# 	print("local_SOW_[0] =", local_SOW_[0])
+										inner_idx_SOW_elements += 1
+									else:
+										SOW[idx_SOW] += local_SOW_[i]
+										idx_SOW += 1
+										outer_idx_SOW_elements += 1
+										inner_idx_SOW_elements = 0
+										idx_SOW_elements = 0
 
 						n.append(np.vstack([n for n,d in nd])+base_idx)
 						d.append(np.vstack([d for n,d in nd]))
@@ -620,20 +624,21 @@ def run_scann():
 			final_neighbors, _ = sort_neighbors(distances, neighbors)
 			for idx in range(len(sc_list)):
 				arcm_w, _ = search_config[sc_list[idx]]
-				if args.trace and arcm_w != num_leaves / 2:
-					continue
-				current_SOW = SOW_list[idx]
-				current_SOW_elements = SOW_elements_list[idx]
+				# if args.trace and arcm_w != num_leaves / 2:
+					# continue
+				if idx == len(sc_list) - 1:
+					current_SOW = SOW_list[-1]
+					current_SOW_elements = SOW_elements_list[-1]
 				# print("current_SOW_elements[0, 0] =", current_SOW_elements[0, 0])
-				if args.trace:
+				if args.trace and idx == len(sc_list) - 1:
 					trace_f = open(trace_result_path, "w")
 					for i in range(qN):
 						for j in range(arcm_w):
 							trace_f.write(str(int(current_SOW_elements[i, j]))+"\t")
 						trace_f.write("\n")
 					trace_f.close()
-				SOW_avg = np.average(current_SOW)
-				SOW_per_time = np.sum(current_SOW) / total_latency[idx]
+				# SOW_avg = np.average(current_SOW)
+				# SOW_per_time = np.sum(current_SOW) / total_latency[idx]
 				if args.sweep:
 					leaves_to_search, reorder = search_config[sc_list[idx]]
 					f.write(str(num_leaves)+"\t"+str(threshold)+"\t"+str(int(D/dims))+"\t|\t"+str(leaves_to_search)+"\t"+str(reorder)+"\t"+str(metric)+"\n")
@@ -646,8 +651,8 @@ def run_scann():
 				print()
 				top1, top10, top100, top1000 = print_recall(final_neighbors[idx], gt)
 				print("Top ", args.topk, " Total latency (ms): ", total_latency[idx])
-				print("SOW shape :", current_SOW.shape, ", min :", np.min(current_SOW), ", max :", np.max(current_SOW), ", avg :", np.average(current_SOW))
-				print("Sum of SOW per total latency: ", SOW_per_time)
+				# print("SOW shape :", current_SOW.shape, ", min :", np.min(current_SOW), ", max :", np.max(current_SOW), ", avg :", np.average(current_SOW))
+				# print("Sum of SOW per total latency: ", SOW_per_time)
 				print("arcm::Latency written. End of File.\n");
 				if args.sweep:
 					f.write(str(top1)+" %\t"+str(top10)+" %\t"+str(top100)+" %\t"+str(top1000)+" %\t|\t"+str(top1_10)+" %\t"+str(top1_100)+" %\t"+str(top10_100)+" %\t"+str(top1_1000)+" %\t"+str(top10_1000)+" %\t"+str(top100_1000)+" %\t"+str(total_latency[idx])+"\n")
@@ -796,11 +801,9 @@ def run_faiss(D):
 		trace_threshold = "None"
 		trace_log2kstar = log2kstar
 		# assert (not args.is_gpu and log2kstar<=8) or (log2kstar == 8)
-		if args.trace:
-			search_config = [[256, args.reorder]]
-			trace_w = 256
-		if args.trace:
-			trace_result_path = "../../ANNA_chisel/simulator/final_trace/trace_"+args.program+("GPU_" if args.is_gpu else "_")+args.dataset+"_topk_"+str(args.topk)+"_num_split_"+str(args.num_split)+"_batch_"+str(args.batch)+"_"+args.metric+"_L_"+str(trace_L)+"_m_"+str(trace_m)+"_w_"+str(trace_w)+"_threshold_"+str(trace_threshold)+"_log2kstar_"+str(trace_log2kstar)
+		# if args.trace:
+			# search_config = [[256, args.reorder]]
+			# trace_w = 256
 		sc_list = check_available_search_config(args.program, bc, search_config)
 		print(bc)
 		print(sc_list)
@@ -824,8 +827,11 @@ def run_faiss(D):
 			else:
 				index_key_manual = "OPQ"+str(faiss_m)+"_"+str(args.opq)+",IVF"+str(L)+",PQ"+str(faiss_m)+"x"+str(log2kstar)
 
+			if args.trace:
+				trace_w, _ = search_config[sc_list[-1]]
+				trace_result_path = "../../ANNA_chisel/simulator/final_trace/trace_"+args.program+("GPU_" if args.is_gpu else "_")+args.dataset+"_topk_"+str(args.topk)+"_num_split_"+str(args.num_split)+"_batch_"+str(args.batch)+"_"+args.metric+"_L_"+str(trace_L)+"_m_"+str(trace_m)+"_w_"+str(trace_w)+"_threshold_"+str(trace_threshold)+"_log2kstar_"+str(trace_log2kstar)
 			SOW = np.zeros((queries.shape[0], 1))
-			w_, _ = search_config[sc_list[0]]
+			w_, _ = search_config[sc_list[-1]]
 			SOW_elements = np.zeros((queries.shape[0], w_))
 			for split in range(args.num_split):
 				print("Split ", split)
@@ -885,17 +891,18 @@ def run_faiss(D):
 					# 	else:
 					# 		print(local_SOW[i], end = "\t")
 					# SOW_location = w
-					for i in range(n_times_w_plus_1):
-						if i == SOW_location:
-							SOW[SOW_idx] += local_SOW[i]
-							SOW_idx += 1
-							SOW_location += w + 1
-						else:
-							SOW_elements[SOW_elements_outer_idx, SOW_elements_inner_idx] += local_SOW[i]
-							SOW_elements_inner_idx += 1
-							if SOW_elements_inner_idx == w:
-								SOW_elements_inner_idx = 0
-								SOW_elements_outer_idx += 1
+					if idx == len(sc_list) - 1:
+						for i in range(n_times_w_plus_1):
+							if i == SOW_location:
+								SOW[SOW_idx] += local_SOW[i]
+								SOW_idx += 1
+								SOW_location += w + 1
+							else:
+								SOW_elements[SOW_elements_outer_idx, SOW_elements_inner_idx] += local_SOW[i]
+								SOW_elements_inner_idx += 1
+								if SOW_elements_inner_idx == w:
+									SOW_elements_inner_idx = 0
+									SOW_elements_outer_idx += 1
 					# SOW += local_SOW
 					# SOW_list.append(SOW)
 					# SOW_elements_list.append(SOW_elements)
@@ -917,9 +924,10 @@ def run_faiss(D):
 			# print("distances: ", _[0][3])
 			for idx in range(len(sc_list)):
 				arcm_w, _ = search_config[sc_list[idx]]
-				current_SOW = SOW_list[idx]
-				current_SOW_elements = SOW_elements_list[idx]
-				if args.trace:
+				if idx == len(sc_list) - 1:
+					current_SOW = SOW_list[-1]
+					current_SOW_elements = SOW_elements_list[-1]
+				if args.trace and idx == len(sc_list) - 1:
 					trace_f = open(trace_result_path, "w")
 					for i in range(qN):
 						for j in range(arcm_w):
@@ -933,16 +941,16 @@ def run_faiss(D):
 				# 	for j in range(w):
 				# 		print(current_SOW_elements[i, j], end = "\t")
 				# 	print("\narcm::endline")
-				SOW_avg = np.average(current_SOW)
-				SOW_per_time = np.sum(current_SOW) / total_latency[idx]
+				# SOW_avg = np.average(current_SOW)
+				# SOW_per_time = np.sum(current_SOW) / total_latency[idx]
 				if args.sweep:
 					w, reorder = search_config[sc_list[idx]]
 					f.write(str(L)+"\t"+str(m)+"\t"+str(2**log2kstar)+"\t|\t"+str(w)+"\t"+str(reorder)+"\t"+str(metric)+"\n")		# faiss-gpu has no reorder
 				top1_10, top1_100, top10_100, top1_1000, top10_1000, top100_1000 = print_more_recalls(final_neighbors[idx], gt)
 				top1, top10, top100, top1000 = print_recall(final_neighbors[idx], gt)
 				print("Top ", args.topk, " Total latency (ms): ", total_latency[idx])
-				print("SOW shape :", current_SOW.shape, ", min :", np.min(current_SOW), ", max :", np.max(current_SOW), ", avg :", np.average(current_SOW))
-				print("Sum of SOW per total latency: ", SOW_per_time)
+				# print("SOW shape :", current_SOW.shape, ", min :", np.min(current_SOW), ", max :", np.max(current_SOW), ", avg :", np.average(current_SOW))
+				# print("Sum of SOW per total latency: ", SOW_per_time)
 				print("arcm::Latency written. End of File.\n");
 				if args.sweep:
 					f.write(str(top1)+" %\t"+str(top10)+" %\t"+str(top100)+" %\t"+str(top1000)+" %\t|\t"+str(top1_10)+" %\t"+str(top1_100)+" %\t"+str(top10_100)+" %\t"+str(top1_1000)+" %\t"+str(top10_1000)+" %\t"+str(top100_1000)+" %\t"+str(total_latency[idx])+"\n")
@@ -1196,7 +1204,7 @@ elif "deep1b" in args.dataset:
 	num_iter = 16
 	qN = 10000
 
-if args.split == False and args.groudtruth == False:
+if args.split == False and args.groundtruth == False:
 	coarse_dir = basedir + args.program + '_searcher_' + args.metric + '/' + args.dataset + '/coarse_dir/'
 	os.makedirs(coarse_dir, exist_ok=True)
 	if args.program == "scann":
