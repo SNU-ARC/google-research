@@ -97,9 +97,9 @@ def create_plot(dataset, results, linestyles, build_config):
 
     # Workaround for bug https://github.com/matplotlib/matplotlib/issues/6789
     ax.spines['bottom']._adjust_location()
-    os.makedirs("./result/plots/", exist_ok=True)
+    os.makedirs("./final_result/plots/", exist_ok=True)
 
-    plt.savefig("./result/plots/"+title+".pdf", bbox_inches='tight')
+    plt.savefig("./final_result/plots/"+title+".pdf", bbox_inches='tight')
     plt.close()
 
 def collect_result(path, args):
@@ -168,10 +168,13 @@ def collect_result(path, args):
                     acc.append(float(result[4]))
                 else:
                     acc.append(float(result[6]))
-                time.append(float(result[8]))
+                # time.append(float(result[8]))
+                time.append(float(result[-1]))
                 sc.append(search_key)
-                if max_time < float(result[8]):
-                    max_time = float(result[8])
+                # if max_time < float(result[8]):
+                    # max_time = float(result[8])
+                if max_time < float(result[-1]):
+                    max_time = float(result[-1])
 
     res = sorted(zip(acc, time, sc), key = lambda x: x[0])
     acc, time, sc = zip(*res)
@@ -226,7 +229,7 @@ if __name__ == "__main__":
         return (args.metric in fn) and ("GPU" in fn if ("GPU" in args.program) else "GPU" not in fn)
 
     results = list()
-    for root, _, files in os.walk('./result'):
+    for root, _, files in os.walk('./final_result'):
         if "plot" in root:
             continue
         for fn in files:
