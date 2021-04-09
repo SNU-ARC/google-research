@@ -810,10 +810,10 @@ def run_faiss(D):
 					f.write(str(L)+"\t"+str(m)+"\t"+str(2**log2kstar)+"\t|\t"+str(w)+"\t"+str(reorder)+"\t"+str(metric)+"\n")		# faiss-gpu has no reorder
 				top1_10, top1_100, top10_100, top1_1000, top10_1000, top100_1000 = print_more_recalls(final_neighbors[idx], gt)
 				top1, top10, top100, top1000 = print_recall(final_neighbors[idx], gt)
-				print("Top ", args.topk, " Total latency (ms): ", total_latency[idx]*20)
+				print("Top ", args.topk, " Total latency (ms): ", total_latency[idx])
 				print("arcm::Latency written. End of File.\n");
 				if args.sweep:
-					f.write(str(top1)+" %\t"+str(top10)+" %\t"+str(top100)+" %\t"+str(top1000)+" %\t|\t"+str(top1_10)+" %\t"+str(top1_100)+" %\t"+str(top10_100)+" %\t"+str(top1_1000)+" %\t"+str(top10_1000)+" %\t"+str(top100_1000)+" %\t"+str(total_latency[idx]*20)+"\n")
+					f.write(str(top1)+" %\t"+str(top10)+" %\t"+str(top100)+" %\t"+str(top1000)+" %\t|\t"+str(top1_10)+" %\t"+str(top1_100)+" %\t"+str(top10_100)+" %\t"+str(top1_1000)+" %\t"+str(top10_1000)+" %\t"+str(top100_1000)+" %\t"+str(total_latency[idx])+"\n")
 	if args.sweep:
 		f.close()
 
