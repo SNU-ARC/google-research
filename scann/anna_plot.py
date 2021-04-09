@@ -97,9 +97,9 @@ def create_plot(dataset, results, linestyles, build_config):
 
     # Workaround for bug https://github.com/matplotlib/matplotlib/issues/6789
     ax.spines['bottom']._adjust_location()
-    os.makedirs("./result/plots/", exist_ok=True)
+    os.makedirs("./final_result/plots/", exist_ok=True)
 
-    plt.savefig("./result/plots/"+title+".pdf", bbox_inches='tight')
+    plt.savefig("./final_result/plots/"+title+".pdf", bbox_inches='tight')
     plt.close()
 
 def collect_result(path, args):
@@ -229,7 +229,7 @@ if __name__ == "__main__":
         return (args.metric in fn) and ("GPU" in fn if ("GPU" in args.program) else "GPU" not in fn)
 
     results = list()
-    for root, _, files in os.walk('./result'):
+    for root, _, files in os.walk('./final_result'):
         if "plot" in root:
             continue
         for fn in files:
