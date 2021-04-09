@@ -760,8 +760,8 @@ def run_faiss(D):
 
 
 			for split in range(args.num_split):
-				if split > 0:
-					break
+				# if split > 0:
+				# 	break
 				print("Split ", split)
 				num_per_split = int(N/args.num_split) if split < args.num_split-1 else N-base_idx
 				searcher_dir, searcher_path = get_searcher_path(split)
