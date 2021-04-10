@@ -1,6 +1,7 @@
 import argparse
 import os
 import math
+from collections import OrderedDict
 
 parser = argparse.ArgumentParser(description='Options')
 parser.add_argument('--program', type=str, help='scann, faiss ...')
@@ -86,9 +87,24 @@ read_file.close()
 
 # rule out recall < args.recall
 selected_config_list = {}
-for config in config_list:
-	if config_list[config] >= args.recall:
-		selected_config_list[config] = config_list[config]
+ordered_config_list = OrderedDict(sorted(config_list.items(), key = lambda x: (x[0][-1], x[0][0])))
 
-for i, selected_config in enumerate(selected_config_list.keys()):
-	print(i, "th config =", selected_config, ", recall =", selected_config_list[selected_config])
+for config in ordered_config_list:
+	if ordered_config_list[config] >= args.recall:
+		selected_config_list[config] = ordered_config_list[config]
+
+result_path = "./final_config/"
+result_fn = "config_"+str(args.program)+"_"+str(args.dataset)+"_"+str(args.metric)+"_"+"Recall"+str(args.target)+"_"+str(args.recall)
+
+result_file = open(result_path+result_fn, "w")
+result_file.write("L\tthreshold\tm\tkstar\tmlog2kstar\n")
+for selected_config in selected_config_list.keys():
+	L = selected_config[0]
+	threshold = selected_config[1]
+	m = selected_config[2]
+	kstar = selected_config[3]
+	mlog2kstar = selected_config[4]
+	result_file.write(str(L)+"\t"+str(threshold)+"\t"+str(m)+"\t"+str(kstar)+"\t"+str(mlog2kstar)+"\n")
+
+print(result_fn, "is successfully written at", result_path, ", closing ...")
+result_file.close()
