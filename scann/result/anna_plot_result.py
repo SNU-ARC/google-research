@@ -278,12 +278,12 @@ if __name__ == "__main__":
     parser.add_argument('--m', metavar="M", default=None)
     parser.add_argument('--kstar', metavar="KSTAR", default=None)
     parser.add_argument('--threshold', metavar="THRESH", default=0.2)
-    parser.add_argument('--target', metavar="TARGET", default="1000")
+    parser.add_argument('--target', metavar="TARGET", default="1000@1000")
 
 
     args = parser.parse_args()
     global k_star
-    if args.kstarsens == None:
+    if args.kstarsens == None and (args.lsens != None or args.msens != None):
         k_star = 16 if args.program == "scann" else int(args.kstar)
 
     if args.build_config:
