@@ -2,6 +2,7 @@
 1. lsens
 (1) python3 anna_plot.py --program scann --dataset sift1m --metric squared_l2 --reorder -1 --topk 1000 --build_config --lsens 1000 2000 800 --m 32
 (2) python3 anna_plot.py --program faissGPU --dataset music1m --metric dot_product --reorder -1 --topk 1000 --build_config --lsens 1000 2000 3000 4000 --kstar 256 --m 50
+(3 for all possible Ls) python3 anna_plot.py --program scann --dataset sift1m --metric squared_l2 --reorder -1 --topk 1000 --build_config --lsens 9999 --m 32
 2. msens
 (1) python3 anna_plot.py --program scann --dataset sift1m --metric squared_l2 --reorder -1 --topk 1000 --build_config --msens 64 32 --L 2000
 (2) python3 anna_plot.py --program faissGPU --dataset music1m --metric dot_product --reorder -1 --topk 1000 --build_config --msens 20 25 --kstar 256 --L 2000
@@ -231,15 +232,27 @@ def sensitivity_filter(collected_result, args):
         curr_m_in_build_key = int(build_key.split("/")[2]) if args.program == "scann" else int(build_key.split("/")[1])
         curr_kstar_in_build_key = int(k_star) if args.program == "scann" else int(build_key.split("/")[2])
         if args.lsens != None:
-            if curr_L_in_build_key in L_list and curr_thresh_in_build_key == float(args.threshold) and curr_m_in_build_key == int(args.m) and curr_kstar_in_build_key == k_star:
-                idx_to_save.append(i)
+            if 9999 in L_list:
+                if curr_thresh_in_build_key == float(args.threshold) and curr_m_in_build_key == int(args.m) and curr_kstar_in_build_key == k_star:
+                    idx_to_save.append(i)
+            else:
+                if curr_L_in_build_key in L_list and curr_thresh_in_build_key == float(args.threshold) and curr_m_in_build_key == int(args.m) and curr_kstar_in_build_key == k_star:
+                    idx_to_save.append(i)
         elif args.kstarsens != None:
             assert args.program != "scann"
-            if curr_kstar_in_build_key in kstar_list and curr_L_in_build_key == int(args.L) and curr_thresh_in_build_key == float(args.threshold) and curr_m_in_build_key == int(args.m):
-                idx_to_save.append(i)
+            if 9999 in kstar_list:
+                if curr_L_in_build_key == int(args.L) and curr_thresh_in_build_key == float(args.threshold) and curr_m_in_build_key == int(args.m):
+                    idx_to_save.append(i)
+            else:
+                if curr_kstar_in_build_key in kstar_list and curr_L_in_build_key == int(args.L) and curr_thresh_in_build_key == float(args.threshold) and curr_m_in_build_key == int(args.m):
+                    idx_to_save.append(i)
         elif args.msens != None:
-            if curr_m_in_build_key in m_list and curr_L_in_build_key == int(args.L) and curr_thresh_in_build_key == float(args.threshold) and curr_kstar_in_build_key == k_star:
-                idx_to_save.append(i)
+            if 9999 in m_list:
+                if curr_L_in_build_key == int(args.L) and curr_thresh_in_build_key == float(args.threshold) and curr_kstar_in_build_key == k_star:
+                    idx_to_save.append(i)
+            else:
+                if curr_m_in_build_key in m_list and curr_L_in_build_key == int(args.L) and curr_thresh_in_build_key == float(args.threshold) and curr_kstar_in_build_key == k_star:
+                    idx_to_save.append(i)
 
     for i, res in enumerate(collected_result):
         if i in idx_to_save:
