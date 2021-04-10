@@ -1,13 +1,13 @@
 '''Usage for sensitivity:
 1. lsens
-(1) python3 anna_plot.py --program scann --dataset sift1m --metric squared_l2 --reorder -1 --topk 1000 --build_config --lsens 1000 2000 800 --m 32
-(2) python3 anna_plot.py --program faissGPU --dataset music1m --metric dot_product --reorder -1 --topk 1000 --build_config --lsens 1000 2000 3000 4000 --kstar 256 --m 50
-(3 for all possible Ls) python3 anna_plot.py --program scann --dataset sift1m --metric squared_l2 --reorder -1 --topk 1000 --build_config --lsens 9999 --m 32
+(1) python3 anna_plot_result.py --program scann --dataset sift1m --metric squared_l2 --reorder -1 --topk 1000 --build_config --lsens 1000 2000 800 --m 32
+(2) python3 anna_plot_result.py --program faissGPU --dataset music1m --metric dot_product --reorder -1 --topk 1000 --build_config --lsens 1000 2000 3000 4000 --kstar 256 --m 50 --target 10
+(3 for all possible Ls) python3 anna_plot_result.py --program scann --dataset sift1m --metric squared_l2 --reorder -1 --topk 1000 --build_config --lsens 9999 --m 32 --target 1000
 2. msens
-(1) python3 anna_plot.py --program scann --dataset sift1m --metric squared_l2 --reorder -1 --topk 1000 --build_config --msens 64 32 --L 2000
-(2) python3 anna_plot.py --program faissGPU --dataset music1m --metric dot_product --reorder -1 --topk 1000 --build_config --msens 20 25 --kstar 256 --L 2000
+(1) python3 anna_plot_result.py --program scann --dataset sift1m --metric squared_l2 --reorder -1 --topk 1000 --build_config --msens 64 32 --L 2000
+(2) python3 anna_plot_result.py --program faissGPU --dataset music1m --metric dot_product --reorder -1 --topk 1000 --build_config --msens 20 25 --kstar 256 --L 2000
 3. kstarsens
-python3 anna_plot.py --program faiss --dataset deep1m --metric squared_l2 --reorder -1 --topk 1000 --build_config --kstarsens 256 128 64 32 --L 600 --m 128
+python3 anna_plot_result.py --program faiss --dataset deep1m --metric squared_l2 --reorder -1 --topk 1000 --build_config --kstarsens 256 128 64 32 --L 600 --m 128
 '''
 import os
 import matplotlib as mpl
@@ -16,7 +16,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import argparse
 
-from anna_plot_util import *
+from anna_plot_util_result import *
 
 def create_plot(dataset, results, linestyles, build_config, args):
     # Now generate each plot
@@ -82,7 +82,7 @@ def create_plot(dataset, results, linestyles, build_config, args):
     # # Other x-scales
     # else:
     #     ax.set_xscale(x_scale)
-    title = get_plot_label(dataset, program, batch_size, metric, topk, reorder)
+    title = get_plot_label(dataset, program, batch_size, metric, args.target, reorder)
     ax.set_xscale('linear')
     ax.set_yscale('linear')
     ax.set_title(title)
@@ -108,16 +108,16 @@ def create_plot(dataset, results, linestyles, build_config, args):
 
     # Workaround for bug https://github.com/matplotlib/matplotlib/issues/6789
     ax.spines['bottom']._adjust_location()
-    os.makedirs("./final_result/plots/", exist_ok=True)
+    os.makedirs("./plots/", exist_ok=True)
 
     if args.lsens != None:
-        title += "_lsens"
+        title += "_lsens_threshold_"+str(args.threshold)+"_m_"+str(args.m)+"_k_star_"+str(k_star)
     elif args.kstarsens != None:
-        title += "_kstarsens"
+        title += "_kstarsens_L_"+str(args.L)+"_threshold_"+str(args.threshold)+"_m_"+str(args.m)
     elif args.msens != None:
-        title += "_msens"
+        title += "_msens_L_"+str(args.L)+"_threshold_"+str(args.threshold)+"_k_star_"+str(k_star)
 
-    plt.savefig("./final_result/plots/"+title+".pdf", bbox_inches='tight')
+    plt.savefig("./plots/"+title+".pdf", bbox_inches='tight')
     plt.close()
 
 def collect_result(path, args):
@@ -178,13 +178,13 @@ def collect_result(path, args):
             else:
                 result = line.split()
                 print(result)
-                if topk == 1:
+                if args.target == "1@1":
                     acc.append(float(result[0]))
-                elif topk == 10:
+                elif args.target == "10@10":
                     acc.append(float(result[2]))
-                elif topk == 100:       # topk == 100
+                elif args.target == "100@100":       # topk == 100
                     acc.append(float(result[4]))
-                else:
+                elif args.target == "1000@1000":
                     acc.append(float(result[6]))
                 # time.append(float(result[8]))
                 time.append(float(result[-1]))
@@ -278,11 +278,12 @@ if __name__ == "__main__":
     parser.add_argument('--m', metavar="M", default=None)
     parser.add_argument('--kstar', metavar="KSTAR", default=None)
     parser.add_argument('--threshold', metavar="THRESH", default=0.2)
+    parser.add_argument('--target', metavar="TARGET", default="1000@1000")
 
 
     args = parser.parse_args()
     global k_star
-    if args.kstarsens == None:
+    if args.kstarsens == None and (args.lsens != None or args.msens != None):
         k_star = 16 if args.program == "scann" else int(args.kstar)
 
     if args.build_config:
@@ -300,7 +301,7 @@ if __name__ == "__main__":
         return (args.metric in fn) and ("GPU" in fn if ("GPU" in args.program) else "GPU" not in fn)
 
     results = list()
-    for root, _, files in os.walk('./final_result'):
+    for root, _, files in os.walk('./'):
         if "plot" in root:
             continue
         for fn in files:
