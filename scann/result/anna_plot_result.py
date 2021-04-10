@@ -178,13 +178,13 @@ def collect_result(path, args):
             else:
                 result = line.split()
                 print(result)
-                if args.target == "1":
+                if args.target == "1@1":
                     acc.append(float(result[0]))
-                elif args.target == "10":
+                elif args.target == "10@10":
                     acc.append(float(result[2]))
-                elif args.target == "100":       # topk == 100
+                elif args.target == "100@100":       # topk == 100
                     acc.append(float(result[4]))
-                elif args.target == "1000":
+                elif args.target == "1000@1000":
                     acc.append(float(result[6]))
                 # time.append(float(result[8]))
                 time.append(float(result[-1]))

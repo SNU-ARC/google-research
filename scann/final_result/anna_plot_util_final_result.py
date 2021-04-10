@@ -132,6 +132,6 @@ def get_plot_label(dataset, algorithm, batch, metric, target, reorder):
                        "algorithm": algorithm,
                        "batch": batch,
                        "reorder": reorder,
-                       "recall": str(target)+"@"+str(target) if "@" not in target else str(target)
+                       "recall": str(target)+"@"+str(target)
                        }
 
