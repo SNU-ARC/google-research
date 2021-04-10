@@ -125,11 +125,13 @@ def create_linestyles(unique_algorithms):
 #     return "right"
 
 
-def get_plot_label(dataset, algorithm, batch, metric, topk, reorder):
+def get_plot_label(dataset, algorithm, batch, metric, target, reorder):
     template = ("%(dataset)s-%(metric)s-%(algorithm)s-Batch_%(batch)s-Reorder_%(reorder)s-Recall%(recall)s")
     return template % {"dataset":dataset,
                        "metric": metric,
                        "algorithm": algorithm,
                        "batch": batch,
                        "reorder": reorder,
-                       "recall": str(topk)+"@"+str(topk)}
+                       "recall": str(target)
+                       }
+
