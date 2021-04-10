@@ -1,3 +1,14 @@
+'''Usage for sensitivity:
+1. lsens
+(1) python3 anna_plot_result.py --program scann --dataset sift1m --metric squared_l2 --reorder -1 --topk 1000 --build_config --lsens 1000 2000 800 --m 32
+(2) python3 anna_plot_result.py --program faissGPU --dataset music1m --metric dot_product --reorder -1 --topk 1000 --build_config --lsens 1000 2000 3000 4000 --kstar 256 --m 50 --target 10
+(3 for all possible Ls) python3 anna_plot_result.py --program scann --dataset sift1m --metric squared_l2 --reorder -1 --topk 1000 --build_config --lsens 9999 --m 32 --target 1000
+2. msens
+(1) python3 anna_plot_result.py --program scann --dataset sift1m --metric squared_l2 --reorder -1 --topk 1000 --build_config --msens 64 32 --L 2000
+(2) python3 anna_plot_result.py --program faissGPU --dataset music1m --metric dot_product --reorder -1 --topk 1000 --build_config --msens 20 25 --kstar 256 --L 2000
+3. kstarsens
+python3 anna_plot_result.py --program faiss --dataset deep1m --metric squared_l2 --reorder -1 --topk 1000 --build_config --kstarsens 256 128 64 32 --L 600 --m 128
+'''
 import os
 import matplotlib as mpl
 mpl.use('Agg')  # noqa
@@ -5,9 +16,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 import argparse
 
-from anna_plot_util import *
+from anna_plot_util_result import *
 
-def create_plot(dataset, results, linestyles, build_config):
+def create_plot(dataset, results, linestyles, build_config, args):
     # Now generate each plot
     handles = []
     labels = []
@@ -71,7 +82,7 @@ def create_plot(dataset, results, linestyles, build_config):
     # # Other x-scales
     # else:
     #     ax.set_xscale(x_scale)
-    title = get_plot_label(dataset, program, batch_size, metric, topk, reorder)
+    title = get_plot_label(dataset, program, batch_size, metric, args.target, reorder)
     ax.set_xscale('linear')
     ax.set_yscale('linear')
     ax.set_title(title)
@@ -97,9 +108,16 @@ def create_plot(dataset, results, linestyles, build_config):
 
     # Workaround for bug https://github.com/matplotlib/matplotlib/issues/6789
     ax.spines['bottom']._adjust_location()
-    os.makedirs("./final_result/plots/", exist_ok=True)
+    os.makedirs("./plots/", exist_ok=True)
 
-    plt.savefig("./final_result/plots/"+title+".pdf", bbox_inches='tight')
+    if args.lsens != None:
+        title += "_lsens_threshold_"+str(args.threshold)+"_m_"+str(args.m)+"_k_star_"+str(k_star)
+    elif args.kstarsens != None:
+        title += "_kstarsens_L_"+str(args.L)+"_threshold_"+str(args.threshold)+"_m_"+str(args.m)
+    elif args.msens != None:
+        title += "_msens_L_"+str(args.L)+"_threshold_"+str(args.threshold)+"_k_star_"+str(k_star)
+
+    plt.savefig("./plots/"+title+".pdf", bbox_inches='tight')
     plt.close()
 
 def collect_result(path, args):
@@ -160,13 +178,13 @@ def collect_result(path, args):
             else:
                 result = line.split()
                 print(result)
-                if topk == 1:
+                if args.target == "1@1":
                     acc.append(float(result[0]))
-                elif topk == 10:
+                elif args.target == "10@10":
                     acc.append(float(result[2]))
-                elif topk == 100:       # topk == 100
+                elif args.target == "100@100":       # topk == 100
                     acc.append(float(result[4]))
-                else:
+                elif args.target == "1000@1000":
                     acc.append(float(result[6]))
                 # time.append(float(result[8]))
                 time.append(float(result[-1]))
@@ -190,56 +208,112 @@ def collect_result(path, args):
     return collected_result
 
 
+def sensitivity_filter(collected_result, args):
+    acc = []
+    time = []
+    sc = []
+    build_keys = []
+    filtered_collected_result = []
+    idx_to_save = []
+    if args.lsens != None:
+        L_list = list(args.lsens)
+        print(L_list)
+    elif args.kstarsens != None:
+        kstar_list = list(args.kstarsens)
+        print(kstar_list)
+    elif args.msens != None:
+        m_list = list(args.msens)
+        print(m_list)
+
+    for i, res in enumerate(collected_result):
+        build_key = res['build_key']
+        curr_L_in_build_key = int(build_key.split("/")[0])
+        curr_thresh_in_build_key = float(build_key.split("/")[1]) if args.program == "scann" else float(args.threshold)
+        curr_m_in_build_key = int(build_key.split("/")[2]) if args.program == "scann" else int(build_key.split("/")[1])
+        curr_kstar_in_build_key = int(k_star) if args.program == "scann" else int(build_key.split("/")[2])
+        if args.lsens != None:
+            if 9999 in L_list:
+                if curr_thresh_in_build_key == float(args.threshold) and curr_m_in_build_key == int(args.m) and curr_kstar_in_build_key == k_star:
+                    idx_to_save.append(i)
+            else:
+                if curr_L_in_build_key in L_list and curr_thresh_in_build_key == float(args.threshold) and curr_m_in_build_key == int(args.m) and curr_kstar_in_build_key == k_star:
+                    idx_to_save.append(i)
+        elif args.kstarsens != None:
+            assert args.program != "scann"
+            if 9999 in kstar_list:
+                if curr_L_in_build_key == int(args.L) and curr_thresh_in_build_key == float(args.threshold) and curr_m_in_build_key == int(args.m):
+                    idx_to_save.append(i)
+            else:
+                if curr_kstar_in_build_key in kstar_list and curr_L_in_build_key == int(args.L) and curr_thresh_in_build_key == float(args.threshold) and curr_m_in_build_key == int(args.m):
+                    idx_to_save.append(i)
+        elif args.msens != None:
+            if 9999 in m_list:
+                if curr_L_in_build_key == int(args.L) and curr_thresh_in_build_key == float(args.threshold) and curr_kstar_in_build_key == k_star:
+                    idx_to_save.append(i)
+            else:
+                if curr_m_in_build_key in m_list and curr_L_in_build_key == int(args.L) and curr_thresh_in_build_key == float(args.threshold) and curr_kstar_in_build_key == k_star:
+                    idx_to_save.append(i)
+
+    for i, res in enumerate(collected_result):
+        if i in idx_to_save:
+            filtered_collected_result.append(res)
+
+    print("filtered_collected_result =", filtered_collected_result)
+    return filtered_collected_result
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument(
-        '--dataset',
-        metavar="DATASET",
-        default=None)
-    parser.add_argument(
-        '--program',
-        metavar="ALGO",
-        default=None)
-    parser.add_argument(
-        '--metric',
-        metavar="METRIC",
-        default=None)
-    parser.add_argument(
-        '--topk',
-        metavar="TOPK",
-        default=None)
-    parser.add_argument(
-        '--reorder',
-        metavar="REORDER",
-        default=None)
-    parser.add_argument(
-        '-o', '--output')
-    parser.add_argument(
-        '--build_config',
-        help='Whether to plot according to the build_config',
-        action='store_true',
-        default=False)
+    parser.add_argument('--dataset', metavar="DATASET", default=None)
+    parser.add_argument('--program', metavar="ALGO", default=None)
+    parser.add_argument('--metric', metavar="METRIC", default=None)
+    parser.add_argument('--topk', metavar="TOPK", default=None)
+    parser.add_argument('--reorder', metavar="REORDER", default=None)
+    parser.add_argument('-o', '--output')
+    parser.add_argument('--build_config', help='Whether to plot according to the build_config', action='store_true', default=False)
+    parser.add_argument('--lsens', metavar="LSENS", nargs='+', type=int, default=None)
+    parser.add_argument('--kstarsens', metavar="KSTARSENS", nargs='+', type=int, default=None)
+    parser.add_argument('--msens', metavar="MSENS", nargs='+', type=int, default=None)
+    parser.add_argument('--L', metavar="L", default=None)
+    parser.add_argument('--m', metavar="M", default=None)
+    parser.add_argument('--kstar', metavar="KSTAR", default=None)
+    parser.add_argument('--threshold', metavar="THRESH", default=0.2)
+    parser.add_argument('--target', metavar="TARGET", default="1000@1000")
+
+
     args = parser.parse_args()
+    global k_star
+    if args.kstarsens == None and (args.lsens != None or args.msens != None):
+        k_star = 16 if args.program == "scann" else int(args.kstar)
 
     if args.build_config:
         assert args.program!=None and args.dataset!=None and args.metric!=None and args.reorder!=None
+
+    if args.lsens != None:
+        assert args.L == None and args.kstarsens == None and args.msens == None and args.m != None and args.threshold != None and k_star != None
+    elif args.kstarsens != None:
+        k_star = None
+        assert k_star == None and args.lsens == None and args.msens == None and args.L != None and args.m != None
+    elif args.msens != None:
+        assert args.m == None and args.lsens == None and args.kstarsens == None and args.L != None and k_star != None and args.threshold != None
 
     def check_build_config(fn):
         return (args.metric in fn) and ("GPU" in fn if ("GPU" in args.program) else "GPU" not in fn)
 
     results = list()
-    for root, _, files in os.walk('./final_result'):
+    for root, _, files in os.walk('./'):
         if "plot" in root:
             continue
         for fn in files:
             if args.dataset in fn and (args.topk in fn) and (args.program in fn if args.program!=None else True) and (args.metric in fn) and (args.reorder in fn) and (check_build_config(fn) if args.build_config==True else True):
                 res = collect_result(os.path.join(root, fn), args)
+                if args.lsens != None or args.kstarsens != None or args.msens != None:
+                    res = sensitivity_filter(res, args)
                 results+=res
     assert len(results) > 0
     linestyles = create_linestyles([key['build_key'] for key in results])
 
-    # create_plot(runs, args.raw, args.x_scale,
-    #             args.y_scale, args.x_axis, args.y_axis, args.output,
-    #             linestyles, args.batch)
-    create_plot(args.dataset, results, linestyles, args.build_config)
+    ## create_plot(runs, args.raw, args.x_scale,
+    ##             args.y_scale, args.x_axis, args.y_axis, args.output,
+    ##             linestyles, args.batch)
+    create_plot(args.dataset, results, linestyles, args.build_config, args)
