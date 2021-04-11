@@ -173,6 +173,9 @@ def read_data(dataset_path, offset_=None, shape_=None, base=True):
 	elif "deep1m" in args.dataset:
 		file = dataset_path + "deep1m_base.fvecs" if base else dataset_path
 		return mmap_fvecs(file, offset_=offset_, shape_=shape_)
+	elif "deepm96" in args.dataset:
+		file = dataset_path + "deepm96_base.fvecs" if base else dataset_path
+		return mmap_fvecs(file, offset_=offset_, shape_=shape_)
 	elif "music1m" in args.dataset:
 		# file = dataset_path + "database_music100.bin" if base else dataset_path
 		# return np.fromfile(file, dtype = np.float32).reshape(N, D)
@@ -207,7 +210,7 @@ def read_data(dataset_path, offset_=None, shape_=None, base=True):
 def write_split_data(split_data_path, split_data):
 	if "sift1b" in args.dataset:
 		bvecs_write(split_data_path, split_data)
-	elif "sift1m" in args.dataset or "gist" in args.dataset or "deep1m" in args.dataset or "deep1b" in args.dataset or "music1m" in args.dataset:
+	elif "sift1m" in args.dataset or "gist" in args.dataset or "deep1m" in args.dataset or "deepm96" in args.dataset or "deep1b" in args.dataset or "music1m" in args.dataset:
 		fvecs_write(split_data_path, split_data)
 	elif "glove" in args.dataset:
 		hf = h5py.File(split_data_path, 'w')
@@ -216,7 +219,7 @@ def write_split_data(split_data_path, split_data):
 	print("arcm::write_split_data done\n");
 
 def write_gt_data(gt_data):
-	if "sift1b" in args.dataset or "sift1m" in args.dataset or "gist" in args.dataset or "deep1m" in args.dataset or "deep1b" in args.dataset or "music1m" in args.dataset:
+	if "sift1b" in args.dataset or "sift1m" in args.dataset or "gist" in args.dataset or "deep1m" in args.dataset or "deepm96" in args.dataset or "deep1b" in args.dataset or "music1m" in args.dataset:
 		ivecs_write(groundtruth_path, gt_data)
 	elif "glove" in args.dataset:
 		hf = h5py.File(groundtruth_path, 'w')
@@ -255,6 +258,9 @@ def split(filename, num_iter, N, D):
 					elif "music1m" in args.dataset:
 						trainset = np.random.choice(split_size, int(sampling_rate*split_size), replace=False)
 						write_split_data(split_dataset_path + "learn" + str(args.num_split) + "_" + str(split), dataset[count*num_per_split:][trainset])
+					elif "deepm96" in args.dataset:
+						trainset = np.random.choice(split_size, int(sampling_rate*split_size), replace=False)
+						write_split_data(split_dataset_path + "learn" + str(args.num_split) + "_" + str(split), dataset[count*num_per_split:][trainset])
 					num_split_list.append(dataset[count*num_per_split:].shape[0])
 					split = split+1
 				break
@@ -267,6 +273,9 @@ def split(filename, num_iter, N, D):
 					trainset = np.random.choice(split_size, int(sampling_rate*split_size), replace=False)
 					write_split_data(split_dataset_path + args.metric + "_learn" + str(args.num_split) + "_" + str(split), dataset[count*num_per_split:(count+1)*num_per_split][trainset])
 				elif "music1m" in args.dataset:
+					trainset = np.random.choice(split_size, int(sampling_rate*split_size), replace=False)
+					write_split_data(split_dataset_path + "learn" + str(args.num_split) + "_" + str(split), dataset[count*num_per_split:(count+1)*num_per_split][trainset])
+				elif "deepm96" in args.dataset:
 					trainset = np.random.choice(split_size, int(sampling_rate*split_size), replace=False)
 					write_split_data(split_dataset_path + "learn" + str(args.num_split) + "_" + str(split), dataset[count*num_per_split:(count+1)*num_per_split][trainset])
 				num_split_list.append(dataset[count*num_per_split:(count+1)*num_per_split].shape[0])
@@ -841,8 +850,10 @@ def run_faiss(D):
 				is_cached = check_cached(searcher_dir, args, args.dataset, split, args.num_split, index_key_manual)
 				args.m = faiss_m
 
+				# if is_cached:
+					# index, preproc = build_faiss(args, searcher_dir, coarse_dir, split, N, padded_D, index_key_manual, is_cached, padded_queries)
 				if is_cached:
-					index, preproc = build_faiss(args, searcher_dir, coarse_dir, split, N, padded_D, index_key_manual, is_cached, padded_queries)
+					index, preproc = build_faiss(args, searcher_dir, coarse_dir, split, int(N/args.num_split), padded_D, index_key_manual, is_cached, padded_queries)
 				else:
 					print("[YJ] get train")
 					print("[YJ] read data")
@@ -852,7 +863,8 @@ def run_faiss(D):
 					else:
 						padded_dataset = dataset
 					print("[YJ] reading done")
-					index, preproc = build_faiss(args, searcher_dir, coarse_dir, split, N, padded_D, index_key_manual, is_cached, padded_queries, padded_train_dataset, padded_dataset)
+					# index, preproc = build_faiss(args, searcher_dir, coarse_dir, split, N, padded_D, index_key_manual, is_cached, padded_queries, padded_train_dataset, padded_dataset)
+					index, preproc = build_faiss(args, searcher_dir, coarse_dir, split, int(N/args.num_split), padded_D, index_key_manual, is_cached, padded_queries, padded_train_dataset, padded_dataset)
 					# index, preproc = build_faiss(args, "./temp2/", "./temp2/", split, N, padded_D, index_key_manual, is_cached, padded_queries, padded_train_dataset, padded_dataset)
 
 				n = list()
@@ -876,6 +888,8 @@ def run_faiss(D):
 					# 	print(local_neighbors[3][i], " ", nn[3][i], " ", dd[3][i])
 					n.append((local_neighbors+base_idx).astype(np.int32))
 					d.append(local_distances.astype(np.float32))
+					del local_neighbors
+					del local_distances
 					# print("local_SOW shape =", np.shape(local_SOW), ", local_SOW =", local_SOW)
 					n_times_w_plus_1, _ = np.shape(local_SOW)
 					SOW_idx = 0
@@ -1073,6 +1087,9 @@ def get_train():
 	elif "deep1m" in args.dataset:
 		filename = dataset_basedir + 'deep1m_learn.fvecs'
 		return mmap_fvecs(filename)
+	elif "deepm96" in args.dataset:
+		filename = dataset_basedir + 'split_data/deepm96_learn1_0'
+		return mmap_fvecs(filename)
 	elif "gist" in args.dataset:
 		filename = dataset_basedir + 'gist_learn.fvecs'
 		return mmap_fvecs(filename)
@@ -1104,6 +1121,8 @@ def get_queries():
 		return mmap_fvecs(dataset_basedir + 'sift_query.fvecs')
 	elif "deep1m" in args.dataset:
 		return mmap_fvecs(dataset_basedir + 'deep1m_query.fvecs')
+	elif "deepm96" in args.dataset:
+		return mmap_fvecs(dataset_basedir + 'deepm96_query.fvecs')
 	elif "music1m" in args.dataset:
 		# return np.fromfile(dataset_basedir + 'query_music100.bin', dtype = np.float32).reshape(qN, D)
 		return mmap_fvecs(split_dataset_path + 'query1_0')
@@ -1154,6 +1173,16 @@ elif "deep1m" in args.dataset:
 	D=256
 	num_iter = 1
 	qN = 1000
+	index_key = "IVF4096,PQ64" #arcm::FIXME
+elif "deepm96" in args.dataset:
+	dataset_basedir = basedir + "DEEPM96/"
+	split_dataset_path = dataset_basedir+"split_data/deepm96_"
+	if args.split==False:
+		groundtruth_path = dataset_basedir + "deepm96_"+args.metric+"_gt"
+	N=1000000
+	D=96
+	num_iter = 1
+	qN = 10000
 	index_key = "IVF4096,PQ64" #arcm::FIXME
 elif "music1m" in args.dataset:
 	dataset_basedir = basedir + "MUSIC1M/"
