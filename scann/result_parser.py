@@ -60,7 +60,7 @@ for line in read_lines:
 			curr_result = float(curr_result_preprocessed[2])
 		elif args.target == "100@100":
 			curr_result = float(curr_result_preprocessed[4])
-		elif args.target == "1000@10000":
+		elif args.target == "1000@1000":
 			curr_result = float(curr_result_preprocessed[6])
 		elif args.target == "1@10":
 			curr_result = float(curr_result_preprocessed[9])
