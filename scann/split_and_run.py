@@ -437,11 +437,15 @@ def run_scann():
 							[4000, 0.2, 8 , args.metric], [4000, 0.2, 4 , args.metric], [4000, 0.2, 2, args.metric], [4000, 0.2, 1, args.metric], \
 							]
 
+			# search_config = [[1, args.reorder], [16, args.reorder], [32, args.reorder], [64, args.reorder], [128, args.reorder], \
+			# 				 [256, args.reorder], [320, args.reorder], [384, args.reorder], [448, args.reorder], [512, args.reorder], [576, args.reorder], [640, args.reorder], [704, args.reorder], [768, args.reorder], \
+			# 				 [1024, args.reorder], [1280, args.reorder], [1536, args.reorder], [2048, args.reorder], [2560, args.reorder], [3072, args.reorder], [4096, args.reorder], [4608, args.reorder], \
+			# 				 [5120, args.reorder], [5632, args.reorder], [6144, args.reorder], [6656, args.reorder], [7168, args.reorder], [7680, args.reorder], \
+			# 				 [8192, args.reorder], [16384, args.reorder]]
 			search_config = [[1, args.reorder], [16, args.reorder], [32, args.reorder], [64, args.reorder], [128, args.reorder], \
 							 [256, args.reorder], [320, args.reorder], [384, args.reorder], [448, args.reorder], [512, args.reorder], [576, args.reorder], [640, args.reorder], [704, args.reorder], [768, args.reorder], \
-							 [1024, args.reorder], [1280, args.reorder], [1536, args.reorder], [2048, args.reorder], [2560, args.reorder], [3072, args.reorder], [4096, args.reorder], [4608, args.reorder], \
-							 [5120, args.reorder], [5632, args.reorder], [6144, args.reorder], [6656, args.reorder], [7168, args.reorder], [7680, args.reorder], \
-							 [8192, args.reorder], [16384, args.reorder]]
+							 [1024, args.reorder]]
+
 		else:
 			# build_config = [
 			# 				[4000, 0.2, 1, args.metric],[4000, 0.2, 2, args.metric], [4000, 0.2, 3, args.metric], [4000, 0.2, 4, args.metric], [4000, 0.2, 5, args.metric], [4000, 0.2, 8, args.metric], [4000, 0.2, 10, args.metric], [4000, 0.2, 16, args.metric], [4000, 0.2, 25, args.metric], [4000, 0.2, 32, args.metric], [4000, 0.2, 50, args.metric], [4000, 0.2, 64, args.metric], \
@@ -472,10 +476,15 @@ def run_scann():
 							[500, 0.2, 1, args.metric], [500, 0.2, 2, args.metric], [500, 0.2, 3, args.metric], [500, 0.2, 4, args.metric], [500, 0.2, 5, args.metric], [500, 0.2, 8, args.metric], [500, 0.2, 10, args.metric], \
 							[250, 0.2, 1, args.metric], [250, 0.2, 2, args.metric], [250, 0.2, 3, args.metric], [250, 0.2, 4, args.metric], [250, 0.2, 5, args.metric], [250, 0.2, 8, args.metric], [250, 0.2, 10, args.metric]]
 
-			search_config = [[1, args.reorder], [2, args.reorder], [4, args.reorder], [8, args.reorder], [16, args.reorder], [25, args.reorder], [30, args.reorder], [35, args.reorder], [40, args.reorder], \
-							 [45, args.reorder], [50, args.reorder], [55, args.reorder], [60, args.reorder], [65, args.reorder], [75, args.reorder], [90, args.reorder], [110, args.reorder], [130, args.reorder], [150, args.reorder], \
-							 [170, args.reorder], [200, args.reorder], [220, args.reorder], [250, args.reorder], [310, args.reorder], [400, args.reorder], [500, args.reorder], [800, args.reorder], [1000, args.reorder], \
-							 [1250, args.reorder], [1500, args.reorder], [1750, args.reorder], [1900, args.reorder], [2000, args.reorder], [2048, args.reorder]]
+			# search_config = [[1, args.reorder], [2, args.reorder], [4, args.reorder], [8, args.reorder], [16, args.reorder], [25, args.reorder], [30, args.reorder], [35, args.reorder], [40, args.reorder], \
+			# 				 [45, args.reorder], [50, args.reorder], [55, args.reorder], [60, args.reorder], [65, args.reorder], [75, args.reorder], [90, args.reorder], [110, args.reorder], [130, args.reorder], [150, args.reorder], \
+			# 				 [170, args.reorder], [200, args.reorder], [220, args.reorder], [250, args.reorder], [310, args.reorder], [400, args.reorder], [500, args.reorder], [800, args.reorder], [1000, args.reorder], \
+			# 				 [1250, args.reorder], [1500, args.reorder], [1750, args.reorder], [1900, args.reorder], [2000, args.reorder], [2048, args.reorder]]
+
+			search_config = [[1, args.reorder], [16, args.reorder], [32, args.reorder], [64, args.reorder], [128, args.reorder], \
+							 [256, args.reorder], [320, args.reorder], [384, args.reorder], [448, args.reorder], [512, args.reorder], [576, args.reorder], [640, args.reorder], [704, args.reorder], [768, args.reorder], \
+							 [1024, args.reorder]]
+
 
 		f = open(sweep_result_path, "w")
 		f.write("Program: " + args.program + " Topk: " + str(args.topk) + " Num_split: " + str(args.num_split)+ " Batch: "+str(args.batch)+"\n")
@@ -500,7 +509,7 @@ def run_scann():
 
 			for split in range(args.num_split):
 				# if split > 0:
-					# break
+				# 	break
 				searcher_dir, searcher_path = get_searcher_path(split)
 				print("Split ", split)
 				# Load splitted dataset
@@ -680,11 +689,13 @@ def run_faiss(D):
 								[250, int(D/10), log2kstar_, args.metric], [250, int(D/8), log2kstar_, args.metric], [250, int(D/4), log2kstar_, args.metric], [250, int(D/3), log2kstar_, args.metric], [250, int(D/2), log2kstar_, args.metric], [250, D, log2kstar_, args.metric], \
 								]
 
-			search_config = [[1, args.reorder], [16, args.reorder], [32, args.reorder], [64, args.reorder], [128, args.reorder], \
-							 [256, args.reorder], [320, args.reorder], [384, args.reorder], [448, args.reorder], [512, args.reorder], [576, args.reorder], [640, args.reorder], [704, args.reorder], [768, args.reorder], \
-							 [1024, args.reorder], [1280, args.reorder], [1536, args.reorder], [2048, args.reorder], [2560, args.reorder], [3072, args.reorder], [4096, args.reorder], [4608, args.reorder], \
-							 [5120, args.reorder], [5632, args.reorder], [6144, args.reorder], [6656, args.reorder], [7168, args.reorder], [7680, args.reorder], \
-							 [8192, args.reorder], [16384, args.reorder]]
+			# search_config = [[1, args.reorder], [16, args.reorder], [32, args.reorder], [64, args.reorder], [128, args.reorder], \
+			# 				 [256, args.reorder], [320, args.reorder], [384, args.reorder], [448, args.reorder], [512, args.reorder], [576, args.reorder], [640, args.reorder], [704, args.reorder], [768, args.reorder], \
+			# 				 [1024, args.reorder], [1280, args.reorder], [1536, args.reorder], [2048, args.reorder], [2560, args.reorder], [3072, args.reorder], [4096, args.reorder], [4608, args.reorder], \
+			# 				 [5120, args.reorder], [5632, args.reorder], [6144, args.reorder], [6656, args.reorder], [7168, args.reorder], [7680, args.reorder], \
+			# 				 [8192, args.reorder], [16384, args.reorder]]
+
+			search_config = [[1, args.reorder], [16, args.reorder], [32, args.reorder], [64, args.reorder], [128, args.reorder], [256, args.reorder]]
 
 
 		else:
