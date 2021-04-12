@@ -722,23 +722,23 @@ def run_faiss(D):
 				# 				[600, int(D/8), 8, args.metric], [600, int(D/4), 8, args.metric], [600, int(D/3), 8, args.metric], [600, int(D/2), 8, args.metric], [600, D, 8, args.metric]]	# L, m, log2(k*), metric
 
 				build_config = [
-								[4000, int(D/10), 4, args.metric], [4000, int(D/8), 4, args.metric], [4000, int(D/4), 4, args.metric], [4000, int(D/3), 4, args.metric], [4000, int(D/2), 4, args.metric], [4000, D, 4, args.metric], \
-								[4000, int(D/10), 6, args.metric], [4000, int(D/8), 6, args.metric], [4000, int(D/4), 6, args.metric], [4000, int(D/3), 6, args.metric], [4000, int(D/2), 6, args.metric], [4000, D, 6, args.metric], \
+								# [4000, int(D/10), 4, args.metric], [4000, int(D/8), 4, args.metric], [4000, int(D/4), 4, args.metric], [4000, int(D/3), 4, args.metric], [4000, int(D/2), 4, args.metric], [4000, D, 4, args.metric], \
+								# [4000, int(D/10), 6, args.metric], [4000, int(D/8), 6, args.metric], [4000, int(D/4), 6, args.metric], [4000, int(D/3), 6, args.metric], [4000, int(D/2), 6, args.metric], [4000, D, 6, args.metric], \
 								[4000, int(D/10), 8, args.metric], [4000, int(D/8), 8, args.metric], [4000, int(D/4), 8, args.metric], [4000, int(D/3), 8, args.metric], [4000, int(D/2), 8, args.metric], [4000, D, 8, args.metric], \
-								[2000, int(D/10), 4, args.metric], [2000, int(D/8), 4, args.metric], [2000, int(D/4), 4, args.metric], [2000, int(D/3), 4, args.metric], [2000, int(D/2), 4, args.metric], [2000, D, 4, args.metric], \
-								[2000, int(D/10), 6, args.metric], [2000, int(D/8), 6, args.metric], [2000, int(D/4), 6, args.metric], [2000, int(D/3), 6, args.metric], [2000, int(D/2), 6, args.metric], [2000, D, 6, args.metric], \
+								# [2000, int(D/10), 4, args.metric], [2000, int(D/8), 4, args.metric], [2000, int(D/4), 4, args.metric], [2000, int(D/3), 4, args.metric], [2000, int(D/2), 4, args.metric], [2000, D, 4, args.metric], \
+								# [2000, int(D/10), 6, args.metric], [2000, int(D/8), 6, args.metric], [2000, int(D/4), 6, args.metric], [2000, int(D/3), 6, args.metric], [2000, int(D/2), 6, args.metric], [2000, D, 6, args.metric], \
 								[2000, int(D/10), 8, args.metric], [2000, int(D/8), 8, args.metric], [2000, int(D/4), 8, args.metric], [2000, int(D/3), 8, args.metric], [2000, int(D/2), 8, args.metric], [2000, D, 8, args.metric], \
-								[1000, int(D/10), 4, args.metric], [1000, int(D/8), 4, args.metric], [1000, int(D/4), 4, args.metric], [1000, int(D/3), 4, args.metric], [1000, int(D/2), 4, args.metric], [1000, D, 4, args.metric], \
-								[1000, int(D/10), 6, args.metric], [1000, int(D/8), 6, args.metric], [1000, int(D/4), 6, args.metric], [1000, int(D/3), 6, args.metric], [1000, int(D/2), 6, args.metric], [1000, D, 6, args.metric], \
+								# [1000, int(D/10), 4, args.metric], [1000, int(D/8), 4, args.metric], [1000, int(D/4), 4, args.metric], [1000, int(D/3), 4, args.metric], [1000, int(D/2), 4, args.metric], [1000, D, 4, args.metric], \
+								# [1000, int(D/10), 6, args.metric], [1000, int(D/8), 6, args.metric], [1000, int(D/4), 6, args.metric], [1000, int(D/3), 6, args.metric], [1000, int(D/2), 6, args.metric], [1000, D, 6, args.metric], \
 								[1000, int(D/10), 8, args.metric], [1000, int(D/8), 8, args.metric], [1000, int(D/4), 8, args.metric], [1000, int(D/3), 8, args.metric], [1000, int(D/2), 8, args.metric], [1000, D, 8, args.metric], \
-								[800, int(D/10), 4, args.metric], [800, int(D/8), 4, args.metric], [800, int(D/4), 4, args.metric], [800, int(D/3), 4, args.metric], [800, int(D/2), 4, args.metric], [800, D, 4, args.metric], \
-								[800, int(D/10), 6, args.metric], [800, int(D/8), 6, args.metric], [800, int(D/4), 6, args.metric], [800, int(D/3), 6, args.metric], [800, int(D/2), 6, args.metric], [800, D, 6, args.metric], \
+								# [800, int(D/10), 4, args.metric], [800, int(D/8), 4, args.metric], [800, int(D/4), 4, args.metric], [800, int(D/3), 4, args.metric], [800, int(D/2), 4, args.metric], [800, D, 4, args.metric], \
+								# [800, int(D/10), 6, args.metric], [800, int(D/8), 6, args.metric], [800, int(D/4), 6, args.metric], [800, int(D/3), 6, args.metric], [800, int(D/2), 6, args.metric], [800, D, 6, args.metric], \
 								[800, int(D/10), 8, args.metric], [800, int(D/8), 8, args.metric], [800, int(D/4), 8, args.metric], [800, int(D/3), 8, args.metric], [800, int(D/2), 8, args.metric], [800, D, 8, args.metric], \
-								[500, int(D/10), 4, args.metric], [500, int(D/8), 4, args.metric], [500, int(D/4), 4, args.metric], [500, int(D/3), 4, args.metric], [500, int(D/2), 4, args.metric], [500, D, 4, args.metric], \
-								[500, int(D/10), 6, args.metric], [500, int(D/8), 6, args.metric], [500, int(D/4), 6, args.metric], [500, int(D/3), 6, args.metric], [500, int(D/2), 6, args.metric], [500, D, 6, args.metric], \
+								# [500, int(D/10), 4, args.metric], [500, int(D/8), 4, args.metric], [500, int(D/4), 4, args.metric], [500, int(D/3), 4, args.metric], [500, int(D/2), 4, args.metric], [500, D, 4, args.metric], \
+								# [500, int(D/10), 6, args.metric], [500, int(D/8), 6, args.metric], [500, int(D/4), 6, args.metric], [500, int(D/3), 6, args.metric], [500, int(D/2), 6, args.metric], [500, D, 6, args.metric], \
 								[500, int(D/10), 8, args.metric], [500, int(D/8), 8, args.metric], [500, int(D/4), 8, args.metric], [500, int(D/3), 8, args.metric], [500, int(D/2), 8, args.metric], [500, D, 8, args.metric], \
-								[250, int(D/10), 4, args.metric], [250, int(D/8), 4, args.metric], [250, int(D/4), 4, args.metric], [250, int(D/3), 4, args.metric], [250, int(D/2), 4, args.metric], [250, D, 4, args.metric], \
-								[250, int(D/10), 6, args.metric], [250, int(D/8), 6, args.metric], [250, int(D/4), 6, args.metric], [250, int(D/3), 6, args.metric], [250, int(D/2), 6, args.metric], [250, D, 6, args.metric], \
+								# [250, int(D/10), 4, args.metric], [250, int(D/8), 4, args.metric], [250, int(D/4), 4, args.metric], [250, int(D/3), 4, args.metric], [250, int(D/2), 4, args.metric], [250, D, 4, args.metric], \
+								# [250, int(D/10), 6, args.metric], [250, int(D/8), 6, args.metric], [250, int(D/4), 6, args.metric], [250, int(D/3), 6, args.metric], [250, int(D/2), 6, args.metric], [250, D, 6, args.metric], \
 								[250, int(D/10), 8, args.metric], [250, int(D/8), 8, args.metric], [250, int(D/4), 8, args.metric], [250, int(D/3), 8, args.metric], [250, int(D/2), 8, args.metric], [250, D, 8, args.metric], \
 								]	# L, m, log2(k*), metric
 
@@ -1026,7 +1026,7 @@ os.makedirs("./result", exist_ok=True)
 split_dataset_path = None
 if args.sweep:
 	# sweep_result_path = "./result/"+args.program+("GPU_" if args.is_gpu else "_")+args.dataset+"_topk_"+str(args.topk)+"_num_split_"+str(args.num_split)+"_batch_"+str(args.batch)+"_"+args.metric+"_reorder_"+str(args.reorder)+"_sweep_result.txt"
-	sweep_result_path = "./final_result/"+args.program+("GPU_" if args.is_gpu else "_")+args.dataset+"_topk_"+str(args.topk)+"_num_split_"+str(args.num_split)+"_batch_"+str(args.batch)+"_"+args.metric+"_reorder_"+str(args.reorder)+"_sweep_result.txt"
+	sweep_result_path = "./final_result/ONLY_LOG2KSTAR8_"+args.program+("GPU_" if args.is_gpu else "_")+args.dataset+"_topk_"+str(args.topk)+"_num_split_"+str(args.num_split)+"_batch_"+str(args.batch)+"_"+args.metric+"_reorder_"+str(args.reorder)+"_sweep_result.txt"
 
 index_key = None
 N = -1
