@@ -382,7 +382,8 @@ def build_faiss(args, cacheroot, coarse_dir, split, N_, D, index_key, is_cached,
         ps.initialize(index)
         # ps.set_index_parameter(index, 'nprobe', w)
     else:
-        faiss.omp_set_num_threads(faiss.omp_get_max_threads())
+        # faiss.omp_set_num_threads(faiss.omp_get_max_threads())
+        faiss.omp_set_num_threads(args.batch)
         # index.nprobe = w
 
     return index, preproc
