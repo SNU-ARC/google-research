@@ -319,7 +319,7 @@ def build_faiss(args, cacheroot, coarse_dir, split, N_, D, index_key, is_cached,
     index_cachefile = '%s%s_%s_%s_%s_%s%s,%s.index' % (
         cacheroot, args.metric, dbname, split, args.num_split, preproc_str, ivf_str, pqflat_str)
     print(index_cachefile)
-    
+
     first_index_cachefile = '%s%s_%s_0_%s_%s%s,%s.index' % (
         cacheroot, args.metric, dbname, args.num_split, preproc_str, ivf_str, pqflat_str)
     print(index_cachefile)
@@ -346,7 +346,7 @@ def build_faiss(args, cacheroot, coarse_dir, split, N_, D, index_key, is_cached,
             index_trained = faiss.read_index(first_index_cachefile)
             index_trained.ntotal = 0
             index_trained.invlists.reset()
-        
+
         # centroids = faiss.vector_to_array(index_trained.pq.centroids).reshape(index_trained.pq.M, index_trained.pq.ksub, index_trained.pq.dsub)
         # print("index_load: ", centroids.shape)
         # print("index_load: ", centroids)
@@ -379,7 +379,8 @@ def build_faiss(args, cacheroot, coarse_dir, split, N_, D, index_key, is_cached,
         ps.initialize(index)
         # ps.set_index_parameter(index, 'nprobe', w)
     else:
-        faiss.omp_set_num_threads(faiss.omp_get_max_threads())
+        # faiss.omp_set_num_threads(faiss.omp_get_max_threads())
+        faiss.omp_set_num_threads(args.batch)
         # index.nprobe = w
 
     return index, preproc
