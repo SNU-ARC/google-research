@@ -359,9 +359,9 @@ def sort_neighbors(distances, neighbors):
 def prepare_eval():
 	gt = get_groundtruth()
 	queries = get_queries()
-	# gt = gt[0:args.batch, :]
-	# queries = queries[0:args.batch, :]
-	# qN = args.batch
+	gt = gt[0:1000, :]
+	queries = queries[0:1000, :]
+	qN = 1000
 	print("gt shape: ", np.shape(gt))
 	print("queries shape: ", np.shape(queries))
 	# print("gt: ", gt[0])
