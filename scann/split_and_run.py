@@ -501,7 +501,7 @@ def run_scann():
 
 			if args.trace:
 				trace_w, _ = search_config[sc_list[-1]]
-				trace_result_path = "../../ANNA_chisel/simulator/final_trace/Final_Config_X9_trace_"+args.program+("GPU_" if args.is_gpu else "_")+args.dataset+"_topk_"+str(args.topk)+"_num_split_"+str(args.num_split)+"_batch_"+str(args.batch)+"_"+args.metric+"_L_"+str(trace_L)+"_m_"+str(trace_m)+"_w_"+str(trace_w)+"_threshold_"+str(trace_threshold)+"_log2kstar_"+str(trace_log2kstar)
+				trace_result_path = "../../ANNA_chisel/simulator/final_trace/Final_Config_SIFT1BAMAZON1_trace_"+args.program+("GPU_" if args.is_gpu else "_")+args.dataset+"_topk_"+str(args.topk)+"_num_split_"+str(args.num_split)+"_batch_"+str(args.batch)+"_"+args.metric+"_L_"+str(trace_L)+"_m_"+str(trace_m)+"_w_"+str(trace_w)+"_threshold_"+str(trace_threshold)+"_log2kstar_"+str(trace_log2kstar)
 
 			w_, _ = search_config[sc_list[-1]]
 			SOW = np.zeros((queries.shape[0], 1))
@@ -765,9 +765,9 @@ def run_faiss(D):
 			elif "sift1b" in args.dataset or "deep1b" in args.dataset:
 
 				build_config = [
-				[8000, D, 4, args.metric],
-				[8000, int(D/2), 4, args.metric],
-				[8000, int(D/4), 4, args.metric]
+				[8000, D, 4, args.metric]
+				#[8000, int(D/2), 4, args.metric],
+				#[8000, int(D/4), 4, args.metric]
 				]
 
 				# build_config = [[7000, D, 4, args.metric], [7000, int(D/2), 4, args.metric], [7000, int(D/4), 4, args.metric], \
@@ -857,11 +857,13 @@ def run_faiss(D):
 
 			if args.trace:
 				trace_w, _ = search_config[sc_list[-1]]
-				trace_result_path = "../../ANNA_chisel/simulator/final_trace/Final_Config_X9_trace_"+args.program+("GPU_" if args.is_gpu else "_")+args.dataset+"_topk_"+str(args.topk)+"_num_split_"+str(args.num_split)+"_batch_"+str(args.batch)+"_"+args.metric+"_L_"+str(trace_L)+"_m_"+str(trace_m)+"_w_"+str(trace_w)+"_threshold_"+str(trace_threshold)+"_log2kstar_"+str(trace_log2kstar)
+				trace_result_path = "../../ANNA_chisel/simulator/final_trace/Final_Config_SIFT1BAMAZON1_trace_"+args.program+("GPU_" if args.is_gpu else "_")+args.dataset+"_topk_"+str(args.topk)+"_num_split_"+str(args.num_split)+"_batch_"+str(args.batch)+"_"+args.metric+"_L_"+str(trace_L)+"_m_"+str(trace_m)+"_w_"+str(trace_w)+"_threshold_"+str(trace_threshold)+"_log2kstar_"+str(trace_log2kstar)
+                                neighbor_result_path = trace_result_path
 			SOW = np.zeros((queries.shape[0], 1))
 			w_, _ = search_config[sc_list[-1]]
 			SOW_elements = np.zeros((queries.shape[0], w_))
 			for split in range(args.num_split):
+                                neighbor_result_path += "_split_"+str(split)
 				print("Split ", split)
 				num_per_split = int(N/args.num_split) if split < args.num_split-1 else N-base_idx
 				searcher_dir, searcher_path = get_searcher_path(split)
@@ -900,6 +902,8 @@ def run_faiss(D):
 					# Faiss search
 					local_neighbors, local_distances, local_SOW, time = faiss_search(index, preproc, args, reorder, w)
 					total_latency[idx] = total_latency[idx] + time
+                                        (local_neighbors+base_idx).tofile(neighbor_result_path+"_neighbor")
+                                        local_distances.tofile(neighbor_result_path+"_distance")
 					# print("Split ", split)
 					# print("base index", base_idx)
 					# nn = (local_neighbors+base_idx).astype(np.int32)
@@ -1167,7 +1171,7 @@ os.makedirs("./result", exist_ok=True)
 split_dataset_path = None
 if args.sweep:
 	# sweep_result_path = "./result/"+args.program+("GPU_" if args.is_gpu else "_")+args.dataset+"_topk_"+str(args.topk)+"_num_split_"+str(args.num_split)+"_batch_"+str(args.batch)+"_"+args.metric+"_reorder_"+str(args.reorder)+"_sweep_result.txt"
-	sweep_result_path = "./final_result/Final_Config_USE_ONLY_RECALLS_X9_"+args.program+("GPU_" if args.is_gpu else "_")+args.dataset+"_topk_"+str(args.topk)+"_num_split_"+str(args.num_split)+"_batch_"+str(args.batch)+"_"+args.metric+"_reorder_"+str(args.reorder)+"_sweep_result.txt"
+	sweep_result_path = "./final_result/Final_Config_USE_ONLY_RECALLS_SIFT1BAMAZON1_"+args.program+("GPU_" if args.is_gpu else "_")+args.dataset+"_topk_"+str(args.topk)+"_num_split_"+str(args.num_split)+"_batch_"+str(args.batch)+"_"+args.metric+"_reorder_"+str(args.reorder)+"_sweep_result.txt"
 index_key = None
 N = -1
 D = -1
