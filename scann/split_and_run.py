@@ -647,7 +647,7 @@ def run_scann():
 				# print("current_SOW_elements[0, 0] =", current_SOW_elements[0, 0])
 				if args.trace and idx == len(sc_list) - 1:
 					trace_f = open(trace_result_path, "w")
-					for i in range(qN):
+					for i in range(queries.shape[0]):
 						for j in range(arcm_w):
 							trace_f.write(str(int(current_SOW_elements[i, j]))+"\t")
 						trace_f.write("\n")
@@ -801,7 +801,6 @@ def run_faiss(D):
 			# 				 [45, args.reorder], [50, args.reorder], [55, args.reorder], [60, args.reorder], [65, args.reorder], [75, args.reorder], [90, args.reorder], [110, args.reorder], [130, args.reorder], [150, args.reorder], \
 			# 				 [170, args.reorder], [200, args.reorder], [220, args.reorder], [250, args.reorder], [310, args.reorder], [400, args.reorder], [500, args.reorder], [800, args.reorder], [1000, args.reorder], \
 			# 				 [1250, args.reorder], [1500, args.reorder], [1750, args.reorder], [1900, args.reorder], [2000, args.reorder], [2250, args.reorder], [2500, args.reorder], [2750, args.reorder], [3000, args.reorder], [3500, args.reorder], [4000, args.reorder]]
-
 			search_config = [[1, args.reorder], [2, args.reorder], [4, args.reorder], [8, args.reorder], [16, args.reorder], [32, args.reorder], [64, args.reorder], [128, args.reorder], \
 							 [256, args.reorder], [320, args.reorder], [384, args.reorder], [448, args.reorder], [512, args.reorder], [576, args.reorder], [640, args.reorder], [704, args.reorder], [768, args.reorder], \
 							 [1024, args.reorder]]
@@ -858,12 +857,12 @@ def run_faiss(D):
 			if args.trace:
 				trace_w, _ = search_config[sc_list[-1]]
 				trace_result_path = "../../ANNA_chisel/simulator/final_trace/Final_Config_SIFT1BAMAZON1_trace_"+args.program+("GPU_" if args.is_gpu else "_")+args.dataset+"_topk_"+str(args.topk)+"_num_split_"+str(args.num_split)+"_batch_"+str(args.batch)+"_"+args.metric+"_L_"+str(trace_L)+"_m_"+str(trace_m)+"_w_"+str(trace_w)+"_threshold_"+str(trace_threshold)+"_log2kstar_"+str(trace_log2kstar)
-				neighbor_result_path = trace_result_path
+				# neighbor_result_path = trace_result_path
 			SOW = np.zeros((queries.shape[0], 1))
 			w_, _ = search_config[sc_list[-1]]
 			SOW_elements = np.zeros((queries.shape[0], w_))
 			for split in range(args.num_split):
-				neighbor_result_path += "_split_"+str(split)
+				neighbor_result_path = trace_result_path + "_split_" +str(split)
 				print("Split ", split)
 				num_per_split = int(N/args.num_split) if split < args.num_split-1 else N-base_idx
 				searcher_dir, searcher_path = get_searcher_path(split)
@@ -902,8 +901,8 @@ def run_faiss(D):
 					# Faiss search
 					local_neighbors, local_distances, local_SOW, time = faiss_search(index, preproc, args, reorder, w)
 					total_latency[idx] = total_latency[idx] + time
-					(local_neighbors+base_idx).tofile(neighbor_result_path+"_neighbor")
-					local_distances.tofile(neighbor_result_path+"_distance")
+					(local_neighbors+base_idx).astype(np.int32).tofile(neighbor_result_path+"_neighbor")
+					local_distances.astype(np.float32).tofile(neighbor_result_path+"_distance")
 					# print("Split ", split)
 					# print("base index", base_idx)
 					# nn = (local_neighbors+base_idx).astype(np.int32)
@@ -967,7 +966,7 @@ def run_faiss(D):
 					current_SOW_elements = SOW_elements_list[-1]
 				if args.trace and idx == len(sc_list) - 1:
 					trace_f = open(trace_result_path, "w")
-					for i in range(qN):
+					for i in range(queries.shape[0]):
 						for j in range(arcm_w):
 							trace_f.write(str(int(current_SOW_elements[i, j]))+"\t")
 						trace_f.write("\n")
