@@ -29,6 +29,8 @@ parser.add_argument('--reorder', type=int, default=-1, help='reorder size')
 ## Faiss parameters
 parser.add_argument('--k_star', type=int, default=-1, help='# of a single finegrained codewords')
 parser.add_argument('--is_gpu', action='store_true')
+parser.add_argument('--opq', type=int, default=-1, help='new desired dimension after applying OPQ')
+parser.add_argument('--sq', type=int, default=-1, help='desired amount of bits per component after SQ')
 
 ## Annoy parameters
 parser.add_argument('--n_trees', type=int, default=-1, help='# of trees')
@@ -42,6 +44,7 @@ parser.add_argument('--eval_split', action='store_true')
 parser.add_argument('--groundtruth', action='store_true')
 parser.add_argument('--sweep', action='store_true')
 parser.add_argument('--profile', action='store_true')
+
 args = parser.parse_args()
 
 assert args.dataset != None and args.topk <= 1000
@@ -57,14 +60,15 @@ if args.groundtruth:
 
 if args.program=='scann':
 	import scann
+	assert args.is_gpu == False and (args.topk <= args.reorder if args.reorder!=-1 else True)
 	if args.sweep == False:
-		assert args.L!=-1 and args.w!=-1 and args.topk!=-1 and args.k_star == -1 and args.m!=-1 and (args.topk <= args.reorder if args.reorder!=-1 else True) and args.is_gpu==False
+		assert args.L!=-1 and args.w!=-1 and args.topk!=-1 and args.k_star == -1 and args.m!=-1
 	assert args.topk!=-1
 elif args.program == "faiss":
 	#if os.environ.get('LD_PRELOAD') == None:
 	#	assert False, "Please set LD_PRELOAD environment path and retry"
 	# export LD_PRELOAD=/opt/intel/mkl/lib/intel64/libmkl_def.so:/opt/intel/mkl/lib/intel64/libmkl_avx2.so:/opt/intel/mkl/lib/intel64/libmkl_core.so:/opt/intel/mkl/lib/intel64/libmkl_intel_lp64.so:/opt/intel/mkl/lib/intel64/libmkl_intel_thread.so:/opt/intel/lib/intel64_lin/libiomp5.so
-	from runfaiss import build_faiss, faiss_search
+	from runfaiss import build_faiss, faiss_search, check_cached
 	import math
 	if args.sweep == False:
 		assert args.L!=-1 and args.k_star!=-1 and args.w!=-1 and args.m!=-1
@@ -77,13 +81,48 @@ elif args.program == "annoy":
 def compute_recall(neighbors, true_neighbors):
 	total = 0
 	for gt_row, row in zip(true_neighbors, neighbors):
+		# print("SHAPE =", np.shape(np.intersect1d(gt_row, row)))
 		total += np.intersect1d(gt_row, row).shape[0]
 	return total / true_neighbors.size
+
+def compute_more_recalls(neighbors, true_neighbors, target, base):
+	total = 0
+	trimmed_neighbors = neighbors[:,:base]
+	trimmed_gt = true_neighbors[:,:target]
+	num_queries, _ = np.shape(trimmed_gt)
+	# print("trimmed_neighbors shape =", np.shape(trimmed_neighbors))
+	# print("trimmed_gt shape =", np.shape(trimmed_gt))
+	for i in range(num_queries):
+		curr_neighbors_row = trimmed_neighbors[i]
+		curr_gt_row = trimmed_gt[i]
+		for curr_gt_elem in curr_gt_row:
+			if curr_gt_elem in curr_neighbors_row:
+				total += 1
+	return total / trimmed_gt.size
+
+def print_more_recalls(final_neighbors, gt):
+	print("final_neighbors :", final_neighbors.shape)
+	print("gt :", gt.shape)
+
+	top1_10 = compute_more_recalls(final_neighbors, gt, 1, 10)
+	top1_100 = compute_more_recalls(final_neighbors, gt, 1, 100)
+	top10_100 = compute_more_recalls(final_neighbors, gt, 10, 100)
+	top1_1000 = compute_more_recalls(final_neighbors, gt, 1, 1000)
+	top10_1000 = compute_more_recalls(final_neighbors, gt, 10, 1000)
+	top100_1000 = compute_more_recalls(final_neighbors, gt, 100, 1000)
+
+	print("Recall 1@10:", top1_10)
+	print("Recall 1@100:", top1_100)
+	print("Recall 10@100:", top10_100)
+	print("Recall 1@1000:", top1_1000)
+	print("Recall 10@1000:", top10_1000)
+	print("Recall 100@1000:", top100_1000)
+	return top1_10, top1_100, top10_100, top1_1000, top10_1000, top100_1000
 
 def ivecs_read(fname):
 	a = np.fromfile(fname, dtype='int32')
 	d = a[0]
-	return a.reshape(-1, d + 1)[:, 1:].copy()
+	return a.reshape(-1, d + 1)[:, 1:]
 
 def ivecs_write(fname, m):
 	n, d = m.shape
@@ -111,12 +150,15 @@ def bvecs_write(fname, m):
 def bvecs_read(fname):
 	b = np.fromfile(fname, dtype=np.uint8)
 	d = b[:4].view('int32')[0]
-	return b.reshape(-1, d+4)[:, 4:].copy()
+	return b.reshape(-1, d+4)[:, 4:]
 
-def mmap_fvecs(fname):
-	x = np.memmap(fname, dtype='int32', mode='r')
+def mmap_fvecs(fname, offset_=None, shape_=None):
+	if offset_!=None and shape_!=None:
+		x = np.memmap(fname, dtype='int32', mode='r', offset=(offset_*(D+1)*4), shape=(shape_*(D+1)))
+	else:
+		x = np.memmap(fname, dtype='int32', mode='r')
 	d = x[0]
-	return x.reshape(-1, d + 1)[:, 1:].copy().view('float32')
+	return x.reshape(-1, d + 1)[:, 1:].view(np.float32)
 
 def fvecs_write(fname, m):
 	m = m.astype('float32')
@@ -129,10 +171,27 @@ def fvecs_write(fname, m):
 def read_data(dataset_path, offset_=None, shape_=None, base=True):
 	if "sift1m" in args.dataset:
 		file = dataset_path + "sift_base.fvecs" if base else dataset_path
-		return mmap_fvecs(file)
+		return mmap_fvecs(file, offset_=offset_, shape_=shape_)
+	elif "deep1m" in args.dataset:
+		file = dataset_path + "deep1m_base.fvecs" if base else dataset_path
+		return mmap_fvecs(file, offset_=offset_, shape_=shape_)
+	elif "deepm96" in args.dataset:
+		file = dataset_path + "deepm96_base.fvecs" if base else dataset_path
+		return mmap_fvecs(file, offset_=offset_, shape_=shape_)
+	elif "music1m" in args.dataset:
+		# file = dataset_path + "database_music100.bin" if base else dataset_path
+		# return np.fromfile(file, dtype = np.float32).reshape(N, D)
+		file = dataset_path + "split_data/music1m_1_0" if base else dataset_path
+		return mmap_fvecs(file, offset_=offset_, shape_=shape_)
+	elif "gist" in args.dataset:
+		file = dataset_path + "gist_base.fvecs" if base else dataset_path
+		return mmap_fvecs(file, offset_=offset_, shape_=shape_)
 	elif "sift1b" in args.dataset:
 		file = dataset_path+"bigann_base.bvecs" if base else dataset_path
 		return bvecs_mmap(file, offset_=offset_, shape_=shape_)
+	elif "deep1b" in args.dataset:
+		file = dataset_path+"deep1B_base.fvecs" if base else dataset_path
+		return mmap_fvecs(file, offset_=offset_, shape_=shape_)
 	elif "glove" in args.dataset:
 		file = dataset_path+"glove-100-angular.hdf5" if base else dataset_path
 		if base:
@@ -153,30 +212,81 @@ def read_data(dataset_path, offset_=None, shape_=None, base=True):
 def write_split_data(split_data_path, split_data):
 	if "sift1b" in args.dataset:
 		bvecs_write(split_data_path, split_data)
-	elif "sift1m" in args.dataset:
+	elif "sift1m" in args.dataset or "gist" in args.dataset or "deep1m" in args.dataset or "deepm96" in args.dataset or "deep1b" in args.dataset or "music1m" in args.dataset:
 		fvecs_write(split_data_path, split_data)
 	elif "glove" in args.dataset:
 		hf = h5py.File(split_data_path, 'w')
 		hf.create_dataset('dataset', data=split_data)
 	print("Wrote to ", split_data_path, ", shape ", split_data.shape)
+	print("arcm::write_split_data done\n");
 
 def write_gt_data(gt_data):
-	if "sift1b" in args.dataset or "sift1m" in args.dataset:
+	if "sift1b" in args.dataset or "sift1m" in args.dataset or "gist" in args.dataset or "deep1m" in args.dataset or "deepm96" in args.dataset or "deep1b" in args.dataset or "music1m" in args.dataset:
 		ivecs_write(groundtruth_path, gt_data)
 	elif "glove" in args.dataset:
 		hf = h5py.File(groundtruth_path, 'w')
 		hf.create_dataset('dataset', data=gt_data)
 	print("Wrote to ", groundtruth_path, ", shape ", gt_data.shape)
-
-def write_split_gt_data(split_gt_path, gt_data):
-	if "sift1b" in args.dataset or "sift1m" in args.dataset:
-		ivecs_write(split_gt_path, gt_data)
-	elif "glove" in args.dataset:
-		hf = h5py.File(split_gt_path, 'w')
-		hf.create_dataset('dataset', data=gt_data)
-	print("Wrote to ", split_gt_path, ", shape ", gt_data.shape)
+	print("arcm::write_gt_data done\n");
 
 def split(filename, num_iter, N, D):
+	num_per_split = int(N/args.num_split)
+	dataset_per_iter = int(N/num_iter)
+	dataset = np.empty((0, D), dtype=np.uint8 if 'sift1b' in args.dataset else np.float32)
+	print("dataset_per_iter: ", dataset_per_iter, " / num_per_split: ", num_per_split)
+	num_split_list=[]
+	split = 0
+	sampling_rate = 0.1
+	for it in range(num_iter):
+		print("Iter: ", it)
+		if it==num_iter-1:
+			dataset = np.append(dataset, read_data(dataset_basedir, offset_=it*dataset_per_iter, shape_=(N-it*dataset_per_iter)), axis=0)
+		else:
+			dataset = np.append(dataset, read_data(dataset_basedir, offset_=it*dataset_per_iter, shape_=dataset_per_iter), axis=0)
+		count=0
+		while split<args.num_split:
+			if (split+1)*num_per_split > dataset_per_iter*(it+1):
+				if it!=num_iter-1:
+					print("Entering next iter.. start index ", count*num_per_split, " ", dataset.shape[0])
+					dataset = dataset[count*num_per_split:]
+				else:
+					split_size = dataset[count*num_per_split:].shape[0]
+					print("Split ", split, ": ", count*num_per_split, " ", N-1)
+					print(dataset[count*num_per_split])
+					write_split_data(split_dataset_path + str(args.num_split) + "_" + str(split), dataset[count*num_per_split:])
+					if "glove" in args.dataset:
+						trainset = np.random.choice(split_size, int(sampling_rate*split_size), replace=False)
+						write_split_data(split_dataset_path + args.metric + "_learn" + str(args.num_split) + "_" + str(split), dataset[count*num_per_split:][trainset])
+					elif "music1m" in args.dataset:
+						trainset = np.random.choice(split_size, int(sampling_rate*split_size), replace=False)
+						write_split_data(split_dataset_path + "learn" + str(args.num_split) + "_" + str(split), dataset[count*num_per_split:][trainset])
+					elif "deepm96" in args.dataset:
+						trainset = np.random.choice(split_size, int(sampling_rate*split_size), replace=False)
+						write_split_data(split_dataset_path + "learn" + str(args.num_split) + "_" + str(split), dataset[count*num_per_split:][trainset])
+					num_split_list.append(dataset[count*num_per_split:].shape[0])
+					split = split+1
+				break
+			elif split < args.num_split:
+				split_size = dataset[count*num_per_split:(count+1)*num_per_split].shape[0]
+				print("Split ", split, ": ", count*num_per_split, " ", (count+1)*num_per_split)
+				print(dataset[count*num_per_split])
+				write_split_data(split_dataset_path + str(args.num_split) + "_" + str(split), dataset[count*num_per_split:(count+1)*num_per_split])
+				if "glove" in args.dataset:
+					trainset = np.random.choice(split_size, int(sampling_rate*split_size), replace=False)
+					write_split_data(split_dataset_path + args.metric + "_learn" + str(args.num_split) + "_" + str(split), dataset[count*num_per_split:(count+1)*num_per_split][trainset])
+				elif "music1m" in args.dataset:
+					trainset = np.random.choice(split_size, int(sampling_rate*split_size), replace=False)
+					write_split_data(split_dataset_path + "learn" + str(args.num_split) + "_" + str(split), dataset[count*num_per_split:(count+1)*num_per_split][trainset])
+				elif "deepm96" in args.dataset:
+					trainset = np.random.choice(split_size, int(sampling_rate*split_size), replace=False)
+					write_split_data(split_dataset_path + "learn" + str(args.num_split) + "_" + str(split), dataset[count*num_per_split:(count+1)*num_per_split][trainset])
+				num_split_list.append(dataset[count*num_per_split:(count+1)*num_per_split].shape[0])
+				split = split+1
+			count = count+1
+	print("num_split_lists: ", num_split_list)
+	print("arcm::split done\n");
+
+def random_split(filename, num_iter, N, D):
 	num_per_split = int(N/args.num_split)
 	dataset = np.empty((0, D), dtype=np.uint8 if 'sift1b' in args.dataset else np.float32)
 	dataset_per_iter = int(N/num_iter)
@@ -184,39 +294,24 @@ def split(filename, num_iter, N, D):
 	print("dataset_per_iter: ", dataset_per_iter, " / num_per_split: ", num_per_split)
 	num_split_list=[]
 	split = 0
-	for it in range(num_iter):
-		print("Iter: ", it)
-		if it==num_iter-1:
-			dataset = np.append(dataset, read_data(dataset_basedir, offset_=it*dataset_per_iter, shape_=(N-it*dataset_per_iter)), axis=0)
+	sampling_rate = 0.1
+
+	import random
+	random.seed(100)
+	data_ids = list(range(N))
+	random.shuffle(data_ids)
+	# print(data_ids[0:1000])
+	dataset = read_data(dataset_basedir)
+	for split in range(args.num_split):
+		if split < args.num_split:
+			write_split_data(split_dataset_path + str(args.num_split) + "_" + str(split), dataset[data_ids[split*num_per_split:(split+1)*num_per_split]])
 		else:
-			dataset = np.append(dataset, read_data(dataset_basedir, offset_=it*dataset_per_iter, shape_=dataset_per_iter), axis=0)
-		print("Reading dataset done")
-		count=0
-		while split<args.num_split:
-			if (split+1)*num_per_split > dataset_per_iter*(it+1):
-				if it!=num_iter-1:
-					print("Entering next iter..")
-					dataset = dataset[count*num_per_split:]
-				else:
-					split_size = dataset[count*num_per_split:].shape[0]
-					write_split_data(split_dataset_path + str(args.num_split) + "_" + str(split), dataset[count*num_per_split:])
-					trainset = np.random.choice(split_size, int(0.1*split_size), replace=False)
-					write_split_data(split_dataset_path + "learn" + str(args.num_split) + "_" + str(split), dataset[count*num_per_split:][trainset])
-					num_split_list.append(dataset[count*num_per_split:].shape[0])
-					split = split+1
-				break
-			elif split < args.num_split:
-				split_size = dataset[count*num_per_split:(count+1)*num_per_split].shape[0]
-				write_split_data(split_dataset_path + str(args.num_split) + "_" + str(split), dataset[count*num_per_split:(count+1)*num_per_split])
-				trainset = np.random.choice(split_size, int(0.1*split_size), replace=False)
-				write_split_data(split_dataset_path + "learn" + str(args.num_split) + "_" + str(split), dataset[count*num_per_split:(count+1)*num_per_split][trainset])
-				num_split_list.append(dataset[count*num_per_split:(count+1)*num_per_split].shape[0])
-				split = split+1
-			count = count+1
-	print("num_split_lists: ", num_split_list)
+			write_split_data(split_dataset_path + str(args.num_split) + "_" + str(split), dataset[data_ids[split*num_per_split:]])
+	np.array(data_ids, dtype=np.uint32).tofile(remapping_file_path)
+	print("Wrote remapping index file to ", remapping_file_path)
 
 def run_groundtruth():
-	print("Making groudtruth file")
+	print("Making groundtruth file")
 	import ctypes
 	groundtruth_dir = dataset_basedir + "groundtruth/"
 	if os.path.isdir(groundtruth_dir)!=True:
@@ -251,40 +346,51 @@ def run_groundtruth():
 			libc = ctypes.CDLL('./groundtruth.so')
 			libc.compute_groundtruth.restype=None
 			libc.compute_groundtruth(num, num_per_split, D, qN, xpp, ypp, gpp, gspp, True if args.metric=="dot_product" else False)
-		split_gt_path = groundtruth_path
-		write_split_gt_data(split_gt_path, groundtruth)
+		# split_gt_path = groundtruth_path
+		write_gt_data(groundtruth)
 
 def sort_neighbors(distances, neighbors):
 	if "dot_product" == args.metric or "angular" == args.metric:
 		return np.take_along_axis(neighbors, np.argsort(-distances, axis=-1), -1)[:,:,:args.topk], -np.sort(-distances, axis=-1)[:,:,:args.topk]
 	elif "squared_l2" == args.metric:
 		return np.take_along_axis(neighbors, np.argsort(distances, axis=-1), -1)[:,:,:args.topk], np.sort(distances, axis=-1)[:,:,:args.topk]
+		# return np.take_along_axis(neighbors, np.argsort(distances, axis=-1), -1), np.sort(distances, axis=-1)
 	else:
 		assert False
 
 def prepare_eval():
 	gt = get_groundtruth()
 	queries = get_queries()
+	# gt = gt[0:args.batch, :]
+	# queries = queries[0:args.batch, :]
+	# qN = args.batch
+	print("gt shape: ", np.shape(gt))
+	print("queries shape: ", np.shape(queries))
+	# print("gt: ", gt[0])
 	assert gt.shape[1] == 1000
 	return gt, queries
 
 def print_recall(final_neighbors, gt):
 	print("final_neighbors :", final_neighbors.shape)
 	print("gt :", gt.shape)
+	# print("final_neighbors :", final_neighbors[44])
+	# print("gt :", gt[44])
+
 	top1 = compute_recall(final_neighbors[:,:1], gt[:, :1])
 	top10 = compute_recall(final_neighbors[:,:10], gt[:, :10])
 	top100 = compute_recall(final_neighbors[:,:100], gt[:, :100])
 	top1000 = compute_recall(final_neighbors[:,:1000], gt[:, :1000])
-	top1000_10000 = compute_recall(final_neighbors[:,:10000], gt[:, :1000])
+	# top1000_10000 = compute_recall(final_neighbors[:,:10000], gt[:, :1000])
 	print("Recall 1@1:", top1)
 	print("Recall 10@10:", top10)
 	print("Recall 100@100:", top100)
 	print("Recall 1000@1000:", top1000)
-	print("Recall 1000@10000:", top1000_10000)
+	# print("Recall 1000@10000:", top1000_10000)
 	return top1, top10, top100, top1000
 
 def get_searcher_path(split):
-	searcher_dir = basedir + args.program + ("GPU_" if args.is_gpu else "_") + 'searcher_' + args.metric + '/' + args.dataset + '/Split_' + str(args.num_split) + '/'
+	searcher_dir = basedir + args.program + '_searcher_' + args.metric + '/' + args.dataset + '/Split_' + str(args.num_split) + '/'
+	os.makedirs(searcher_dir, exist_ok=True)
 	searcher_path = searcher_dir + args.dataset + '_searcher_' + str(args.num_split)+'_'+str(split)
 	return searcher_dir, searcher_path
 
@@ -294,7 +400,9 @@ def check_available_search_config(program, bc, search_config):
 		num_leaves, threshold, dims, metric = bc
 		for idx, sc in enumerate(search_config):
 			leaves_to_search = sc[0]
-			if leaves_to_search > num_leaves or (D%dims!=0 and args.sweep==True):
+			if leaves_to_search > num_leaves or (D%dims!=0 and args.sweep==True) or (metric == 'squared_l2' and (4**(D/dims) < N)):
+				continue
+			elif (D/dims) <= 4:
 				continue
 			else:
 				sc_list.append(idx)
@@ -302,57 +410,83 @@ def check_available_search_config(program, bc, search_config):
 		L, m, log2kstar, metric = bc
 		for idx, sc in enumerate(search_config):
 			nprobe, args.reorder = sc[0], sc[1]
-			if nprobe > L or (nprobe > 2048 and args.is_gpu) or (D%m!=0 and args.sweep==True) or (m > 96 and args.is_gpu) or (not args.is_gpu and log2kstar>8) or (args.is_gpu and log2kstar != 8):
+			if nprobe > L or (nprobe > 2048 and args.is_gpu) or (D%m!=0 and args.sweep==True) or (m > 96 and args.is_gpu) or (not args.is_gpu and log2kstar>8) or (args.is_gpu and log2kstar != 8) or (metric == 'dot_product' and ((2**log2kstar)**m < N)) or (args.opq != -1 and args.opq%m != 0):
+				continue
+			elif m <= 4:
 				continue
 			else:
 				sc_list.append(idx)
 	else:
 		assert False
-	
+
 	return sc_list
 
 def run_scann():
 	gt, queries = prepare_eval()
+	train_dataset = get_train()
+	num_per_split = int(N/args.num_split)
+
 	if args.sweep:
-		if "sift1b" in args.dataset:
+		if "sift1b" in args.dataset or "deep1b" in args.dataset:
 			# For sift 1b
 			# build_config = [[7000, 0.55, 2, args.metric], [7000, 0.2, 4, args.metric], [7000, 0.2, 2, args.metric], [7000, 0.2, 1, args.metric], \
-			build_config = [[7000, 0.2, 4, args.metric], [7000, 0.2, 1, args.metric], \
-							[8000, 0.55, 2, args.metric], [8000, 0.2, 4, args.metric], [8000, 0.2, 2, args.metric], [8000, 0.2, 1, args.metric], \
-							[6000, 0.55, 2, args.metric], [6000, 0.2, 4 , args.metric], [6000, 0.2, 2, args.metric], [6000, 0.2, 1, args.metric]]
-			search_config = [[1, args.reorder], [16, args.reorder], [32, args.reorder], [64, args.reorder], [128, args.reorder], \
-							 [256, args.reorder], [320, args.reorder], [384, args.reorder], [448, args.reorder], [512, args.reorder], [576, args.reorder], [640, args.reorder], [704, args.reorder], [768, args.reorder], \
-							 [1024, args.reorder], [1280, args.reorder], [1536, args.reorder], [2048, args.reorder], [2560, args.reorder], [3072, args.reorder], [4096, args.reorder], [4608, args.reorder], \
-							 [5120, args.reorder], [5632, args.reorder], [6144, args.reorder], [6656, args.reorder], [7168, args.reorder], [7680, args.reorder], \
-							 [8192, args.reorder], [16384, args.reorder]]
-		else:
+			# 				[8000, 0.55, 2, args.metric], [8000, 0.2, 4, args.metric], [8000, 0.2, 2, args.metric], [8000, 0.2, 1, args.metric], \
+			# 				[6000, 0.55, 2, args.metric], [6000, 0.2, 4 , args.metric], [6000, 0.2, 2, args.metric], [6000, 0.2, 1, args.metric]]
 			build_config = [
-							[800, 0.2, 1, args.metric], [800, 0.2, 2, args.metric], [800, 0.2, 3, args.metric], [800, 0.2, 4, args.metric], [800, 0.2, 5, args.metric], [800, 0.2, 8, args.metric], [800, 0.2, 10, args.metric], [800, 0.2, 16, args.metric], [800, 0.2, 25, args.metric], [800, 0.2, 32, args.metric], [800, 0.2, 50, args.metric], [800, 0.2, 64, args.metric], \
-							[800, 0.4, 1, args.metric], [800, 0.4, 2, args.metric], [800, 0.4, 3, args.metric], [800, 0.4, 4, args.metric], [800, 0.4, 5, args.metric], [800, 0.4, 8, args.metric], [800, 0.4, 10, args.metric], [800, 0.4, 16, args.metric], [800, 0.4, 25, args.metric], [800, 0.4, 32, args.metric], [800, 0.4, 50, args.metric], [800, 0.4, 64, args.metric], \
-							[800, 0.55, 1, args.metric], [800, 0.55, 2, args.metric], [800, 0.55, 3, args.metric], [800, 0.55, 4, args.metric], [800, 0.55, 5, args.metric], [800, 0.55, 8, args.metric], [800, 0.55, 10, args.metric], [800, 0.55, 16, args.metric], [800, 0.55, 25, args.metric], [800, 0.55, 32, args.metric], [800, 0.55, 50, args.metric], [800, 0.55, 64, args.metric], \
-							[1000, 0.2, 1, args.metric], [1000, 0.2, 2, args.metric], [1000, 0.2, 3, args.metric], [1000, 0.2, 4, args.metric], [1000, 0.2, 5, args.metric], [1000, 0.2, 8, args.metric], [1000, 0.2, 10, args.metric], [1000, 0.2, 16, args.metric], [1000, 0.2, 25, args.metric], [1000, 0.2, 32, args.metric], [1000, 0.2, 50, args.metric], [1000, 0.2, 64, args.metric], \
-							[1000, 0.4, 1, args.metric], [1000, 0.4, 2, args.metric], [1000, 0.4, 3, args.metric], [1000, 0.4, 4, args.metric], [1000, 0.4, 5, args.metric], [1000, 0.4, 8, args.metric], [1000, 0.4, 10, args.metric], [1000, 0.4, 16, args.metric], [1000, 0.4, 25, args.metric], [1000, 0.4, 32, args.metric], [1000, 0.4, 50, args.metric], [1000, 0.4, 64, args.metric], \
-							[1000, 0.55, 1, args.metric], [1000, 0.55, 2, args.metric], [1000, 0.55, 3, args.metric], [1000, 0.55, 4, args.metric], [1000, 0.55, 5, args.metric], [1000, 0.55, 8, args.metric], [1000, 0.55, 10, args.metric], [1000, 0.55, 16, args.metric], [1000, 0.55, 25, args.metric], [1000, 0.55, 32, args.metric], [1000, 0.55, 50, args.metric], [1000, 0.55, 64, args.metric], \
-							[1500, 0.2, 1, args.metric], [1500, 0.2, 2, args.metric], [1500, 0.2, 3, args.metric], [1500, 0.2, 4, args.metric], [1500, 0.2, 5, args.metric], [1500, 0.2, 8, args.metric], [1500, 0.2, 10, args.metric], [1500, 0.2, 16, args.metric], [1500, 0.2, 25, args.metric], [1500, 0.2, 32, args.metric], [1500, 0.2, 50, args.metric], [1500, 0.2, 64, args.metric], \
-							[1500, 0.4, 1, args.metric], [1500, 0.4, 2, args.metric], [1500, 0.4, 3, args.metric], [1500, 0.4, 4, args.metric], [1500, 0.4, 5, args.metric], [1500, 0.4, 8, args.metric], [1500, 0.4, 10, args.metric], [1500, 0.4, 16, args.metric], [1500, 0.4, 25, args.metric], [1500, 0.4, 32, args.metric], [1500, 0.4, 50, args.metric], [1500, 0.4, 64, args.metric], \
-							[1500, 0.55, 1, args.metric], [1500, 0.55, 2, args.metric], [1500, 0.55, 3, args.metric], [1500, 0.55, 4, args.metric], [1500, 0.55, 5, args.metric], [1500, 0.55, 8, args.metric], [1500, 0.55, 10, args.metric], [1500, 0.55, 16, args.metric], [1500, 0.55, 25, args.metric], [1500, 0.55, 32, args.metric], [1500, 0.55, 50, args.metric], [1500, 0.55, 64, args.metric], \
-							[2000, 0.2, 1, args.metric], [2000, 0.2, 2, args.metric], [2000, 0.2, 3, args.metric], [2000, 0.2, 4, args.metric], [2000, 0.2, 5, args.metric], [2000, 0.2, 8, args.metric], [2000, 0.2, 10, args.metric], [2000, 0.2, 16, args.metric], [2000, 0.2, 25, args.metric], [2000, 0.2, 32, args.metric], [2000, 0.2, 50, args.metric], [2000, 0.2, 64, args.metric], \
-							[2000, 0.4, 1, args.metric], [2000, 0.4, 2, args.metric], [2000, 0.4, 3, args.metric], [2000, 0.4, 4, args.metric], [2000, 0.4, 5, args.metric], [2000, 0.4, 8, args.metric], [2000, 0.4, 10, args.metric], [2000, 0.4, 16, args.metric], [2000, 0.4, 25, args.metric], [2000, 0.4, 32, args.metric], [2000, 0.4, 50, args.metric], [2000, 0.4, 64, args.metric], \
-							[2000, 0.55, 1, args.metric], [2000, 0.55, 2, args.metric], [2000, 0.55, 3, args.metric], [2000, 0.55, 4, args.metric], [2000, 0.55, 5, args.metric], [2000, 0.55, 8, args.metric], [2000, 0.55, 10, args.metric], [2000, 0.55, 16, args.metric], [2000, 0.55, 25, args.metric], [2000, 0.55, 32, args.metric], [2000, 0.55, 50, args.metric], [2000, 0.55, 64, args.metric], \
-							[4000, 0.2, 1, args.metric],[4000, 0.2, 2, args.metric], [4000, 0.2, 3, args.metric], [4000, 0.2, 4, args.metric], [4000, 0.2, 5, args.metric], [4000, 0.2, 8, args.metric], [4000, 0.2, 10, args.metric], [4000, 0.2, 16, args.metric], [4000, 0.2, 25, args.metric], [4000, 0.2, 32, args.metric], [4000, 0.2, 50, args.metric], [4000, 0.2, 64, args.metric], \
-							[4000, 0.4, 1, args.metric], [4000, 0.4, 2, args.metric], [4000, 0.4, 3, args.metric], [4000, 0.4, 4, args.metric], [4000, 0.4, 5, args.metric], [4000, 0.4, 8, args.metric], [4000, 0.4, 10, args.metric], [4000, 0.4, 16, args.metric], [4000, 0.4, 25, args.metric], [4000, 0.4, 32, args.metric], [4000, 0.4, 50, args.metric], [4000, 0.4, 64, args.metric], \
-							[4000, 0.55, 1, args.metric], [4000, 0.55, 2, args.metric], [4000, 0.55, 3, args.metric], [4000, 0.55, 4, args.metric], [4000, 0.55, 5, args.metric], [4000, 0.55, 8, args.metric], [4000, 0.55, 10, args.metric], [4000, 0.55, 16, args.metric], [4000, 0.55, 25, args.metric], [4000, 0.55, 32, args.metric], [4000, 0.55, 50, args.metric], [4000, 0.55, 64, args.metric]]
+							# [7000, 0.2, 4, args.metric], [7000, 0.2, 2, args.metric], [7000, 0.2, 1, args.metric], \
+							[8000, 0.2, 8, args.metric], [8000, 0.2, 4, args.metric], [8000, 0.2, 2, args.metric], [8000, 0.2, 1, args.metric], \
+							[6000, 0.2, 8 , args.metric], [6000, 0.2, 4 , args.metric], [6000, 0.2, 2, args.metric], [6000, 0.2, 1, args.metric], \
+							[4000, 0.2, 8 , args.metric], [4000, 0.2, 4 , args.metric], [4000, 0.2, 2, args.metric], [4000, 0.2, 1, args.metric], \
+							]
 
+			# search_config = [[1, args.reorder], [16, args.reorder], [32, args.reorder], [64, args.reorder], [128, args.reorder], \
+			# 				 [256, args.reorder], [320, args.reorder], [384, args.reorder], [448, args.reorder], [512, args.reorder], [576, args.reorder], [640, args.reorder], [704, args.reorder], [768, args.reorder], \
+			# 				 [1024, args.reorder], [1280, args.reorder], [1536, args.reorder], [2048, args.reorder], [2560, args.reorder], [3072, args.reorder], [4096, args.reorder], [4608, args.reorder], \
+			# 				 [5120, args.reorder], [5632, args.reorder], [6144, args.reorder], [6656, args.reorder], [7168, args.reorder], [7680, args.reorder], \
+			# 				 [8192, args.reorder], [16384, args.reorder]]
+			search_config = [[1, args.reorder], [2, args.reorder], [4, args.reorder], [8, args.reorder], [16, args.reorder], [32, args.reorder], [64, args.reorder], [128, args.reorder], \
+							 [256, args.reorder], [320, args.reorder], [384, args.reorder], [448, args.reorder], [512, args.reorder], [576, args.reorder], [640, args.reorder], [704, args.reorder], [768, args.reorder], \
+							 [1024, args.reorder]]
 
-			# build_config = [[2000, 0.2, 2, args.metric], [2000, 0.2, 1, args.metric], [1500, 0.55, 2, args.metric], [1500, 0.55, 1, args.metric], [1000, 0.55, 2, args.metric], [1000, 0.55, 1, args.metric], \
-			#  				  [1000, 0.2, 2, args.metric], [1000, 0.2, 1, args.metric], [1400, 0.15, 1, args.metric], [1400, 0.15, 2, args.metric], [1400, 0.15, 3, args.metric], \
-			#  				  [800, 0.15, 2, args.metric], [800, 0.15, 1, args.metric]]
-			# build_config = [[1400, 0.15, 3, args.metric], \
-			#  				  [800, 0.15, 2, args.metric], [800, 0.15, 1, args.metric]]
-			search_config = [[1, args.reorder], [2, args.reorder], [4, args.reorder], [8, args.reorder], [16, args.reorder], [25, args.reorder], [30, args.reorder], [35, args.reorder], [40, args.reorder], \
-							 [45, args.reorder], [50, args.reorder], [55, args.reorder], [60, args.reorder], [65, args.reorder], [75, args.reorder], [90, args.reorder], [110, args.reorder], [130, args.reorder], [150, args.reorder], \
-							 [170, args.reorder], [200, args.reorder], [220, args.reorder], [250, args.reorder], [310, args.reorder], [400, args.reorder], [500, args.reorder], [800, args.reorder], [1000, args.reorder], \
-							 [1250, args.reorder], [1500, args.reorder], [1750, args.reorder], [1900, args.reorder], [2000, args.reorder], [2048, args.reorder]]
+		else:
+			# build_config = [
+			# 				[4000, 0.2, 1, args.metric],[4000, 0.2, 2, args.metric], [4000, 0.2, 3, args.metric], [4000, 0.2, 4, args.metric], [4000, 0.2, 5, args.metric], [4000, 0.2, 8, args.metric], [4000, 0.2, 10, args.metric], [4000, 0.2, 16, args.metric], [4000, 0.2, 25, args.metric], [4000, 0.2, 32, args.metric], [4000, 0.2, 50, args.metric], [4000, 0.2, 64, args.metric], \
+			# 				# [4000, 0.4, 1, args.metric], [4000, 0.4, 2, args.metric], [4000, 0.4, 3, args.metric], [4000, 0.4, 4, args.metric], [4000, 0.4, 5, args.metric], [4000, 0.4, 8, args.metric], [4000, 0.4, 10, args.metric], [4000, 0.4, 16, args.metric], [4000, 0.4, 25, args.metric], [4000, 0.4, 32, args.metric], [4000, 0.4, 50, args.metric], [4000, 0.4, 64, args.metric], \
+			# 				# [4000, 0.55, 1, args.metric], [4000, 0.55, 2, args.metric], [4000, 0.55, 3, args.metric], [4000, 0.55, 4, args.metric], [4000, 0.55, 5, args.metric], [4000, 0.55, 8, args.metric], [4000, 0.55, 10, args.metric], [4000, 0.55, 16, args.metric], [4000, 0.55, 25, args.metric], [4000, 0.55, 32, args.metric], [4000, 0.55, 50, args.metric], [4000, 0.55, 64, args.metric], \
+			# 				[2000, 0.2, 1, args.metric], [2000, 0.2, 2, args.metric], [2000, 0.2, 3, args.metric], [2000, 0.2, 4, args.metric], [2000, 0.2, 5, args.metric], [2000, 0.2, 8, args.metric], [2000, 0.2, 10, args.metric], [2000, 0.2, 16, args.metric], [2000, 0.2, 25, args.metric], [2000, 0.2, 32, args.metric], [2000, 0.2, 50, args.metric], [2000, 0.2, 64, args.metric], \
+			# 				# [2000, 0.4, 1, args.metric], [2000, 0.4, 2, args.metric], [2000, 0.4, 3, args.metric], [2000, 0.4, 4, args.metric], [2000, 0.4, 5, args.metric], [2000, 0.4, 8, args.metric], [2000, 0.4, 10, args.metric], [2000, 0.4, 16, args.metric], [2000, 0.4, 25, args.metric], [2000, 0.4, 32, args.metric], [2000, 0.4, 50, args.metric], [2000, 0.4, 64, args.metric], \
+			# 				# [2000, 0.55, 1, args.metric], [2000, 0.55, 2, args.metric], [2000, 0.55, 3, args.metric], [2000, 0.55, 4, args.metric], [2000, 0.55, 5, args.metric], [2000, 0.55, 8, args.metric], [2000, 0.55, 10, args.metric], [2000, 0.55, 16, args.metric], [2000, 0.55, 25, args.metric], [2000, 0.55, 32, args.metric], [2000, 0.55, 50, args.metric], [2000, 0.55, 64, args.metric], \
+			# 				# [1500, 0.2, 1, args.metric], [1500, 0.2, 2, args.metric], [1500, 0.2, 3, args.metric], [1500, 0.2, 4, args.metric], [1500, 0.2, 5, args.metric], [1500, 0.2, 8, args.metric], [1500, 0.2, 10, args.metric], [1500, 0.2, 16, args.metric], [1500, 0.2, 25, args.metric], [1500, 0.2, 32, args.metric], [1500, 0.2, 50, args.metric], [1500, 0.2, 64, args.metric], \
+			# 				# [1500, 0.4, 1, args.metric], [1500, 0.4, 2, args.metric], [1500, 0.4, 3, args.metric], [1500, 0.4, 4, args.metric], [1500, 0.4, 5, args.metric], [1500, 0.4, 8, args.metric], [1500, 0.4, 10, args.metric], [1500, 0.4, 16, args.metric], [1500, 0.4, 25, args.metric], [1500, 0.4, 32, args.metric], [1500, 0.4, 50, args.metric], [1500, 0.4, 64, args.metric], \
+			# 				# [1500, 0.55, 1, args.metric], [1500, 0.55, 2, args.metric], [1500, 0.55, 3, args.metric], [1500, 0.55, 4, args.metric], [1500, 0.55, 5, args.metric], [1500, 0.55, 8, args.metric], [1500, 0.55, 10, args.metric], [1500, 0.55, 16, args.metric], [1500, 0.55, 25, args.metric], [1500, 0.55, 32, args.metric], [1500, 0.55, 50, args.metric], [1500, 0.55, 64, args.metric], \
+			# 				[1000, 0.2, 1, args.metric], [1000, 0.2, 2, args.metric], [1000, 0.2, 3, args.metric], [1000, 0.2, 4, args.metric], [1000, 0.2, 5, args.metric], [1000, 0.2, 8, args.metric], [1000, 0.2, 10, args.metric], [1000, 0.2, 16, args.metric], [1000, 0.2, 25, args.metric], [1000, 0.2, 32, args.metric], [1000, 0.2, 50, args.metric], [1000, 0.2, 64, args.metric], \
+			# 				# [1000, 0.4, 1, args.metric], [1000, 0.4, 2, args.metric], [1000, 0.4, 3, args.metric], [1000, 0.4, 4, args.metric], [1000, 0.4, 5, args.metric], [1000, 0.4, 8, args.metric], [1000, 0.4, 10, args.metric], [1000, 0.4, 16, args.metric], [1000, 0.4, 25, args.metric], [1000, 0.4, 32, args.metric], [1000, 0.4, 50, args.metric], [1000, 0.4, 64, args.metric], \
+			# 				# [1000, 0.55, 1, args.metric], [1000, 0.55, 2, args.metric], [1000, 0.55, 3, args.metric], [1000, 0.55, 4, args.metric], [1000, 0.55, 5, args.metric], [1000, 0.55, 8, args.metric], [1000, 0.55, 10, args.metric], [1000, 0.55, 16, args.metric], [1000, 0.55, 25, args.metric], [1000, 0.55, 32, args.metric], [1000, 0.55, 50, args.metric], [1000, 0.55, 64, args.metric], \
+			# 				[800, 0.2, 1, args.metric], [800, 0.2, 2, args.metric], [800, 0.2, 3, args.metric], [800, 0.2, 4, args.metric], [800, 0.2, 5, args.metric], [800, 0.2, 8, args.metric], [800, 0.2, 10, args.metric], [800, 0.2, 16, args.metric], [800, 0.2, 25, args.metric], [800, 0.2, 32, args.metric], [800, 0.2, 50, args.metric], [800, 0.2, 64, args.metric], \
+			# 				# [800, 0.4, 1, args.metric], [800, 0.4, 2, args.metric], [800, 0.4, 3, args.metric], [800, 0.4, 4, args.metric], [800, 0.4, 5, args.metric], [800, 0.4, 8, args.metric], [800, 0.4, 10, args.metric], [800, 0.4, 16, args.metric], [800, 0.4, 25, args.metric], [800, 0.4, 32, args.metric], [800, 0.4, 50, args.metric], [800, 0.4, 64, args.metric], \
+			# 				# [800, 0.55, 1, args.metric], [800, 0.55, 2, args.metric], [800, 0.55, 3, args.metric], [800, 0.55, 4, args.metric], [800, 0.55, 5, args.metric], [800, 0.55, 8, args.metric], [800, 0.55, 10, args.metric], [800, 0.55, 16, args.metric], [800, 0.55, 25, args.metric], [800, 0.55, 32, args.metric], [800, 0.55, 50, args.metric], [800, 0.55, 64, args.metric], \
+			# 				# [600, 0.2, 1, args.metric], [600, 0.2, 2, args.metric], [600, 0.2, 4, args.metric], [600, 0.2, 5, args.metric], [600, 0.2, 8, args.metric],	[600, 0.2, 10, args.metric],\
+			# 				[500, 0.2, 1, args.metric], [500, 0.2, 2, args.metric], [500, 0.2, 3, args.metric], [500, 0.2, 4, args.metric], [500, 0.2, 5, args.metric], [500, 0.2, 8, args.metric], [500, 0.2, 10, args.metric], \
+			# 				# [400, 0.2, 1, args.metric], [400, 0.2, 2, args.metric], [400, 0.2, 4, args.metric], [400, 0.2, 5, args.metric], [400, 0.2, 8, args.metric], [400, 0.2, 10, args.metric], \
+			# 				[250, 0.2, 1, args.metric], [250, 0.2, 2, args.metric], [250, 0.2, 4, args.metric], [250, 0.2, 5, args.metric], [250, 0.2, 8, args.metric], [250, 0.2, 10, args.metric]]
+
+			build_config = [
+							[4000, 0.2, 1, args.metric],[4000, 0.2, 2, args.metric], [4000, 0.2, 3, args.metric], [4000, 0.2, 4, args.metric], [4000, 0.2, 5, args.metric], [4000, 0.2, 8, args.metric], [4000, 0.2, 10, args.metric], \
+							[2000, 0.2, 1, args.metric], [2000, 0.2, 2, args.metric], [2000, 0.2, 3, args.metric], [2000, 0.2, 4, args.metric], [2000, 0.2, 5, args.metric], [2000, 0.2, 8, args.metric], [2000, 0.2, 10, args.metric], \
+							[1000, 0.2, 1, args.metric], [1000, 0.2, 2, args.metric], [1000, 0.2, 3, args.metric], [1000, 0.2, 4, args.metric], [1000, 0.2, 5, args.metric], [1000, 0.2, 8, args.metric], [1000, 0.2, 10, args.metric],\
+							[800, 0.2, 1, args.metric], [800, 0.2, 2, args.metric], [800, 0.2, 3, args.metric], [800, 0.2, 4, args.metric], [800, 0.2, 5, args.metric], [800, 0.2, 8, args.metric], [800, 0.2, 10, args.metric], \
+							[500, 0.2, 1, args.metric], [500, 0.2, 2, args.metric], [500, 0.2, 3, args.metric], [500, 0.2, 4, args.metric], [500, 0.2, 5, args.metric], [500, 0.2, 8, args.metric], [500, 0.2, 10, args.metric], \
+							[250, 0.2, 1, args.metric], [250, 0.2, 2, args.metric], [250, 0.2, 3, args.metric], [250, 0.2, 4, args.metric], [250, 0.2, 5, args.metric], [250, 0.2, 8, args.metric], [250, 0.2, 10, args.metric]]
+
+			# search_config = [[1, args.reorder], [2, args.reorder], [4, args.reorder], [8, args.reorder], [16, args.reorder], [25, args.reorder], [30, args.reorder], [35, args.reorder], [40, args.reorder], \
+			# 				 [45, args.reorder], [50, args.reorder], [55, args.reorder], [60, args.reorder], [65, args.reorder], [75, args.reorder], [90, args.reorder], [110, args.reorder], [130, args.reorder], [150, args.reorder], \
+			# 				 [170, args.reorder], [200, args.reorder], [220, args.reorder], [250, args.reorder], [310, args.reorder], [400, args.reorder], [500, args.reorder], [800, args.reorder], [1000, args.reorder], \
+			# 				 [1250, args.reorder], [1500, args.reorder], [1750, args.reorder], [1900, args.reorder], [2000, args.reorder], [2048, args.reorder]]
+
+			search_config = [[1, args.reorder], [2, args.reorder], [4, args.reorder], [8, args.reorder], [16, args.reorder], [32, args.reorder], [64, args.reorder], [128, args.reorder], \
+							 [256, args.reorder], [320, args.reorder], [384, args.reorder], [448, args.reorder], [512, args.reorder], [576, args.reorder], [640, args.reorder], [704, args.reorder], [768, args.reorder], \
+							 [1024, args.reorder]]
+
 
 		f = open(sweep_result_path, "w")
 		f.write("Program: " + args.program + " Topk: " + str(args.topk) + " Num_split: " + str(args.num_split)+ " Batch: "+str(args.batch)+"\n")
@@ -365,14 +499,19 @@ def run_scann():
 	for bc in build_config:
 		num_leaves, threshold, dims, metric = bc
 		sc_list = check_available_search_config(args.program, bc, search_config)
-		neighbors=np.empty((len(sc_list), queries.shape[0],0), dtype=np.int32)
-		distances=np.empty((len(sc_list), queries.shape[0],0), dtype=np.float32)
-		total_latency = np.zeros(len(sc_list))
-		base_idx = 0
-		if len(sc_list) > 0:
-			for split in range(args.num_split):
 
-				num_per_split = int(N/args.num_split) if split < args.num_split-1 else N-base_idx
+		if len(sc_list) > 0:
+			neighbors=np.empty((len(sc_list), queries.shape[0],0), dtype=np.int32)
+			distances=np.empty((len(sc_list), queries.shape[0],0), dtype=np.float32)
+			total_latency = np.zeros(len(sc_list))
+			base_idx = 0
+			os.makedirs(coarse_dir, exist_ok=True)
+			coarse_path = coarse_dir+"coarse_codebook_L_"+str(num_leaves)+"_threshold_"+str(threshold)+"_dims_"+str(dims)+"_metric_"+metric
+			fine_path = scann_fine_dir+"fine_codebook_L_"+str(num_leaves)+"_threshold_"+str(threshold)+"_dims_"+str(dims)+"_metric_"+metric
+
+			for split in range(args.num_split):
+				# if split > 0:
+				# 	break
 				searcher_dir, searcher_path = get_searcher_path(split)
 				print("Split ", split)
 				# Load splitted dataset
@@ -382,34 +521,39 @@ def run_scann():
 
 				if os.path.isdir(searcher_path):
 					print("Loading searcher from ", searcher_path)
-					searcher = scann.scann_ops_pybind.load_searcher(searcher_path, num_per_split, D)
+					searcher = scann.scann_ops_pybind.load_searcher(searcher_path, num_per_split, D, coarse_path, fine_path)
 				else:
 					# Create ScaNN searcher
 					print("Entering ScaNN builder, will be created to ", searcher_path)
+					load_coarse = True if os.path.isfile(coarse_path) else False
+					load_fine = True if os.path.isfile(fine_path) else False
+					print("Load coarse: ", load_coarse, " / Load fine: ", load_fine)
 					dataset = read_data(split_dataset_path + str(args.num_split) + "_" + str(split) if args.num_split>1 else dataset_basedir, base=False if args.num_split>1 else True, offset_=None if args.num_split>1 else 0, shape_=None)
 					if args.reorder!=-1:
-						searcher = scann.scann_ops_pybind.builder(dataset, 10, metric).tree(
+						searcher = scann.scann_ops_pybind.builder(dataset, train_dataset, load_coarse, coarse_path, load_fine, fine_path, 10, metric).tree(
 							num_leaves=num_leaves, num_leaves_to_search=num_leaves, training_sample_size=args.coarse_training_size).score_ah(
 							dims, anisotropic_quantization_threshold=threshold, training_sample_size=args.fine_training_size).reorder(args.reorder).build()
 					else:
-						searcher = scann.scann_ops_pybind.builder(dataset, 10, metric).tree(
+						searcher = scann.scann_ops_pybind.builder(dataset, train_dataset, load_coarse, coarse_path, load_fine, fine_path, 10, metric).tree(
 								num_leaves=num_leaves, num_leaves_to_search=num_leaves, training_sample_size=args.coarse_training_size).score_ah(
 								dims, anisotropic_quantization_threshold=threshold, training_sample_size=args.fine_training_size).build()
 					print("Saving searcher to ", searcher_path)
 					os.makedirs(searcher_path, exist_ok=True)
-					searcher.serialize(searcher_path)
+					searcher.serialize(searcher_path, coarse_path, load_coarse, fine_path, load_fine)
 				print("sc_list: ", sc_list)
 				n = list()
 				d = list()
 				for idx in range(len(sc_list)):
+					# if idx < len(sc_list)-2:
+					# 	continue
 					leaves_to_search, reorder = search_config[sc_list[idx]]
 					assert D%dims == 0
 
 					if args.reorder!=-1:
 						assert args.topk <= reorder
-					else:
-						if args.sweep:
-							assert False, "Do you want reordering or not?"
+					# else:
+					# 	if args.sweep:
+					# 		assert False, "Do you want reordering or not?"
 
 					print(str(num_leaves)+"\t"+str(threshold)+"\t"+str(int(D/dims))+"\t|\t"+str(leaves_to_search)+"\t"+str(reorder)+"\t"+str(metric)+"\n")
 					if args.batch > 1:
@@ -450,18 +594,37 @@ def run_scann():
 					leaves_to_search, reorder = search_config[sc_list[idx]]
 					f.write(str(num_leaves)+"\t"+str(threshold)+"\t"+str(int(D/dims))+"\t|\t"+str(leaves_to_search)+"\t"+str(reorder)+"\t"+str(metric)+"\n")
 				print(str(num_leaves)+"\t"+str(threshold)+"\t"+str(int(D/dims))+"\t|\t"+str(leaves_to_search)+"\t"+str(reorder)+"\t"+str(metric)+"\n")
+				# if args.num_split > 1:
+				# 	top1, top10, top100, top1000 = print_recall(remap_index[final_neighbors[idx]], gt)
+				# else:
+				# 	top1, top10, top100, top1000 = print_recall(final_neighbors[idx], gt)
+				top1_10, top1_100, top10_100, top1_1000, top10_1000, top100_1000 = print_more_recalls(final_neighbors[idx], gt)
+				print()
 				top1, top10, top100, top1000 = print_recall(final_neighbors[idx], gt)
 				print("Top ", args.topk, " Total latency (ms): ", total_latency[idx])
+				print("arcm::Latency written. End of File.\n");
 				if args.sweep:
-					f.write(str(top1)+" %\t"+str(top10)+" %\t"+str(top100)+" %\t"+str(top1000)+" %\t"+str(total_latency[idx])+"\n")
+					f.write(str(top1)+" %\t"+str(top10)+" %\t"+str(top100)+" %\t"+str(top1000)+" %\t|\t"+str(top1_10)+" %\t"+str(top1_100)+" %\t"+str(top10_100)+" %\t"+str(top1_1000)+" %\t"+str(top10_1000)+" %\t"+str(top100_1000)+" %\t"+str(total_latency[idx])+"\n")
 	if args.sweep:
 		f.close()
 
 
-def faiss_pad_dataset(dataset, train_dataset, queries, m):
-	D = dataset.shape[1]
-	if (args.is_gpu and (m==1 or m==2 or m==3 or m==4 or m==8 or m==12 or m==16 or m==20 or m==24 or m==28 or m==32 or m==40 or m==48 or m==56 or m==64 or m==96)) or (not args.is_gpu):
-		return D, m, dataset, train_dataset, queries
+def faiss_pad_dataset(padded_D, dataset):
+	plus_dim = padded_D-D
+	dataset=np.concatenate((dataset, np.full((dataset.shape[0], plus_dim), 0, dtype='float32')), axis=-1)
+	print("Dataset dimension is padded from ", D, " to ", dataset.shape[1])
+	return dataset
+
+def faiss_pad_trains_queries(padded_D, queries, train_dataset):
+	plus_dim = padded_D-D
+	queries = np.concatenate((queries, np.full((queries.shape[0], plus_dim), 0)), axis=-1)
+	train_dataset = np.concatenate((train_dataset, np.full((train_dataset.shape[0], plus_dim), 0)), axis=-1)
+	print("Query and Train Dataset dimension is padded from ", D, " to ", queries.shape[1])
+	return queries, train_dataset
+
+def get_padded_info(m):
+	if (args.is_gpu and (m==1 or m==2 or m==3 or m==4 or m==8 or m==12 or m==16 or m==20 or m==24 or m==28 or m==32 or m==40 or m==48 or m==56 or m==64 or m==96)) or (not args.is_gpu) or (args.opq != -1):
+		return D, m, False
 	else:
 		dim_per_block = int(D/m)
 		if m<8:		# 4<m<8
@@ -491,109 +654,216 @@ def faiss_pad_dataset(dataset, train_dataset, queries, m):
 		else:
 			assert False, "somethings wrong.."
 		padded_D = dim_per_block * faiss_m
-		plus_dim = padded_D-D
-		dataset=np.concatenate((dataset, np.full((dataset.shape[0], plus_dim), 0, dtype='float32')), axis=-1)
-		train_dataset=np.concatenate((train_dataset, np.full((train_dataset.shape[0], plus_dim), 0)), axis=-1)
-		queries=np.concatenate((queries, np.full((queries.shape[0], plus_dim), 0)), axis=-1)
-		print("Dataset dimension is padded from ", D, " to ", dataset.shape[1])
 
-		return padded_D, faiss_m, dataset, train_dataset, queries
+		return padded_D, faiss_m, True
+
 
 def run_faiss(D):
 	gt, queries = prepare_eval()
+	train_dataset = get_train()
 	if args.sweep:
 		if args.is_gpu:
 			log2kstar_ = 8
+			if "sift1b" in args.dataset or "deep1b" in args.dataset:
+				build_config = [
+								[8000, D, log2kstar_, args.metric], [8000, int(D/2), log2kstar_, args.metric], [8000, int(D/4), log2kstar_, args.metric], [8000, int(D/8), log2kstar_, args.metric], \
+								# [7000, int(D/2), log2kstar_, args.metric], [7000, int(D/4), log2kstar_, args.metric], [7000, int(D/8), log2kstar_, args.metric], \
+								[6000, D, log2kstar_, args.metric], [6000, int(D/2), log2kstar_, args.metric], [6000, int(D/4), log2kstar_, args.metric], [6000, int(D/8), log2kstar_, args.metric], \
+								# [5000, D, log2kstar_, args.metric], [5000, int(D/2), log2kstar_, args.metric], \
+								[4000, D, log2kstar_, args.metric], [4000, int(D/2), log2kstar_, args.metric], [4000, int(D/4), log2kstar_, args.metric], [4000, int(D/8), log2kstar_, args.metric], \
+								# [3500, D, log2kstar_, args.metric], [3500, int(D/2), log2kstar_, args.metric], \
+								]
+			else:
+				# build_config = [[800, int(D/64), log2kstar_, args.metric], [800, int(D/50), log2kstar_, args.metric], [800, int(D/32), log2kstar_, args.metric], [800, int(D/25), log2kstar_, args.metric], [800, int(D/16), log2kstar_, args.metric], [800, int(D/10), log2kstar_, args.metric], [800, int(D/8), log2kstar_, args.metric], [800, int(D/5), log2kstar_, args.metric], [800, int(D/4), log2kstar_, args.metric], [800, int(D/3), log2kstar_, args.metric], [800, int(D/2), log2kstar_, args.metric], [800, D, log2kstar_, args.metric], \
+				# 				[1000, int(D/64), log2kstar_, args.metric], [1000, int(D/50), log2kstar_, args.metric], [1000, int(D/32), log2kstar_, args.metric], [1000, int(D/25), log2kstar_, args.metric], [1000, int(D/16), log2kstar_, args.metric], [1000, int(D/10), log2kstar_, args.metric], [1000, int(D/8), log2kstar_, args.metric], [1000, int(D/5), log2kstar_, args.metric], [1000, int(D/4), log2kstar_, args.metric], [1000, int(D/3), log2kstar_, args.metric], [1000, int(D/2), log2kstar_, args.metric], [1000, D, log2kstar_, args.metric], \
+				# 				[1500, int(D/64), log2kstar_, args.metric], [1500, int(D/50), log2kstar_, args.metric], [1500, int(D/32), log2kstar_, args.metric], [1500, int(D/25), log2kstar_, args.metric], [1500, int(D/16), log2kstar_, args.metric], [1500, int(D/10), log2kstar_, args.metric], [1500, int(D/8), log2kstar_, args.metric], [1500, int(D/5), log2kstar_, args.metric], [1500, int(D/4), log2kstar_, args.metric], [1500, int(D/3), log2kstar_, args.metric], [1500, int(D/2), log2kstar_, args.metric], [1500, D, log2kstar_, args.metric], \
+				# 				[2000, int(D/64), log2kstar_, args.metric], [2000, int(D/50), log2kstar_, args.metric], [2000, int(D/32), log2kstar_, args.metric], [2000, int(D/25), log2kstar_, args.metric], [2000, int(D/16), log2kstar_, args.metric], [2000, int(D/10), log2kstar_, args.metric], [2000, int(D/8), log2kstar_, args.metric], [2000, int(D/5), log2kstar_, args.metric], [2000, int(D/4), log2kstar_, args.metric], [2000, int(D/3), log2kstar_, args.metric], [2000, int(D/2), log2kstar_, args.metric], [2000, D, log2kstar_, args.metric], \
+				# 				[4000, int(D/64), log2kstar_, args.metric], [4000, int(D/50), log2kstar_, args.metric], [4000, int(D/32), log2kstar_, args.metric], [4000, int(D/25), log2kstar_, args.metric], [4000, int(D/16), log2kstar_, args.metric], [4000, int(D/10), log2kstar_, args.metric], [4000, int(D/8), log2kstar_, args.metric], [4000, int(D/5), log2kstar_, args.metric], [4000, int(D/4), log2kstar_, args.metric], [4000, int(D/3), log2kstar_, args.metric], [4000, int(D/2), log2kstar_, args.metric], [4000, D, log2kstar_, args.metric], \
+				# 				[600, int(D/25), log2kstar_, args.metric], [600, int(D/16), log2kstar_, args.metric], [600, int(D/10), log2kstar_, args.metric], [600, int(D/8), log2kstar_, args.metric], [600, int(D/5), log2kstar_, args.metric], [600, int(D/4), log2kstar_, args.metric], [600, int(D/3), log2kstar_, args.metric], [600, int(D/2), log2kstar_, args.metric], [600, D, log2kstar_, args.metric], \
+				# 				[500, int(D/25), log2kstar_, args.metric], [500, int(D/16), log2kstar_, args.metric], [500, int(D/10), log2kstar_, args.metric], [500, int(D/8), log2kstar_, args.metric], [500, int(D/5), log2kstar_, args.metric], [500, int(D/4), log2kstar_, args.metric], [500, int(D/3), log2kstar_, args.metric], [500, int(D/2), log2kstar_, args.metric], [500, D, log2kstar_, args.metric], \
+				# 				[400, int(D/25), log2kstar_, args.metric], [400, int(D/16), log2kstar_, args.metric], [400, int(D/10), log2kstar_, args.metric], [400, int(D/8), log2kstar_, args.metric], [400, int(D/5), log2kstar_, args.metric], [400, int(D/4), log2kstar_, args.metric], [400, int(D/3), log2kstar_, args.metric], [400, int(D/2), log2kstar_, args.metric], [400, D, log2kstar_, args.metric]]
+				build_config = [
+								[4000, int(D/8), log2kstar_, args.metric], [4000, int(D/5), log2kstar_, args.metric], [4000, int(D/4), log2kstar_, args.metric], [4000, int(D/3), log2kstar_, args.metric], [4000, int(D/2), log2kstar_, args.metric], [4000, D, log2kstar_, args.metric], \
+								[2000, int(D/8), log2kstar_, args.metric], [2000, int(D/5), log2kstar_, args.metric], [2000, int(D/4), log2kstar_, args.metric], [2000, int(D/3), log2kstar_, args.metric], [2000, int(D/2), log2kstar_, args.metric], [2000, D, log2kstar_, args.metric], \
+								[1000, int(D/8), log2kstar_, args.metric], [1000, int(D/5), log2kstar_, args.metric], [1000, int(D/4), log2kstar_, args.metric], [1000, int(D/3), log2kstar_, args.metric], [1000, int(D/2), log2kstar_, args.metric], [1000, D, log2kstar_, args.metric], \
+								[800, int(D/8), log2kstar_, args.metric], [800, int(D/5), log2kstar_, args.metric], [800, int(D/4), log2kstar_, args.metric], [800, int(D/3), log2kstar_, args.metric], [800, int(D/2), log2kstar_, args.metric], [800, D, log2kstar_, args.metric], \
+								[500, int(D/8), log2kstar_, args.metric], [500, int(D/5), log2kstar_, args.metric], [500, int(D/4), log2kstar_, args.metric], [500, int(D/3), log2kstar_, args.metric], [500, int(D/2), log2kstar_, args.metric], [500, D, log2kstar_, args.metric], \
+								[250, int(D/10), log2kstar_, args.metric], [250, int(D/8), log2kstar_, args.metric], [250, int(D/4), log2kstar_, args.metric], [250, int(D/3), log2kstar_, args.metric], [250, int(D/2), log2kstar_, args.metric], [250, D, log2kstar_, args.metric], \
+								]
 
-			build_config = [[800, int(D/64), log2kstar_, args.metric], [800, int(D/50), log2kstar_, args.metric], [800, int(D/32), log2kstar_, args.metric], [800, int(D/25), log2kstar_, args.metric], [800, int(D/16), log2kstar_, args.metric], [800, int(D/10), log2kstar_, args.metric], [800, int(D/8), log2kstar_, args.metric], [800, int(D/5), log2kstar_, args.metric], [800, int(D/4), log2kstar_, args.metric], [800, int(D/3), log2kstar_, args.metric], [800, int(D/2), log2kstar_, args.metric], [800, D, log2kstar_, args.metric], \
-							[1000, int(D/64), log2kstar_, args.metric], [1000, int(D/50), log2kstar_, args.metric], [1000, int(D/32), log2kstar_, args.metric], [1000, int(D/25), log2kstar_, args.metric], [1000, int(D/16), log2kstar_, args.metric], [1000, int(D/10), log2kstar_, args.metric], [1000, int(D/8), log2kstar_, args.metric], [1000, int(D/5), log2kstar_, args.metric], [1000, int(D/4), log2kstar_, args.metric], [1000, int(D/3), log2kstar_, args.metric], [1000, int(D/2), log2kstar_, args.metric], [1000, D, log2kstar_, args.metric], \
-							[1500, int(D/64), log2kstar_, args.metric], [1500, int(D/50), log2kstar_, args.metric], [1500, int(D/32), log2kstar_, args.metric], [1500, int(D/25), log2kstar_, args.metric], [1500, int(D/16), log2kstar_, args.metric], [1500, int(D/10), log2kstar_, args.metric], [1500, int(D/8), log2kstar_, args.metric], [1500, int(D/5), log2kstar_, args.metric], [1500, int(D/4), log2kstar_, args.metric], [1500, int(D/3), log2kstar_, args.metric], [1500, int(D/2), log2kstar_, args.metric], [1500, D, log2kstar_, args.metric], \
-							[2000, int(D/64), log2kstar_, args.metric], [2000, int(D/50), log2kstar_, args.metric], [2000, int(D/32), log2kstar_, args.metric], [2000, int(D/25), log2kstar_, args.metric], [2000, int(D/16), log2kstar_, args.metric], [2000, int(D/10), log2kstar_, args.metric], [2000, int(D/8), log2kstar_, args.metric], [2000, int(D/5), log2kstar_, args.metric], [2000, int(D/4), log2kstar_, args.metric], [2000, int(D/3), log2kstar_, args.metric], [2000, int(D/2), log2kstar_, args.metric], [2000, D, log2kstar_, args.metric], \
-							[4000, int(D/64), log2kstar_, args.metric], [4000, int(D/50), log2kstar_, args.metric], [4000, int(D/32), log2kstar_, args.metric], [4000, int(D/25), log2kstar_, args.metric], [4000, int(D/16), log2kstar_, args.metric], [4000, int(D/10), log2kstar_, args.metric], [4000, int(D/8), log2kstar_, args.metric], [4000, int(D/5), log2kstar_, args.metric], [4000, int(D/4), log2kstar_, args.metric], [4000, int(D/3), log2kstar_, args.metric], [4000, int(D/2), log2kstar_, args.metric], [4000, D, log2kstar_, args.metric]]
+			# search_config = [[1, args.reorder], [16, args.reorder], [32, args.reorder], [64, args.reorder], [128, args.reorder], \
+			# 				 [256, args.reorder], [320, args.reorder], [384, args.reorder], [448, args.reorder], [512, args.reorder], [576, args.reorder], [640, args.reorder], [704, args.reorder], [768, args.reorder], \
+			# 				 [1024, args.reorder], [1280, args.reorder], [1536, args.reorder], [2048, args.reorder], [2560, args.reorder], [3072, args.reorder], [4096, args.reorder], [4608, args.reorder], \
+			# 				 [5120, args.reorder], [5632, args.reorder], [6144, args.reorder], [6656, args.reorder], [7168, args.reorder], [7680, args.reorder], \
+			# 				 [8192, args.reorder], [16384, args.reorder]]
+
+			search_config = [[1, args.reorder], [2, args.reorder], [4, args.reorder], [8, args.reorder], [16, args.reorder], [32, args.reorder], [64, args.reorder], [128, args.reorder], [256, args.reorder]]
+
 
 		else:
-			build_config = [[1000, int(D/32), 4, args.metric], [1000, int(D/16), 4, args.metric], [1000, int(D/8), 4, args.metric], [1000, int(D/4), 4, args.metric], [1000, int(D/3), 4, args.metric], [1000, int(D/2), 4, args.metric], [1000, D, 4, args.metric], \
-							[1000, int(D/32), 6, args.metric], [1000, int(D/16), 6, args.metric], [1000, int(D/8), 6, args.metric], [1000, int(D/4), 6, args.metric], [1000, int(D/3), 6, args.metric], [1000, int(D/2), 6, args.metric], [1000, D, 6, args.metric], \
-							[1000, int(D/32), 8, args.metric], [1000, int(D/16), 8, args.metric], [1000, int(D/8), 8, args.metric], [1000, int(D/4), 8, args.metric], [1000, int(D/3), 8, args.metric], [1000, int(D/2), 8, args.metric], [1000, D, 8, args.metric], \
-							[2000, int(D/32), 4, args.metric], [2000, int(D/16), 4, args.metric], [2000, int(D/8), 4, args.metric], [2000, int(D/4), 4, args.metric], [2000, int(D/3), 4, args.metric], [2000, int(D/2), 4, args.metric], [2000, D, 4, args.metric], \
-							[2000, int(D/32), 6, args.metric], [2000, int(D/16), 6, args.metric], [2000, int(D/8), 6, args.metric], [2000, int(D/4), 6, args.metric], [2000, int(D/3), 6, args.metric], [2000, int(D/2), 6, args.metric], [2000, D, 6, args.metric], \
-							[2000, int(D/32), 8, args.metric], [2000, int(D/16), 8, args.metric], [2000, int(D/8), 8, args.metric], [2000, int(D/4), 8, args.metric], [2000, int(D/3), 8, args.metric], [2000, int(D/2), 8, args.metric], [2000, D, 8, args.metric], \
-							[800, int(D/32), 4, args.metric], [800, int(D/16), 4, args.metric], [800, int(D/8), 4, args.metric], [800, int(D/4), 4, args.metric], [800, int(D/3), 4, args.metric], [800, int(D/2), 4, args.metric], [800, D, 4, args.metric], \
-							[800, int(D/32), 6, args.metric], [800, int(D/16), 6, args.metric], [800, int(D/8), 6, args.metric], [800, int(D/4), 6, args.metric], [800, int(D/3), 6, args.metric], [800, int(D/2), 6, args.metric], [800, D, 6, args.metric], \
-							[800, int(D/32), 8, args.metric], [800, int(D/16), 8, args.metric], [800, int(D/8), 8, args.metric], [800, int(D/4), 8, args.metric], [800, int(D/3), 8, args.metric], [800, int(D/2), 8, args.metric], [800, D, 8, args.metric], \
-							]	# L, m, log2(k*), metric
+			if "gist" in args.dataset:
+				build_config = [[1000, int(D/2), 8, args.metric], [1000, int(D/3), 8, args.metric], [1000, int(D/4), 8, args.metric]]	# L, m, log2(k*), metric
+			elif "sift1b" in args.dataset or "deep1b" in args.dataset:
+				# build_config = [[7000, D, 4, args.metric], [7000, int(D/2), 4, args.metric], [7000, int(D/4), 4, args.metric], \
+				# 				[7000, D, 6, args.metric], [7000, int(D/2), 6, args.metric], [7000, int(D/4), 6, args.metric], \
+				# 				[7000, D, 8, args.metric], [7000, int(D/2), 8, args.metric], [7000, int(D/4), 8, args.metric], \
+				# 				[8000, D, 4, args.metric], [8000, int(D/2), 4, args.metric], [8000, int(D/4), 4, args.metric], \
+				# 				[8000, D, 6, args.metric], [8000, int(D/2), 6, args.metric], [8000, int(D/4), 6, args.metric], \
+				# 				[8000, D, 8, args.metric], [8000, int(D/2), 8, args.metric], [8000, int(D/4), 8, args.metric], \
+				# 				[6000, D, 4, args.metric], [6000, int(D/2), 4, args.metric], [6000, int(D/4), 4, args.metric], \
+				# 				[6000, D, 6, args.metric], [6000, int(D/2), 6, args.metric], [6000, int(D/4), 6, args.metric], \
+				# 				[6000, D, 8, args.metric], [6000, int(D/2), 8, args.metric], [6000, int(D/4), 8, args.metric]]
+				build_config = [
+								[8000, D, 8, args.metric], [8000, int(D/2), 8, args.metric], [8000, int(D/4), 8, args.metric], [8000, int(D/8), 8, args.metric], \
+								# [7000, D, 8, args.metric], [7000, int(D/2), 8, args.metric], [7000, int(D/4), 8, args.metric], [7000, int(D/8), 8, args.metric], \
+								[6000, D, 8, args.metric], [6000, int(D/2), 8, args.metric], [6000, int(D/4), 8, args.metric], [6000, int(D/8), 8, args.metric], \
+								[4000, D, 8, args.metric], [4000, int(D/2), 8, args.metric], [4000, int(D/4), 8, args.metric], [4000, int(D/8), 8, args.metric], \
+								]
 
-		search_config = [[1, args.reorder], [2, args.reorder], [4, args.reorder], [8, args.reorder], [16, args.reorder], [25, args.reorder], [30, args.reorder], [35, args.reorder], [40, args.reorder], \
-						 [45, args.reorder], [50, args.reorder], [55, args.reorder], [60, args.reorder], [65, args.reorder], [75, args.reorder], [90, args.reorder], [110, args.reorder], [130, args.reorder], [150, args.reorder], \
-						 [170, args.reorder], [200, args.reorder], [220, args.reorder], [250, args.reorder], [310, args.reorder], [400, args.reorder], [500, args.reorder], [800, args.reorder], [1000, args.reorder], \
-						 [1250, args.reorder], [1500, args.reorder], [1750, args.reorder], [1900, args.reorder], [2000, args.reorder], [2250, args.reorder], [2500, args.reorder], [2750, args.reorder], [3000, args.reorder], [3500, args.reorder], [4000, args.reorder]]
+			else:
+				# build_config = [[1000, int(D/32), 4, args.metric], [1000, int(D/16), 4, args.metric], [1000, int(D/8), 4, args.metric], [1000, int(D/4), 4, args.metric], [1000, int(D/3), 4, args.metric], [1000, int(D/2), 4, args.metric], [1000, D, 4, args.metric], \
+				# 				[1000, int(D/32), 6, args.metric], [1000, int(D/16), 6, args.metric], [1000, int(D/8), 6, args.metric], [1000, int(D/4), 6, args.metric], [1000, int(D/3), 6, args.metric], [1000, int(D/2), 6, args.metric], [1000, D, 6, args.metric], \
+				# 				[1000, int(D/32), 8, args.metric], [1000, int(D/16), 8, args.metric], [1000, int(D/8), 8, args.metric], [1000, int(D/4), 8, args.metric], [1000, int(D/3), 8, args.metric], [1000, int(D/2), 8, args.metric], [1000, D, 8, args.metric], \
+				# 				[2000, int(D/32), 4, args.metric], [2000, int(D/16), 4, args.metric], [2000, int(D/8), 4, args.metric], [2000, int(D/4), 4, args.metric], [2000, int(D/3), 4, args.metric], [2000, int(D/2), 4, args.metric], [2000, D, 4, args.metric], \
+				# 				[2000, int(D/32), 6, args.metric], [2000, int(D/16), 6, args.metric], [2000, int(D/8), 6, args.metric], [2000, int(D/4), 6, args.metric], [2000, int(D/3), 6, args.metric], [2000, int(D/2), 6, args.metric], [2000, D, 6, args.metric], \
+				# 				[2000, int(D/32), 8, args.metric], [2000, int(D/16), 8, args.metric], [2000, int(D/8), 8, args.metric], [2000, int(D/4), 8, args.metric], [2000, int(D/3), 8, args.metric], [2000, int(D/2), 8, args.metric], [2000, D, 8, args.metric], \
+				# 				[800, int(D/32), 4, args.metric], [800, int(D/16), 4, args.metric], [800, int(D/8), 4, args.metric], [800, int(D/4), 4, args.metric], [800, int(D/3), 4, args.metric], [800, int(D/2), 4, args.metric], [800, D, 4, args.metric], \
+				# 				[800, int(D/32), 6, args.metric], [800, int(D/16), 6, args.metric], [800, int(D/8), 6, args.metric], [800, int(D/4), 6, args.metric], [800, int(D/3), 6, args.metric], [800, int(D/2), 6, args.metric], [800, D, 6, args.metric], \
+				# 				[800, int(D/32), 8, args.metric], [800, int(D/16), 8, args.metric], [800, int(D/8), 8, args.metric], [800, int(D/4), 8, args.metric], [800, int(D/3), 8, args.metric], [800, int(D/2), 8, args.metric], [800, D, 8, args.metric], \
+				# 				[400, int(D/8), 8, args.metric], [400, int(D/4), 8, args.metric], [400, int(D/3), 8, args.metric], [400, int(D/2), 8, args.metric], [400, D, 8, args.metric], \
+				# 				[500, int(D/8), 8, args.metric], [500, int(D/4), 8, args.metric], [500, int(D/3), 8, args.metric], [500, int(D/2), 8, args.metric], [500, D, 8, args.metric], \
+				# 				[600, int(D/8), 8, args.metric], [600, int(D/4), 8, args.metric], [600, int(D/3), 8, args.metric], [600, int(D/2), 8, args.metric], [600, D, 8, args.metric]]	# L, m, log2(k*), metric
+
+				build_config = [
+								[4000, int(D/10), 4, args.metric], [4000, int(D/8), 4, args.metric], [4000, int(D/5), 4, args.metric], [4000, int(D/4), 4, args.metric], [4000, int(D/3), 4, args.metric], [4000, int(D/2), 4, args.metric], [4000, D, 4, args.metric], \
+								[4000, int(D/10), 6, args.metric], [4000, int(D/8), 6, args.metric], [4000, int(D/5), 6, args.metric], [4000, int(D/4), 6, args.metric], [4000, int(D/3), 6, args.metric], [4000, int(D/2), 6, args.metric], [4000, D, 6, args.metric], \
+								[4000, int(D/10), 8, args.metric], [4000, int(D/8), 8, args.metric], [4000, int(D/5), 8, args.metric], [4000, int(D/4), 8, args.metric], [4000, int(D/3), 8, args.metric], [4000, int(D/2), 8, args.metric], [4000, D, 8, args.metric], \
+								[2000, int(D/10), 4, args.metric], [2000, int(D/8), 4, args.metric], [2000, int(D/5), 4, args.metric], [2000, int(D/4), 4, args.metric], [2000, int(D/3), 4, args.metric], [2000, int(D/2), 4, args.metric], [2000, D, 4, args.metric], \
+								[2000, int(D/10), 6, args.metric], [2000, int(D/8), 6, args.metric], [2000, int(D/5), 6, args.metric], [2000, int(D/4), 6, args.metric], [2000, int(D/3), 6, args.metric], [2000, int(D/2), 6, args.metric], [2000, D, 6, args.metric], \
+								[2000, int(D/10), 8, args.metric], [2000, int(D/8), 8, args.metric], [2000, int(D/5), 8, args.metric], [2000, int(D/4), 8, args.metric], [2000, int(D/3), 8, args.metric], [2000, int(D/2), 8, args.metric], [2000, D, 8, args.metric], \
+								[1000, int(D/10), 4, args.metric], [1000, int(D/8), 4, args.metric], [1000, int(D/5), 4, args.metric], [1000, int(D/4), 4, args.metric], [1000, int(D/3), 4, args.metric], [1000, int(D/2), 4, args.metric], [1000, D, 4, args.metric], \
+								[1000, int(D/10), 6, args.metric], [1000, int(D/8), 6, args.metric], [1000, int(D/5), 6, args.metric], [1000, int(D/4), 6, args.metric], [1000, int(D/3), 6, args.metric], [1000, int(D/2), 6, args.metric], [1000, D, 6, args.metric], \
+								[1000, int(D/10), 8, args.metric], [1000, int(D/8), 8, args.metric], [1000, int(D/5), 8, args.metric], [1000, int(D/4), 8, args.metric], [1000, int(D/3), 8, args.metric], [1000, int(D/2), 8, args.metric], [1000, D, 8, args.metric], \
+								[800, int(D/10), 4, args.metric], [800, int(D/8), 4, args.metric], [800, int(D/5), 4, args.metric], [800, int(D/4), 4, args.metric], [800, int(D/3), 4, args.metric], [800, int(D/2), 4, args.metric], [800, D, 4, args.metric], \
+								[800, int(D/10), 6, args.metric], [800, int(D/8), 6, args.metric], [800, int(D/5), 6, args.metric], [800, int(D/4), 6, args.metric], [800, int(D/3), 6, args.metric], [800, int(D/2), 6, args.metric], [800, D, 6, args.metric], \
+								[800, int(D/10), 8, args.metric], [800, int(D/8), 8, args.metric], [800, int(D/5), 8, args.metric], [800, int(D/4), 8, args.metric], [800, int(D/3), 8, args.metric], [800, int(D/2), 8, args.metric], [800, D, 8, args.metric], \
+								[500, int(D/10), 4, args.metric], [500, int(D/8), 4, args.metric], [500, int(D/5), 4, args.metric], [500, int(D/4), 4, args.metric], [500, int(D/3), 4, args.metric], [500, int(D/2), 4, args.metric], [500, D, 4, args.metric], \
+								[500, int(D/10), 6, args.metric], [500, int(D/8), 6, args.metric], [500, int(D/5), 6, args.metric], [500, int(D/4), 6, args.metric], [500, int(D/3), 6, args.metric], [500, int(D/2), 6, args.metric], [500, D, 6, args.metric], \
+								[500, int(D/10), 8, args.metric], [500, int(D/8), 8, args.metric], [500, int(D/5), 8, args.metric], [500, int(D/4), 8, args.metric], [500, int(D/3), 8, args.metric], [500, int(D/2), 8, args.metric], [500, D, 8, args.metric], \
+								[250, int(D/10), 4, args.metric], [250, int(D/8), 4, args.metric], [250, int(D/5), 4, args.metric], [250, int(D/4), 4, args.metric], [250, int(D/3), 4, args.metric], [250, int(D/2), 4, args.metric], [250, D, 4, args.metric], \
+								[250, int(D/10), 6, args.metric], [250, int(D/8), 6, args.metric], [250, int(D/5), 6, args.metric], [250, int(D/4), 6, args.metric], [250, int(D/3), 6, args.metric], [250, int(D/2), 6, args.metric], [250, D, 6, args.metric], \
+								[250, int(D/10), 8, args.metric], [250, int(D/8), 8, args.metric], [250, int(D/5), 8, args.metric], [250, int(D/4), 8, args.metric], [250, int(D/3), 8, args.metric], [250, int(D/2), 8, args.metric], [250, D, 8, args.metric], \
+								]	# L, m, log2(k*), metric
+
+			# search_config = [[1, args.reorder], [2, args.reorder], [4, args.reorder], [8, args.reorder], [16, args.reorder], [25, args.reorder], [30, args.reorder], [35, args.reorder], [40, args.reorder], \
+			# 				 [45, args.reorder], [50, args.reorder], [55, args.reorder], [60, args.reorder], [65, args.reorder], [75, args.reorder], [90, args.reorder], [110, args.reorder], [130, args.reorder], [150, args.reorder], \
+			# 				 [170, args.reorder], [200, args.reorder], [220, args.reorder], [250, args.reorder], [310, args.reorder], [400, args.reorder], [500, args.reorder], [800, args.reorder], [1000, args.reorder], \
+			# 				 [1250, args.reorder], [1500, args.reorder], [1750, args.reorder], [1900, args.reorder], [2000, args.reorder], [2250, args.reorder], [2500, args.reorder], [2750, args.reorder], [3000, args.reorder], [3500, args.reorder], [4000, args.reorder]]
+
+			# search_config = [[1, args.reorder], [2, args.reorder], [4, args.reorder], [8, args.reorder], [16, args.reorder], [32, args.reorder], [64, args.reorder], [128, args.reorder], [192, args.reorder], [256, args.reorder], \
+			# 				 [384, args.reorder], [512, args.reorder], [1024, args.reorder]]
+			search_config = [[1, args.reorder], [2, args.reorder], [4, args.reorder], [8, args.reorder], [16, args.reorder], [32, args.reorder], [64, args.reorder], [128, args.reorder], \
+							 [256, args.reorder], [320, args.reorder], [384, args.reorder], [448, args.reorder], [512, args.reorder], [576, args.reorder], [640, args.reorder], [704, args.reorder], [768, args.reorder], \
+							 [1024, args.reorder]]
 
 		f = open(sweep_result_path, "w")
 		f.write("Program: " + args.program + ("GPU" if args.is_gpu else "") + " Topk: " + str(args.topk) + " Num_split: " + str(args.num_split)+ " Batch: "+str(args.batch)+"\n")
-		f.write("L\tm\tk_star\t|\tw\tMetric\n")
+		f.write("L\tm\tk_star\t|\tw\tReorder\tMetric\n")
 	else:
-		assert D% args.m == 0
+		if args.opq != -1:
+			assert args.opq % args.m == 0 and args.sq == -1
+		elif args.sq != -1:
+			assert (args.sq == 4 or args.sq == 6 or args.sq == 8 or args.sq == 16) and args.opq == -1
+		else:
+			assert D% args.m == 0
 		build_config = [[args.L, args.m, int(math.log(args.k_star,2)), args.metric]]
 		search_config = [[args.w, args.reorder]]
 	for bc in build_config:
 		L, m, log2kstar, metric = bc
 		# assert (not args.is_gpu and log2kstar<=8) or (log2kstar == 8)
 		sc_list = check_available_search_config(args.program, bc, search_config)
-		neighbors=np.empty((len(sc_list), queries.shape[0],0), dtype=np.int32)
-		distances=np.empty((len(sc_list), queries.shape[0],0), dtype=np.float32)
-		base_idx = 0
-		total_latency = np.zeros(len(sc_list))
+		print(bc)
 		print(sc_list)
 		if len(sc_list) > 0:
+			neighbors=np.empty((len(sc_list), queries.shape[0],0), dtype=np.int32)
+			distances=np.empty((len(sc_list), queries.shape[0],0), dtype=np.float32)
+			base_idx = 0
+			total_latency = np.zeros(len(sc_list))
+
+			args.batch = min(args.batch, queries.shape[0])
+			padded_D, faiss_m, is_padding = get_padded_info(m)
+			if is_padding:
+				padded_queries, padded_train_dataset = faiss_pad_trains_queries(padded_D, queries, train_dataset)
+			else:
+				padded_queries, padded_train_dataset = queries, train_dataset
+
+			if args.opq == -1 and args.sq == -1:
+				index_key_manual = "IVF"+str(L)+",PQ"+str(faiss_m)+"x"+str(log2kstar)
+			elif args.sq != -1:
+					index_key_manual = "IVF"+str(L)+",SQ"+str(args.sq)
+			else:
+				index_key_manual = "OPQ"+str(faiss_m)+"_"+str(args.opq)+",IVF"+str(L)+",PQ"+str(faiss_m)+"x"+str(log2kstar)
+
+
 			for split in range(args.num_split):
+				# if split > 0:
+				# 	break
 				print("Split ", split)
 				num_per_split = int(N/args.num_split) if split < args.num_split-1 else N-base_idx
 				searcher_dir, searcher_path = get_searcher_path(split)
-				args.batch = min(args.batch, queries.shape[0])
-				# Load splitted dataset
-				train_dataset = get_train(split, args.num_split)
-				dataset = read_data(split_dataset_path + str(args.num_split) + "_" + str(split) if args.num_split>1 else dataset_basedir, base=False if args.num_split>1 else True, offset_=None if args.num_split>1 else 0, shape_=None)
-				padded_D, faiss_m, padded_dataset, padded_train_dataset, padded_queries = faiss_pad_dataset(dataset, train_dataset, queries, m)
-				# local_neighbors, local_distances, total_latency = run_local_faiss(args, searcher_dir, split, padded_D, "IVF"+str(L)+",PQ"+str(faiss_m)+"x"+str(log2kstar), padded_train_dataset, padded_dataset, padded_queries)
-				index, preproc = build_faiss(args, searcher_dir, split, padded_D, "IVF"+str(L)+",PQ"+str(faiss_m)+"x"+str(log2kstar), padded_train_dataset, padded_dataset, padded_queries)
 
+				is_cached = check_cached(searcher_dir, args, args.dataset, split, args.num_split, index_key_manual)
+				args.m = faiss_m
+
+				if is_cached:
+					index, preproc = build_faiss(args, searcher_dir, coarse_dir, split, int(N/args.num_split), padded_D, index_key_manual, is_cached, padded_queries)
+					# continue
+				else:
+					dataset = read_data(split_dataset_path + str(args.num_split) + "_" + str(split) if args.num_split>1 else dataset_basedir, base=False if args.num_split>1 else True, offset_=None if args.num_split>1 else 0, shape_=None)
+					if is_padding:
+						padded_dataset = faiss_pad_dataset(padded_D, dataset)
+					else:
+						padded_dataset = dataset
+					print("[YJ] reading done")
+					index, preproc = build_faiss(args, searcher_dir, coarse_dir, split, int(N/args.num_split), padded_D, index_key_manual, is_cached, padded_queries, padded_train_dataset, padded_dataset)
+					# continue
 				n = list()
 				d = list()
 				for idx in range(len(sc_list)):
 					w, reorder = search_config[sc_list[idx]]
 					assert reorder == args.reorder
 					# Build Faiss index
-					# args.w = nprobe
-
-
-					# if args.sweep:
-					# 	f.write(str(L)+"\t"+str(m)+"\t"+str(2**log2kstar)+"\t|\t"+str(nprobe)+"\t"+str(args.reorder)+"\t"+str(metric)+"\n")		# faiss-gpu has no reorder
 					print(str(L)+"\t"+str(m)+"\t"+str(2**log2kstar)+"\t|\t"+str(w)+"\t"+str(reorder)+"\t"+str(metric)+"\n")		# faiss-gpu has no reorder
 					# Faiss search
-					local_neighbors, local_distances, total_latency[idx] = faiss_search(index, preproc, args, reorder, w)
+					local_neighbors, local_distances, time = faiss_search(index, preproc, args, reorder, w)
+					total_latency[idx] = total_latency[idx] + time
 					n.append((local_neighbors+base_idx).astype(np.int32))
-					d.append(local_distances.astype(np.float32))	
-
+					d.append(local_distances.astype(np.float32))
+					del local_neighbors
+					del local_distances
+				del index
+				# if is_cached == False:
+				# 	dataset._mmap.close()
 				base_idx = base_idx + num_per_split
 				neighbors = np.append(neighbors, np.array(n, dtype=np.int32), axis=-1)
 				distances = np.append(distances, np.array(d, dtype=np.float32), axis=-1)
 				neighbors, distances = sort_neighbors(distances, neighbors)
-				print("neighbors: ", neighbors.shape)
-				print("distances: ", distances.shape)
 
 			final_neighbors, _ = sort_neighbors(distances, neighbors)
+			# continue
 			for idx in range(len(sc_list)):
 				if args.sweep:
 					w, reorder = search_config[sc_list[idx]]
 					f.write(str(L)+"\t"+str(m)+"\t"+str(2**log2kstar)+"\t|\t"+str(w)+"\t"+str(reorder)+"\t"+str(metric)+"\n")		# faiss-gpu has no reorder
-
+				top1_10, top1_100, top10_100, top1_1000, top10_1000, top100_1000 = print_more_recalls(final_neighbors[idx], gt)
 				top1, top10, top100, top1000 = print_recall(final_neighbors[idx], gt)
 				print("Top ", args.topk, " Total latency (ms): ", total_latency[idx])
+				print("arcm::Latency written. End of File.\n");
 				if args.sweep:
-					f.write(str(top1)+" %\t"+str(top10)+" %\t"+str(top100)+" %\t"+str(top1000)+" %\t"+str(total_latency[idx])+"\n")
-
+					f.write(str(top1)+" %\t"+str(top10)+" %\t"+str(top100)+" %\t"+str(top1000)+" %\t|\t"+str(top1_10)+" %\t"+str(top1_100)+" %\t"+str(top10_100)+" %\t"+str(top1_1000)+" %\t"+str(top10_1000)+" %\t"+str(top100_1000)+" %\t"+str(total_latency[idx])+"\n")
 	if args.sweep:
 		f.close()
+
 
 def run_annoy(D):
 	gt, queries = prepare_eval()
@@ -687,10 +957,11 @@ def run_annoy(D):
 			base_idx = base_idx + num_per_split
 			neighbors = np.append(neighbors, np.array(n), axis=-1)
 			distances = np.append(distances, np.array(d), axis=-1)
-		final_neighbors = sort_neighbors(distances, neighbors)
+		final_neighbors, _ = sort_neighbors(distances, neighbors)
 		for idx in range(len(search_config)):
 			top1, top10, top100, top1000 = print_recall(final_neighbors[idx], gt)
 			print("Top ", args.topk, " Total latency (ms): ", total_latency[idx])
+			print("arcm::Latency written. End of File.\n");
 			if args.sweep:
 				f.write(str(n_trees)+"\t|\t"+str(search_config[idx])+"\t-1\t"+str(annoy_metric)+"\n")
 				f.write(str(top1)+" %\t"+str(top10)+" %\t"+str(top100)+" %\t"+str(top1000)+" %\t"+str(total_latency[idx])+"\n")
@@ -698,16 +969,32 @@ def run_annoy(D):
 		f.close()
 
 # only for faiss
-def get_train(split=-1, total=-1):
+def get_train():
 	if "sift1m" in args.dataset:
-		filename = dataset_basedir + 'sift_learn.fvecs' if split<0 else dataset_basedir + 'split_data/sift1m_learn%d_%d' % (total, split)
+		filename = dataset_basedir + 'sift_learn.fvecs'
+		return mmap_fvecs(filename)
+	if "deep1b" in args.dataset:
+		filename = dataset_basedir + 'deep1b_learn.fvecs'
+		xt = mmap_fvecs(filename, 0, 1000000)
+		return xt
+	elif "deep1m" in args.dataset:
+		filename = dataset_basedir + 'deep1m_learn.fvecs'
+		return mmap_fvecs(filename)
+	elif "deepm96" in args.dataset:
+		filename = dataset_basedir + 'split_data/deepm96_learn1_0'
+		return mmap_fvecs(filename)
+	elif "gist" in args.dataset:
+		filename = dataset_basedir + 'gist_learn.fvecs'
 		return mmap_fvecs(filename)
 	elif "sift1b" in args.dataset:
-		filename = dataset_basedir + 'bigann_learn.bvecs' if split<0 else dataset_basedir + 'split_data/sift1b_learn%d_%d' % (total, split)
-		return bvecs_read(filename)
+		filename = dataset_basedir + 'bigann_learn.bvecs'
+		return bvecs_mmap(filename, 0, 1000000)
 	elif "glove" in args.dataset:
-		filename = dataset_basedir + 'split_data/glove_learn%d_%d' % (total, split)
+		filename = dataset_basedir + 'split_data/glove_'+args.metric+'_learn1_0'
 		return read_data(filename, base=False)
+	elif "music1m" in args.dataset:
+		filename = dataset_basedir + 'split_data/music1m_learn1_0'
+		return mmap_fvecs(filename)
 	else:
 		assert False
 
@@ -717,35 +1004,29 @@ def get_groundtruth():
 		run_groundtruth()
 	if "glove" in args.dataset:
 		return read_data(groundtruth_path, base=False)
+	elif "deep1b" in args.dataset or ("sift1b" in args.dataset and args.metric == "dot_product"):
+		return np.load(groundtruth_path)
 	else:
 		return ivecs_read(groundtruth_path)
-
-	# elif "sift1m" in args.dataset:
-	# 	return ivecs_read(groundtruth_path)
-	# 	# filename = dataset_basedir + 'sift_groundtruth.ivecs' if args.metric=="squared_l2" else groundtruth_path
-	# 	# print("Reading from ", filename)
-	# 	# return ivecs_read(filename)
-	# elif "sift1b" in args.dataset:
-	#  	filename = dataset_basedir +  'gnd/idx_1000M.ivecs' if args.metric=="squared_l2" else groundtruth_path
-	#  	print("Reading from ", filename)
-	#  	return ivecs_read(filename)
-	# elif "glove" in args.dataset:
-	# 	if args.metric == "dot_product":
-	# 		print("Reading from ", dataset_basedir+"glove-100-angular.hdf5")
-	# 		return h5py.File(dataset_basedir+"glove-100-angular.hdf5", "r")['neighbors']
-	# 	else:
-	# 		print("Reading from ", groundtruth_path)
-	# 		return read_data(groundtruth_path, base=False)
-	# else:
-	#  	assert False
 
 def get_queries():
 	if "sift1m" in args.dataset:
 		return mmap_fvecs(dataset_basedir + 'sift_query.fvecs')
+	elif "deep1m" in args.dataset:
+		return mmap_fvecs(dataset_basedir + 'deep1m_query.fvecs')
+	elif "deepm96" in args.dataset:
+		return mmap_fvecs(dataset_basedir + 'deepm96_query.fvecs')
+	elif "music1m" in args.dataset:
+		# return np.fromfile(dataset_basedir + 'query_music100.bin', dtype = np.float32).reshape(qN, D)
+		return mmap_fvecs(split_dataset_path + 'query1_0')
+	elif "gist" in args.dataset:
+		return mmap_fvecs(dataset_basedir + 'gist_query.fvecs')
 	elif "sift1b" in args.dataset:
 		return bvecs_read(dataset_basedir+'bigann_query.bvecs')
 	elif "glove" in args.dataset:
 		return np.array(h5py.File(dataset_basedir+"glove-100-angular.hdf5", "r")['test'], dtype='float32')
+	elif "deep1b" in args.dataset:
+		return mmap_fvecs(dataset_basedir + 'deep1B_queries.fvecs')
 	else:
 		assert False
 
@@ -758,7 +1039,9 @@ else:
 os.makedirs("./result", exist_ok=True)
 split_dataset_path = None
 if args.sweep:
-	sweep_result_path = "./result/"+args.program+("GPU_" if args.is_gpu else "_")+args.dataset+"_topk_"+str(args.topk)+"_num_split_"+str(args.num_split)+"_batch_"+str(args.batch)+"_"+args.metric+"_sweep_result.txt"
+	# sweep_result_path = "./result/"+args.program+("GPU_" if args.is_gpu else "_")+args.dataset+"_topk_"+str(args.topk)+"_num_split_"+str(args.num_split)+"_batch_"+str(args.batch)+"_"+args.metric+"_reorder_"+str(args.reorder)+"_sweep_result.txt"
+	sweep_result_path = "./final_result/"+args.program+("GPU_" if args.is_gpu else "_")+args.dataset+"_topk_"+str(args.topk)+"_num_split_"+str(args.num_split)+"_batch_"+str(args.batch)+"_"+args.metric+"_reorder_"+str(args.reorder)+"_sweep_result.txt"
+
 index_key = None
 N = -1
 D = -1
@@ -767,30 +1050,83 @@ qN = -1
 
 if "sift1m" in args.dataset:
 	dataset_basedir = basedir + "SIFT1M/"
-	split_dataset_path =dataset_basedir+"split_data/sift1m_"
-	groundtruth_path = dataset_basedir + "sift1m_"+args.metric+"_gt"
+	split_dataset_path = dataset_basedir+"split_data/sift1m_"
+	if args.split==False:
+		groundtruth_path = dataset_basedir + "sift1m_"+args.metric+"_gt"
 	N=1000000
 	D=128
 	num_iter = 1
 	qN = 10000
 	index_key = "IVF4096,PQ64"
+elif "deep1m" in args.dataset:
+	dataset_basedir = basedir + "DEEP1M/"
+	split_dataset_path = dataset_basedir+"split_data/deep1m_"
+	if args.split==False:
+		groundtruth_path = dataset_basedir + "deep1m_"+args.metric+"_gt"
+	N=1000000
+	D=256
+	num_iter = 1
+	qN = 1000
+	index_key = "IVF4096,PQ64" #arcm::FIXME
+elif "deepm96" in args.dataset:
+	dataset_basedir = basedir + "DEEPM96/"
+	split_dataset_path = dataset_basedir+"split_data/deepm96_"
+	if args.split==False:
+		groundtruth_path = dataset_basedir + "deepm96_"+args.metric+"_gt"
+	N=1000000
+	D=96
+	num_iter = 1
+	qN = 10000
+	index_key = "IVF4096,PQ64" #arcm::FIXME
+elif "music1m" in args.dataset:
+	dataset_basedir = basedir + "MUSIC1M/"
+	split_dataset_path = dataset_basedir+"split_data/music1m_"
+	if args.split==False:
+		groundtruth_path = dataset_basedir + "music1m_"+args.metric+"_gt"
+	N=1000000
+	D=100
+	num_iter = 1
+	qN = 10000
+	index_key = "IVF4096,PQ64" #arcm::FIXME
+elif "gist" in args.dataset:
+	dataset_basedir = basedir + "GIST/"
+	split_dataset_path =dataset_basedir+"split_data/gist_"
+	if args.split==False:
+		groundtruth_path = dataset_basedir + "gist_"+args.metric+"_gt"
+	N=1000000
+	D=960
+	num_iter = 1
+	qN = 1000
 elif "sift1b" in args.dataset:
 	dataset_basedir = basedir + "SIFT1B/"
 	split_dataset_path = dataset_basedir+"split_data/sift1b_"
-	groundtruth_path = dataset_basedir +  'gnd/idx_1000M.ivecs' if args.metric=="squared_l2" else dataset_basedir + "sift1b_"+args.metric+"_gt"
+	if args.split==False:
+		groundtruth_path = dataset_basedir +  'gnd/idx_1000M.ivecs' if args.metric=="squared_l2" else dataset_basedir + "sift1b_"+args.metric+"_gt"
 	N=1000000000
 	D=128
 	num_iter = 4
 	qN = 10000
 	index_key = "OPQ8_32,IVF262144,PQ8"
 elif "glove" in args.dataset:
+	assert args.metric != None
 	dataset_basedir = basedir + "GLOVE/"
 	split_dataset_path = dataset_basedir+"split_data/glove_"
-	groundtruth_path = dataset_basedir + "glove_"+args.metric+"_gt"
+	if args.split==False:
+		groundtruth_path = dataset_basedir + "glove_"+args.metric+"_gt"
 	N=1183514
 	D=100
 	num_iter = 10
 	qN = 10000
+elif "deep1b" in args.dataset:
+	dataset_basedir = basedir + "DEEP1B/"
+	split_dataset_path = dataset_basedir+"split_data/deep1b_"
+	if args.split==False:
+		groundtruth_path = dataset_basedir + "deep1b_"+args.metric+"_gt"
+	N=1000000000
+	D=96
+	num_iter = 16
+	qN = 10000
+
 
 def run_profile():
 	profile = open("./profile.out", 'a')
@@ -826,32 +1162,56 @@ def run_profile():
 	print("Others:", others_time/1000000., "ms (", round(others_time/search_time*100, 2), "% )")
 	print("Total Search:", search_time/1000000., "ms")
 
-	os.remove("./profile.out")
+	# os.remove("./profile.out")
+
+
+if args.split == False and args.groundtruth == False:
+	coarse_dir = basedir + args.program + '_searcher_' + args.metric + '/' + args.dataset + '/coarse_dir/'
+	os.makedirs(coarse_dir, exist_ok=True)
+	if args.program == "scann":
+		scann_fine_dir = basedir + args.program + '_searcher_' + args.metric + '/' + args.dataset + '/fine_dir/'
+		os.makedirs(scann_fine_dir, exist_ok=True)
+# if (args.num_split > 1 and args.eval_split) or args.split:
+# 	remapping_file_path = split_dataset_path + 'remapping_index_' + str(args.num_split)
+os.makedirs(dataset_basedir+"split_data/", exist_ok=True)
 
 # main
 if args.split:
 	split(args.dataset, num_iter, N, D)
+	# random_split(args.dataset, num_iter, N, D)
 if args.eval_split or args.sweep:
 	if args.program == "scann":
 		run_scann()
 		if args.profile:
 			run_profile()
-		if os.path.exists("./profile.out"):
-			os.remove("./profile.out")
-		else:
-			print("The profile.out file does not exist")
+		# if os.path.exists("./profile.out"):
+		# 	os.remove("./profile.out")
+		# else:
+		# 	print("profile.put file does not exist")
 	elif args.program == "faiss":
 		run_faiss(D)
 		if args.profile:
 			run_profile()
-		if os.path.exists("./profile.out"):
-			os.remove("./profile.out")
-		else:
-			print("The profile.out file does not exist")
+		# if os.path.exists("./profile.out"):
+		# 	os.remove("./profile.out")
+		# else:
+		# 	print("profile.put file does not exist")
 	elif args.program == "annoy":
 		run_annoy(D)
 	else:
 		assert False
 
 if args.groundtruth:
+	# base
+	# arcm_base = read_data(dataset_basedir)
+	# print("base.shape =", arcm_base.shape, ", base =", arcm_base)
+	# train
+	# arcm_train = get_train()
+	# print("train.shape =", arcm_train.shape, ", train =", arcm_train)
+	# query
+	# arcm_query = get_queries()
+	# print("query.shape =", arcm_query.shape, ", query =", arcm_query)
+	# gt
+	# arcm_gt = ivecs_read(dataset_basedir + 'groundtruth/deep1m_groundtruth.ivecs')
+	# print("gt.shape =", arcm_gt.shape, ", gt =", arcm_gt)
 	run_groundtruth()
