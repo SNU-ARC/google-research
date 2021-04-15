@@ -359,9 +359,10 @@ def sort_neighbors(distances, neighbors):
 def prepare_eval():
 	gt = get_groundtruth()
 	queries = get_queries()
-	# gt = gt[0:args.batch, :]
-	# queries = queries[0:args.batch, :]
-	# qN = args.batch
+	# num_of_queries = 10000
+	# gt = gt[0:num_of_queries, :]
+	# queries = queries[0:num_of_queries, :]
+	# qN = num_of_queries
 	print("gt shape: ", np.shape(gt))
 	print("queries shape: ", np.shape(queries))
 	# print("gt: ", gt[0])
@@ -810,11 +811,11 @@ def run_faiss(D):
 				num_per_split = int(N/args.num_split) if split < args.num_split-1 else N-base_idx
 				searcher_dir, searcher_path = get_searcher_path(split)
 
-				is_cached = check_cached(searcher_dir, args, args.dataset, split, args.num_split, index_key_manual)
+				is_cached = check_cached(searcher_dir, args, args.dataset, split, args.num_split, index_key_manual, log2kstar)
 				args.m = faiss_m
 
 				if is_cached:
-					index, preproc = build_faiss(args, searcher_dir, coarse_dir, split, int(N/args.num_split), padded_D, index_key_manual, is_cached, padded_queries)
+					index, preproc = build_faiss(args, log2kstar, searcher_dir, coarse_dir, split, int(N/args.num_split), padded_D, index_key_manual, is_cached, padded_queries)
 					# continue
 				else:
 					dataset = read_data(split_dataset_path + str(args.num_split) + "_" + str(split) if args.num_split>1 else dataset_basedir, base=False if args.num_split>1 else True, offset_=None if args.num_split>1 else 0, shape_=None)
@@ -823,7 +824,7 @@ def run_faiss(D):
 					else:
 						padded_dataset = dataset
 					print("[YJ] reading done")
-					index, preproc = build_faiss(args, searcher_dir, coarse_dir, split, int(N/args.num_split), padded_D, index_key_manual, is_cached, padded_queries, padded_train_dataset, padded_dataset)
+					index, preproc = build_faiss(args, log2kstar, searcher_dir, coarse_dir, split, int(N/args.num_split), padded_D, index_key_manual, is_cached, padded_queries, padded_train_dataset, padded_dataset)
 					# continue
 				n = list()
 				d = list()
