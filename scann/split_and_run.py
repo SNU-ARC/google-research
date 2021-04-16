@@ -723,7 +723,7 @@ def run_faiss(D):
 			# 				 [8192, args.reorder], [16384, args.reorder]]
 
 			# search_config = [[1, args.reorder], [2, args.reorder], [4, args.reorder], [8, args.reorder], [16, args.reorder], [32, args.reorder], [64, args.reorder], [128, args.reorder], [256, args.reorder]]
-			search_config = [[160, args.reorder], [192, args.reorder]]
+			search_config = [[1, args.reorder], [2, args.reorder], [4, args.reorder], [8, args.reorder], [16, args.reorder], [32, args.reorder], [64, args.reorder], [128, args.reorder], [160, args.reorder], [192, args.reorder], [256, args.reorder]]
 
 
 		else:
@@ -821,6 +821,7 @@ def run_faiss(D):
 			# 				 [384, args.reorder], [512, args.reorder], [1024, args.reorder]]
 				search_config = [[1, args.reorder], [2, args.reorder], [4, args.reorder], [8, args.reorder], [16, args.reorder], [32, args.reorder], [64, args.reorder], [128, args.reorder], [160, args.reorder], [192, args.reorder], [256, args.reorder]]
 
+				'''
 				if args.dataset == "sift1m" or args.dataset == "glove":
 					build_config = [
 					[250, D, 4, args.metric], [250, int(D/2), 4, args.metric], [250, int(D/4), 4, args.metric],
@@ -840,6 +841,7 @@ def run_faiss(D):
 					[192, args.reorder], [200, args.reorder],
 					[300, args.reorder], [400, args.reorder],
 					]
+				'''
 
 		f = open(sweep_result_path, "w")
 		f.write("Program: " + args.program + ("GPU" if args.is_gpu else "") + " Topk: " + str(args.topk) + " Num_split: " + str(args.num_split)+ " Batch: "+str(args.batch)+"\n")
@@ -1104,6 +1106,7 @@ def get_queries():
 		return mmap_fvecs(dataset_basedir + 'deep1B_queries.fvecs')
 	else:
 		assert False
+
 
 
 if os.path.isdir("/arc-share"):
