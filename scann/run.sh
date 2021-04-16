@@ -4,7 +4,7 @@
 # python3 split_and_run_sweep.py --dataset sift1b --program annoy --eval_split --num_split 200 --metric squared_l2 --topk 1000
 
 # Faiss cpu
-# python3 split_and_run_faisscpu1b.py --program faiss --dataset sift1b --sweep --topk 1000 --metric squared_l2 --num_split 4 --batch 16
+python3 split_and_run_faisscpu1b.py --program faiss --dataset sift1b --sweep --topk 1000 --metric squared_l2 --num_split 4 --batch 16
 # python3 split_and_run_faisscpu1b.py --program faiss --dataset deep1b --sweep --topk 1000 --metric squared_l2 --num_split 4 --batch 16
 
 # python3 split_and_run.py --program faiss --dataset sift1m --sweep --topk 1000 --metric squared_l2 --num_split 1 --batch 128
@@ -15,14 +15,6 @@
 # python3 split_and_run.py --program faiss --dataset deep1b --sweep --topk 1000 --metric dot_product --num_split 20 --batch 128
 
 # Faiss gpu
-python3 split_and_run.py --dataset sift1m --metric squared_l2 --num_split 1 --is_gpu --program faiss --sweep --topk 1000 --batch 128
-python3 split_and_run.py --dataset sift1m --metric squared_l2 --num_split 1 --is_gpu --program faiss --sweep --topk 1000 --batch 2048
-python3 split_and_run.py --dataset glove --metric dot_product --num_split 1 --is_gpu --program faiss --sweep --topk 1000 --batch 128
-python3 split_and_run.py --dataset glove --metric dot_product --num_split 1 --is_gpu --program faiss --sweep --topk 1000 --batch 2048
-python3 split_and_run.py --dataset music1m --metric dot_product --num_split 1 --is_gpu --program faiss --sweep --topk 1000 --batch 128
-python3 split_and_run.py --dataset music1m --metric dot_product --num_split 1 --is_gpu --program faiss --sweep --topk 1000 --batch 2048
-python3 split_and_run.py --dataset deepm96 --metric squared_l2 --num_split 1 --is_gpu --program faiss --sweep --topk 1000 --batch 128
-python3 split_and_run.py --dataset deepm96 --metric squared_l2 --num_split 1 --is_gpu --program faiss --sweep --topk 1000 --batch 2048
 # python3 split_and_run.py --dataset glove --metric dot_product --num_split 1 --is_gpu --program faiss --sweep --topk 1000 --batch 128
 # python3 split_and_run.py --dataset sift1m --metric dot_product --num_split 1 --is_gpu --program faiss --sweep --topk 1000 --batch 128
 # python3 split_and_run.py --dataset glove --metric squared_l2 --num_split 1 --is_gpu --program faiss --sweep --topk 1000 --batch 128
