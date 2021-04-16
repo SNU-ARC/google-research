@@ -722,14 +722,25 @@ def run_faiss(D):
 				# 				[6000, D, 4, args.metric], [6000, int(D/2), 4, args.metric], [6000, int(D/4), 4, args.metric], \
 				# 				[6000, D, 6, args.metric], [6000, int(D/2), 6, args.metric], [6000, int(D/4), 6, args.metric], \
 				# 				[6000, D, 8, args.metric], [6000, int(D/2), 8, args.metric], [6000, int(D/4), 8, args.metric]]
-				build_config = [
-				[8000, D, 4, args.metric],
-				[8000, int(D/2), 4, args.metric],
-				[8000, int(D/4), 4, args.metric],
-				[8000, int(D/2), 8, args.metric],
-				[8000, int(D/4), 8, args.metric],
-				[8000, int(D/8), 8, args.metric]
-				]
+				if args.dataset == "sift1b":
+					build_config = [
+					[8000, D, 4, args.metric],
+					[8000, int(D/2), 4, args.metric],
+					[8000, int(D/4), 4, args.metric],
+					[8000, int(D/2), 8, args.metric],
+					[8000, int(D/4), 8, args.metric],
+					[8000, int(D/8), 8, args.metric]
+					]
+				elif args.dataset == "deep1b":
+					build_config = [
+					[8000, D, 4, args.metric],
+					[8000, int(D/2), 4, args.metric],
+					[8000, int(D/4), 4, args.metric],
+					[8000, int(D/2), 8, args.metric],
+					[8000, int(D/4), 8, args.metric],
+					[8000, int(D/8), 8, args.metric]
+					]
+
 				# build_config = [
 				# 				[8000, D, 8, args.metric], [8000, int(D/2), 8, args.metric], [8000, int(D/4), 8, args.metric], [8000, int(D/8), 8, args.metric], \
 				# 				# [7000, D, 8, args.metric], [7000, int(D/2), 8, args.metric], [7000, int(D/4), 8, args.metric], [7000, int(D/8), 8, args.metric], \
@@ -1065,7 +1076,7 @@ os.makedirs("./result", exist_ok=True)
 split_dataset_path = None
 if args.sweep:
 	# sweep_result_path = "./result/"+args.program+("GPU_" if args.is_gpu else "_")+args.dataset+"_topk_"+str(args.topk)+"_num_split_"+str(args.num_split)+"_batch_"+str(args.batch)+"_"+args.metric+"_reorder_"+str(args.reorder)+"_sweep_result.txt"
-	sweep_result_path = "./eval_config/allqueriesatonce_"+args.program+("GPU_" if args.is_gpu else "_")+args.dataset+"_topk_"+str(args.topk)+"_num_split_"+str(args.num_split)+"_batch_"+str(args.batch)+"_"+args.metric+"_reorder_"+str(args.reorder)+"_sweep_result.txt"
+	sweep_result_path = "./FINALIZED_CONFIGURATION/NO_SKIP_"+args.program+("GPU_" if args.is_gpu else "_")+args.dataset+"_topk_"+str(args.topk)+"_num_split_"+str(args.num_split)+"_batch_"+str(args.batch)+"_"+args.metric+"_reorder_"+str(args.reorder)+"_sweep_result.txt"
 
 index_key = None
 N = -1
