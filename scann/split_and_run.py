@@ -485,6 +485,22 @@ def run_scann():
 
 			search_config = [[1, args.reorder], [2, args.reorder], [4, args.reorder], [8, args.reorder], [16, args.reorder], [32, args.reorder], [64, args.reorder], [128, args.reorder], [256, args.reorder]]
 
+			if args.dataset == "sift1m" or args.dataset == "glove":
+				build_config = [
+				[250, 0.2, 1, args.metric], [250, 0.2, 2, args.metric], [250, 0.2, 4, args.metric],
+				[500, 0.2, 2, args.metric], [1000, 0.2, 2, args.metric], [2000, 0.2, 2, args.metric], [4000, 0.2, 2, args.metric],
+				[1000, 0.2, 1, args.metric], [1000, 0.2, 4, args.metric], [1000, 0.2, 8, args.metric], [1000, 0.2, 10, args.metric],
+				]
+				search_config = [
+				[6, args.reorder], [12, args.reorder], [18, args.reorder], [25, args.reorder],
+				[38, args.reorder], [50, args.reorder],
+				[75, args.reorder], [100, args.reorder],
+				[150, args.reorder], [160, args.reorder], [192, args.reorder], [200, args.reorder],
+				[300, args.reorder], [400, args.reorder],
+				]
+
+
+
 
 		f = open(sweep_result_path, "w")
 		f.write("Program: " + args.program + " Topk: " + str(args.topk) + " Num_split: " + str(args.num_split)+ " Batch: "+str(args.batch)+"\n")
@@ -706,7 +722,8 @@ def run_faiss(D):
 			# 				 [5120, args.reorder], [5632, args.reorder], [6144, args.reorder], [6656, args.reorder], [7168, args.reorder], [7680, args.reorder], \
 			# 				 [8192, args.reorder], [16384, args.reorder]]
 
-			search_config = [[1, args.reorder], [2, args.reorder], [4, args.reorder], [8, args.reorder], [16, args.reorder], [32, args.reorder], [64, args.reorder], [128, args.reorder], [256, args.reorder]]
+			# search_config = [[1, args.reorder], [2, args.reorder], [4, args.reorder], [8, args.reorder], [16, args.reorder], [32, args.reorder], [64, args.reorder], [128, args.reorder], [256, args.reorder]]
+			search_config = [[160, args.reorder], [192, args.reorder]]
 
 
 		else:
@@ -747,6 +764,8 @@ def run_faiss(D):
 				# 				[6000, D, 8, args.metric], [6000, int(D/2), 8, args.metric], [6000, int(D/4), 8, args.metric], [6000, int(D/8), 8, args.metric], \
 				# 				[4000, D, 8, args.metric], [4000, int(D/2), 8, args.metric], [4000, int(D/4), 8, args.metric], [4000, int(D/8), 8, args.metric], \
 				# 				]
+
+				search_config = [[1, args.reorder], [2, args.reorder], [4, args.reorder], [8, args.reorder], [16, args.reorder], [32, args.reorder], [64, args.reorder], [128, args.reorder], [256, args.reorder]]
 
 			else:
 				# build_config = [[1000, int(D/32), 4, args.metric], [1000, int(D/16), 4, args.metric], [1000, int(D/8), 4, args.metric], [1000, int(D/4), 4, args.metric], [1000, int(D/3), 4, args.metric], [1000, int(D/2), 4, args.metric], [1000, D, 4, args.metric], \
@@ -800,7 +819,26 @@ def run_faiss(D):
 
 			# search_config = [[1, args.reorder], [2, args.reorder], [4, args.reorder], [8, args.reorder], [16, args.reorder], [32, args.reorder], [64, args.reorder], [128, args.reorder], [192, args.reorder], [256, args.reorder], \
 			# 				 [384, args.reorder], [512, args.reorder], [1024, args.reorder]]
-			search_config = [[1, args.reorder], [2, args.reorder], [4, args.reorder], [8, args.reorder], [16, args.reorder], [32, args.reorder], [64, args.reorder], [128, args.reorder], [256, args.reorder]]
+				search_config = [[1, args.reorder], [2, args.reorder], [4, args.reorder], [8, args.reorder], [16, args.reorder], [32, args.reorder], [64, args.reorder], [128, args.reorder], [256, args.reorder]]
+
+				if args.dataset == "sift1m" or args.dataset == "glove":
+					build_config = [
+					[250, D, 4, args.metric], [250, int(D/2), 4, args.metric], [250, int(D/4), 4, args.metric],
+					[250, int(D/2), 8, args.metric], [250, int(D/4), 8, args.metric], [250, int(D/8), 8, args.metric], [250, int(D/10), 8, args.metric],
+					[500, int(D/2), 4, args.metric], [1000, int(D/2), 4, args.metric], [2000, int(D/2), 4, args.metric], [4000, int(D/2), 4, args.metric],
+					[1000, D, 4, args.metric], [1000, int(D/4), 4, args.metric], [1000, int(D/8), 4, args.metric], [1000, int(D/10), 4, args.metric],
+					[1000, int(D/8), 5, args.metric], [1000, int(D/8), 6, args.metric], [1000, int(D/8), 7, args.metric], [1000, int(D/8), 8, args.metric],
+					[1000, int(D/10), 5, args.metric], [1000, int(D/10), 6, args.metric], [1000, int(D/10), 7, args.metric], [1000, int(D/10), 8, args.metric],
+					[1000, int(D/2), 8, args.metric], [1000, int(D/4), 8, args.metric], [1000, int(D/16), 8, args.metric], [1000, int(D/20), 8, args.metric],
+					]
+					search_config = [
+					[6, args.reorder], [12, args.reorder], [18, args.reorder], [25, args.reorder],
+					[38, args.reorder], [50, args.reorder],
+					[75, args.reorder], [100, args.reorder],
+					[150, args.reorder], [160, args.reorder],
+					[192, args.reorder], [200, args.reorder],
+					[300, args.reorder], [400, args.reorder],
+					]
 
 		f = open(sweep_result_path, "w")
 		f.write("Program: " + args.program + ("GPU" if args.is_gpu else "") + " Topk: " + str(args.topk) + " Num_split: " + str(args.num_split)+ " Batch: "+str(args.batch)+"\n")
@@ -1076,7 +1114,7 @@ os.makedirs("./result", exist_ok=True)
 split_dataset_path = None
 if args.sweep:
 	# sweep_result_path = "./result/"+args.program+("GPU_" if args.is_gpu else "_")+args.dataset+"_topk_"+str(args.topk)+"_num_split_"+str(args.num_split)+"_batch_"+str(args.batch)+"_"+args.metric+"_reorder_"+str(args.reorder)+"_sweep_result.txt"
-	sweep_result_path = "./FINALIZED_CONFIGURATION/NO_SKIP_"+args.program+("GPU_" if args.is_gpu else "_")+args.dataset+"_topk_"+str(args.topk)+"_num_split_"+str(args.num_split)+"_batch_"+str(args.batch)+"_"+args.metric+"_reorder_"+str(args.reorder)+"_sweep_result.txt"
+	sweep_result_path = "./FINALIZED_CONFIGURATION/W_ADDITIONAL_"+args.program+("GPU_" if args.is_gpu else "_")+args.dataset+"_topk_"+str(args.topk)+"_num_split_"+str(args.num_split)+"_batch_"+str(args.batch)+"_"+args.metric+"_reorder_"+str(args.reorder)+"_sweep_result.txt"
 
 index_key = None
 N = -1
