@@ -483,24 +483,21 @@ def run_scann():
 			# 				 [170, args.reorder], [200, args.reorder], [220, args.reorder], [250, args.reorder], [310, args.reorder], [400, args.reorder], [500, args.reorder], [800, args.reorder], [1000, args.reorder], \
 			# 				 [1250, args.reorder], [1500, args.reorder], [1750, args.reorder], [1900, args.reorder], [2000, args.reorder], [2048, args.reorder]]
 
-			search_config = [[1, args.reorder], [2, args.reorder], [4, args.reorder], [8, args.reorder], [16, args.reorder], [32, args.reorder], [64, args.reorder], [128, args.reorder], [256, args.reorder]]
+			search_config = [[1, args.reorder], [2, args.reorder], [4, args.reorder], [8, args.reorder], [16, args.reorder], [32, args.reorder], [64, args.reorder], [128, args.reorder], [160, args.reorder], [192, args.reorder], [256, args.reorder]]
 
-			if args.dataset == "sift1m" or args.dataset == "glove":
-				build_config = [
-				[250, 0.2, 1, args.metric], [250, 0.2, 2, args.metric], [250, 0.2, 4, args.metric],
-				[500, 0.2, 2, args.metric], [1000, 0.2, 2, args.metric], [2000, 0.2, 2, args.metric], [4000, 0.2, 2, args.metric],
-				[1000, 0.2, 1, args.metric], [1000, 0.2, 4, args.metric], [1000, 0.2, 8, args.metric], [1000, 0.2, 10, args.metric],
-				]
-				search_config = [
-				[6, args.reorder], [12, args.reorder], [18, args.reorder], [25, args.reorder],
-				[38, args.reorder], [50, args.reorder],
-				[75, args.reorder], [100, args.reorder],
-				[150, args.reorder], [160, args.reorder], [192, args.reorder], [200, args.reorder],
-				[300, args.reorder], [400, args.reorder],
-				]
-
-
-
+			# if args.dataset == "sift1m" or args.dataset == "glove":
+			# 	build_config = [
+			# 	[250, 0.2, 1, args.metric], [250, 0.2, 2, args.metric], [250, 0.2, 4, args.metric],
+			# 	[500, 0.2, 2, args.metric], [1000, 0.2, 2, args.metric], [2000, 0.2, 2, args.metric], [4000, 0.2, 2, args.metric],
+			# 	[1000, 0.2, 1, args.metric], [1000, 0.2, 4, args.metric], [1000, 0.2, 8, args.metric], [1000, 0.2, 10, args.metric],
+			# 	]
+			# 	search_config = [
+			# 	[6, args.reorder], [12, args.reorder], [18, args.reorder], [25, args.reorder],
+			# 	[38, args.reorder], [50, args.reorder],
+			# 	[75, args.reorder], [100, args.reorder],
+			# 	[150, args.reorder], [160, args.reorder], [192, args.reorder], [200, args.reorder],
+			# 	[300, args.reorder], [400, args.reorder],
+			# 	]
 
 		f = open(sweep_result_path, "w")
 		f.write("Program: " + args.program + " Topk: " + str(args.topk) + " Num_split: " + str(args.num_split)+ " Batch: "+str(args.batch)+"\n")
@@ -692,6 +689,8 @@ def run_faiss(D):
 				# 				[4000, D, log2kstar_, args.metric], [4000, int(D/2), log2kstar_, args.metric], [4000, int(D/4), log2kstar_, args.metric], [4000, int(D/8), log2kstar_, args.metric], \
 				# 				# [3500, D, log2kstar_, args.metric], [3500, int(D/2), log2kstar_, args.metric], \
 				# 				]
+				search_config = [[1, args.reorder], [2, args.reorder], [4, args.reorder], [8, args.reorder], [16, args.reorder], [32, args.reorder], [64, args.reorder], [128, args.reorder], [256, args.reorder]]
+
 			else:
 				# build_config = [[800, int(D/64), log2kstar_, args.metric], [800, int(D/50), log2kstar_, args.metric], [800, int(D/32), log2kstar_, args.metric], [800, int(D/25), log2kstar_, args.metric], [800, int(D/16), log2kstar_, args.metric], [800, int(D/10), log2kstar_, args.metric], [800, int(D/8), log2kstar_, args.metric], [800, int(D/5), log2kstar_, args.metric], [800, int(D/4), log2kstar_, args.metric], [800, int(D/3), log2kstar_, args.metric], [800, int(D/2), log2kstar_, args.metric], [800, D, log2kstar_, args.metric], \
 				# 				[1000, int(D/64), log2kstar_, args.metric], [1000, int(D/50), log2kstar_, args.metric], [1000, int(D/32), log2kstar_, args.metric], [1000, int(D/25), log2kstar_, args.metric], [1000, int(D/16), log2kstar_, args.metric], [1000, int(D/10), log2kstar_, args.metric], [1000, int(D/8), log2kstar_, args.metric], [1000, int(D/5), log2kstar_, args.metric], [1000, int(D/4), log2kstar_, args.metric], [1000, int(D/3), log2kstar_, args.metric], [1000, int(D/2), log2kstar_, args.metric], [1000, D, log2kstar_, args.metric], \
@@ -723,7 +722,7 @@ def run_faiss(D):
 			# 				 [8192, args.reorder], [16384, args.reorder]]
 
 			# search_config = [[1, args.reorder], [2, args.reorder], [4, args.reorder], [8, args.reorder], [16, args.reorder], [32, args.reorder], [64, args.reorder], [128, args.reorder], [256, args.reorder]]
-			search_config = [[1, args.reorder], [2, args.reorder], [4, args.reorder], [8, args.reorder], [16, args.reorder], [32, args.reorder], [64, args.reorder], [128, args.reorder], [160, args.reorder], [192, args.reorder], [256, args.reorder]]
+				search_config = [[1, args.reorder], [2, args.reorder], [4, args.reorder], [8, args.reorder], [16, args.reorder], [32, args.reorder], [64, args.reorder], [128, args.reorder], [160, args.reorder], [192, args.reorder], [256, args.reorder]]
 
 
 		else:
@@ -739,24 +738,14 @@ def run_faiss(D):
 				# 				[6000, D, 4, args.metric], [6000, int(D/2), 4, args.metric], [6000, int(D/4), 4, args.metric], \
 				# 				[6000, D, 6, args.metric], [6000, int(D/2), 6, args.metric], [6000, int(D/4), 6, args.metric], \
 				# 				[6000, D, 8, args.metric], [6000, int(D/2), 8, args.metric], [6000, int(D/4), 8, args.metric]]
-				if args.dataset == "sift1b":
-					build_config = [
-					[8000, D, 4, args.metric],
-					[8000, int(D/2), 4, args.metric],
-					[8000, int(D/4), 4, args.metric],
-					# [8000, int(D/2), 8, args.metric],
-					# [8000, int(D/4), 8, args.metric],
-					# [8000, int(D/8), 8, args.metric]
-					]
-				elif args.dataset == "deep1b":
-					build_config = [
-					[8000, D, 4, args.metric],
-					[8000, int(D/2), 4, args.metric],
-					[8000, int(D/4), 4, args.metric],
-					# [8000, int(D/2), 8, args.metric],
-					# [8000, int(D/4), 8, args.metric],
-					# [8000, int(D/8), 8, args.metric]
-					]
+				build_config = [
+				[8000, D, 4, args.metric],
+				[8000, int(D/2), 4, args.metric],
+				[8000, int(D/4), 4, args.metric],
+				[8000, int(D/2), 8, args.metric],
+				[8000, int(D/4), 8, args.metric],
+				[8000, int(D/8), 8, args.metric]
+				]
 
 				# build_config = [
 				# 				[8000, D, 8, args.metric], [8000, int(D/2), 8, args.metric], [8000, int(D/4), 8, args.metric], [8000, int(D/8), 8, args.metric], \
@@ -765,7 +754,7 @@ def run_faiss(D):
 				# 				[4000, D, 8, args.metric], [4000, int(D/2), 8, args.metric], [4000, int(D/4), 8, args.metric], [4000, int(D/8), 8, args.metric], \
 				# 				]
 
-				search_config = [[1, args.reorder], [2, args.reorder], [4, args.reorder], [8, args.reorder], [16, args.reorder], [32, args.reorder], [64, args.reorder], [128, args.reorder], [160, args.reorder], [192, args.reorder], [256, args.reorder]]
+				search_config = [[1, args.reorder], [2, args.reorder], [4, args.reorder], [8, args.reorder], [16, args.reorder], [32, args.reorder], [64, args.reorder], [128, args.reorder], [256, args.reorder]]
 
 			else:
 				# build_config = [[1000, int(D/32), 4, args.metric], [1000, int(D/16), 4, args.metric], [1000, int(D/8), 4, args.metric], [1000, int(D/4), 4, args.metric], [1000, int(D/3), 4, args.metric], [1000, int(D/2), 4, args.metric], [1000, D, 4, args.metric], \
@@ -785,10 +774,10 @@ def run_faiss(D):
 				[250, D, 4, args.metric],
 				[250, int(D/2), 4, args.metric],
 				[250, int(D/4), 4, args.metric],
-				# [250, int(D/2), 8, args.metric],
-				# [250, int(D/4), 8, args.metric],
-				# [250, int(D/8), 8, args.metric],
-				# [250, int(D/10), 8, args.metric],
+				[250, int(D/2), 8, args.metric],
+				[250, int(D/4), 8, args.metric],
+				[250, int(D/8), 8, args.metric],
+				[250, int(D/10), 8, args.metric],
 				]
 
 				# build_config = [

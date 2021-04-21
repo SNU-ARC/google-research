@@ -427,80 +427,33 @@ def run_scann():
 
 	if args.sweep:
 		if "sift1b" in args.dataset or "deep1b" in args.dataset:
-			# For sift 1b
-			# build_config = [[7000, 0.55, 2, args.metric], [7000, 0.2, 4, args.metric], [7000, 0.2, 2, args.metric], [7000, 0.2, 1, args.metric], \
-			# 				[8000, 0.55, 2, args.metric], [8000, 0.2, 4, args.metric], [8000, 0.2, 2, args.metric], [8000, 0.2, 1, args.metric], \
-			# 				[6000, 0.55, 2, args.metric], [6000, 0.2, 4 , args.metric], [6000, 0.2, 2, args.metric], [6000, 0.2, 1, args.metric]]
 			build_config = [
 			[8000, 0.2, 1, args.metric],
 			[8000, 0.2, 2, args.metric],
 			[8000, 0.2, 4, args.metric]
-			]
-			# search_config = [[1, args.reorder], [16, args.reorder], [32, args.reorder], [64, args.reorder], [128, args.reorder], \
-			# 				 [256, args.reorder], [320, args.reorder], [384, args.reorder], [448, args.reorder], [512, args.reorder], [576, args.reorder], [640, args.reorder], [704, args.reorder], [768, args.reorder], \
-			# 				 [1024, args.reorder], [1280, args.reorder], [1536, args.reorder], [2048, args.reorder], [2560, args.reorder], [3072, args.reorder], [4096, args.reorder], [4608, args.reorder], \
-			# 				 [5120, args.reorder], [5632, args.reorder], [6144, args.reorder], [6656, args.reorder], [7168, args.reorder], [7680, args.reorder], \
-			# 				 [8192, args.reorder], [16384, args.reorder]]
 			search_config = [[1, args.reorder], [2, args.reorder], [4, args.reorder], [8, args.reorder], [16, args.reorder], [32, args.reorder], [64, args.reorder], [128, args.reorder], [256, args.reorder]]
 
 		else:
-			# build_config = [
-			# 				[4000, 0.2, 1, args.metric],[4000, 0.2, 2, args.metric], [4000, 0.2, 3, args.metric], [4000, 0.2, 4, args.metric], [4000, 0.2, 5, args.metric], [4000, 0.2, 8, args.metric], [4000, 0.2, 10, args.metric], [4000, 0.2, 16, args.metric], [4000, 0.2, 25, args.metric], [4000, 0.2, 32, args.metric], [4000, 0.2, 50, args.metric], [4000, 0.2, 64, args.metric], \
-			# 				# [4000, 0.4, 1, args.metric], [4000, 0.4, 2, args.metric], [4000, 0.4, 3, args.metric], [4000, 0.4, 4, args.metric], [4000, 0.4, 5, args.metric], [4000, 0.4, 8, args.metric], [4000, 0.4, 10, args.metric], [4000, 0.4, 16, args.metric], [4000, 0.4, 25, args.metric], [4000, 0.4, 32, args.metric], [4000, 0.4, 50, args.metric], [4000, 0.4, 64, args.metric], \
-			# 				# [4000, 0.55, 1, args.metric], [4000, 0.55, 2, args.metric], [4000, 0.55, 3, args.metric], [4000, 0.55, 4, args.metric], [4000, 0.55, 5, args.metric], [4000, 0.55, 8, args.metric], [4000, 0.55, 10, args.metric], [4000, 0.55, 16, args.metric], [4000, 0.55, 25, args.metric], [4000, 0.55, 32, args.metric], [4000, 0.55, 50, args.metric], [4000, 0.55, 64, args.metric], \
-			# 				[2000, 0.2, 1, args.metric], [2000, 0.2, 2, args.metric], [2000, 0.2, 3, args.metric], [2000, 0.2, 4, args.metric], [2000, 0.2, 5, args.metric], [2000, 0.2, 8, args.metric], [2000, 0.2, 10, args.metric], [2000, 0.2, 16, args.metric], [2000, 0.2, 25, args.metric], [2000, 0.2, 32, args.metric], [2000, 0.2, 50, args.metric], [2000, 0.2, 64, args.metric], \
-			# 				# [2000, 0.4, 1, args.metric], [2000, 0.4, 2, args.metric], [2000, 0.4, 3, args.metric], [2000, 0.4, 4, args.metric], [2000, 0.4, 5, args.metric], [2000, 0.4, 8, args.metric], [2000, 0.4, 10, args.metric], [2000, 0.4, 16, args.metric], [2000, 0.4, 25, args.metric], [2000, 0.4, 32, args.metric], [2000, 0.4, 50, args.metric], [2000, 0.4, 64, args.metric], \
-			# 				# [2000, 0.55, 1, args.metric], [2000, 0.55, 2, args.metric], [2000, 0.55, 3, args.metric], [2000, 0.55, 4, args.metric], [2000, 0.55, 5, args.metric], [2000, 0.55, 8, args.metric], [2000, 0.55, 10, args.metric], [2000, 0.55, 16, args.metric], [2000, 0.55, 25, args.metric], [2000, 0.55, 32, args.metric], [2000, 0.55, 50, args.metric], [2000, 0.55, 64, args.metric], \
-			# 				# [1500, 0.2, 1, args.metric], [1500, 0.2, 2, args.metric], [1500, 0.2, 3, args.metric], [1500, 0.2, 4, args.metric], [1500, 0.2, 5, args.metric], [1500, 0.2, 8, args.metric], [1500, 0.2, 10, args.metric], [1500, 0.2, 16, args.metric], [1500, 0.2, 25, args.metric], [1500, 0.2, 32, args.metric], [1500, 0.2, 50, args.metric], [1500, 0.2, 64, args.metric], \
-			# 				# [1500, 0.4, 1, args.metric], [1500, 0.4, 2, args.metric], [1500, 0.4, 3, args.metric], [1500, 0.4, 4, args.metric], [1500, 0.4, 5, args.metric], [1500, 0.4, 8, args.metric], [1500, 0.4, 10, args.metric], [1500, 0.4, 16, args.metric], [1500, 0.4, 25, args.metric], [1500, 0.4, 32, args.metric], [1500, 0.4, 50, args.metric], [1500, 0.4, 64, args.metric], \
-			# 				# [1500, 0.55, 1, args.metric], [1500, 0.55, 2, args.metric], [1500, 0.55, 3, args.metric], [1500, 0.55, 4, args.metric], [1500, 0.55, 5, args.metric], [1500, 0.55, 8, args.metric], [1500, 0.55, 10, args.metric], [1500, 0.55, 16, args.metric], [1500, 0.55, 25, args.metric], [1500, 0.55, 32, args.metric], [1500, 0.55, 50, args.metric], [1500, 0.55, 64, args.metric], \
-			# 				[1000, 0.2, 1, args.metric], [1000, 0.2, 2, args.metric], [1000, 0.2, 3, args.metric], [1000, 0.2, 4, args.metric], [1000, 0.2, 5, args.metric], [1000, 0.2, 8, args.metric], [1000, 0.2, 10, args.metric], [1000, 0.2, 16, args.metric], [1000, 0.2, 25, args.metric], [1000, 0.2, 32, args.metric], [1000, 0.2, 50, args.metric], [1000, 0.2, 64, args.metric], \
-			# 				# [1000, 0.4, 1, args.metric], [1000, 0.4, 2, args.metric], [1000, 0.4, 3, args.metric], [1000, 0.4, 4, args.metric], [1000, 0.4, 5, args.metric], [1000, 0.4, 8, args.metric], [1000, 0.4, 10, args.metric], [1000, 0.4, 16, args.metric], [1000, 0.4, 25, args.metric], [1000, 0.4, 32, args.metric], [1000, 0.4, 50, args.metric], [1000, 0.4, 64, args.metric], \
-			# 				# [1000, 0.55, 1, args.metric], [1000, 0.55, 2, args.metric], [1000, 0.55, 3, args.metric], [1000, 0.55, 4, args.metric], [1000, 0.55, 5, args.metric], [1000, 0.55, 8, args.metric], [1000, 0.55, 10, args.metric], [1000, 0.55, 16, args.metric], [1000, 0.55, 25, args.metric], [1000, 0.55, 32, args.metric], [1000, 0.55, 50, args.metric], [1000, 0.55, 64, args.metric], \
-			# 				[800, 0.2, 1, args.metric], [800, 0.2, 2, args.metric], [800, 0.2, 3, args.metric], [800, 0.2, 4, args.metric], [800, 0.2, 5, args.metric], [800, 0.2, 8, args.metric], [800, 0.2, 10, args.metric], [800, 0.2, 16, args.metric], [800, 0.2, 25, args.metric], [800, 0.2, 32, args.metric], [800, 0.2, 50, args.metric], [800, 0.2, 64, args.metric], \
-			# 				# [800, 0.4, 1, args.metric], [800, 0.4, 2, args.metric], [800, 0.4, 3, args.metric], [800, 0.4, 4, args.metric], [800, 0.4, 5, args.metric], [800, 0.4, 8, args.metric], [800, 0.4, 10, args.metric], [800, 0.4, 16, args.metric], [800, 0.4, 25, args.metric], [800, 0.4, 32, args.metric], [800, 0.4, 50, args.metric], [800, 0.4, 64, args.metric], \
-			# 				# [800, 0.55, 1, args.metric], [800, 0.55, 2, args.metric], [800, 0.55, 3, args.metric], [800, 0.55, 4, args.metric], [800, 0.55, 5, args.metric], [800, 0.55, 8, args.metric], [800, 0.55, 10, args.metric], [800, 0.55, 16, args.metric], [800, 0.55, 25, args.metric], [800, 0.55, 32, args.metric], [800, 0.55, 50, args.metric], [800, 0.55, 64, args.metric], \
-			# 				# [600, 0.2, 1, args.metric], [600, 0.2, 2, args.metric], [600, 0.2, 4, args.metric], [600, 0.2, 5, args.metric], [600, 0.2, 8, args.metric],	[600, 0.2, 10, args.metric],\
-			# 				[500, 0.2, 1, args.metric], [500, 0.2, 2, args.metric], [500, 0.2, 3, args.metric], [500, 0.2, 4, args.metric], [500, 0.2, 5, args.metric], [500, 0.2, 8, args.metric], [500, 0.2, 10, args.metric], \
-			# 				# [400, 0.2, 1, args.metric], [400, 0.2, 2, args.metric], [400, 0.2, 4, args.metric], [400, 0.2, 5, args.metric], [400, 0.2, 8, args.metric], [400, 0.2, 10, args.metric], \
-			# 				[250, 0.2, 1, args.metric], [250, 0.2, 2, args.metric], [250, 0.2, 4, args.metric], [250, 0.2, 5, args.metric], [250, 0.2, 8, args.metric], [250, 0.2, 10, args.metric]]
 			build_config = [
 			[250, 0.2, 1, args.metric],
 			[250, 0.2, 2, args.metric],
 			[250, 0.2, 4, args.metric]
 			]
-
-			# build_config = [
-			# 				[4000, 0.2, 1, args.metric],[4000, 0.2, 2, args.metric], [4000, 0.2, 3, args.metric], [4000, 0.2, 4, args.metric], [4000, 0.2, 5, args.metric], [4000, 0.2, 8, args.metric], [4000, 0.2, 10, args.metric], \
-			# 				[2000, 0.2, 1, args.metric], [2000, 0.2, 2, args.metric], [2000, 0.2, 3, args.metric], [2000, 0.2, 4, args.metric], [2000, 0.2, 5, args.metric], [2000, 0.2, 8, args.metric], [2000, 0.2, 10, args.metric], \
-			# 				[1000, 0.2, 1, args.metric], [1000, 0.2, 2, args.metric], [1000, 0.2, 3, args.metric], [1000, 0.2, 4, args.metric], [1000, 0.2, 5, args.metric], [1000, 0.2, 8, args.metric], [1000, 0.2, 10, args.metric],\
-			# 				[800, 0.2, 1, args.metric], [800, 0.2, 2, args.metric], [800, 0.2, 3, args.metric], [800, 0.2, 4, args.metric], [800, 0.2, 5, args.metric], [800, 0.2, 8, args.metric], [800, 0.2, 10, args.metric], \
-			# 				[500, 0.2, 1, args.metric], [500, 0.2, 2, args.metric], [500, 0.2, 3, args.metric], [500, 0.2, 4, args.metric], [500, 0.2, 5, args.metric], [500, 0.2, 8, args.metric], [500, 0.2, 10, args.metric], \
-			# 				[250, 0.2, 1, args.metric], [250, 0.2, 2, args.metric], [250, 0.2, 3, args.metric], [250, 0.2, 4, args.metric], [250, 0.2, 5, args.metric], [250, 0.2, 8, args.metric], [250, 0.2, 10, args.metric]]
-
-			# search_config = [[1, args.reorder], [2, args.reorder], [4, args.reorder], [8, args.reorder], [16, args.reorder], [25, args.reorder], [30, args.reorder], [35, args.reorder], [40, args.reorder], \
-			# 				 [45, args.reorder], [50, args.reorder], [55, args.reorder], [60, args.reorder], [65, args.reorder], [75, args.reorder], [90, args.reorder], [110, args.reorder], [130, args.reorder], [150, args.reorder], \
-			# 				 [170, args.reorder], [200, args.reorder], [220, args.reorder], [250, args.reorder], [310, args.reorder], [400, args.reorder], [500, args.reorder], [800, args.reorder], [1000, args.reorder], \
-			# 				 [1250, args.reorder], [1500, args.reorder], [1750, args.reorder], [1900, args.reorder], [2000, args.reorder], [2048, args.reorder]]
-
 			search_config = [[1, args.reorder], [2, args.reorder], [4, args.reorder], [8, args.reorder], [16, args.reorder], [32, args.reorder], [64, args.reorder], [128, args.reorder], [256, args.reorder]]
 
-			if args.dataset == "sift1m" or args.dataset == "glove":
-				build_config = [
-				[250, 0.2, 1, args.metric], [250, 0.2, 2, args.metric], [250, 0.2, 4, args.metric],
-				[500, 0.2, 2, args.metric], [1000, 0.2, 2, args.metric], [2000, 0.2, 2, args.metric], [4000, 0.2, 2, args.metric],
-				[1000, 0.2, 1, args.metric], [1000, 0.2, 4, args.metric], [1000, 0.2, 8, args.metric], [1000, 0.2, 10, args.metric],
-				]
-				search_config = [
-				[6, args.reorder], [12, args.reorder], [18, args.reorder], [25, args.reorder],
-				[38, args.reorder], [50, args.reorder],
-				[75, args.reorder], [100, args.reorder],
-				[150, args.reorder], [160, args.reorder], [192, args.reorder], [200, args.reorder],
-				[300, args.reorder], [400, args.reorder],
-				]
-
-
-
+			# if args.dataset == "sift1m" or args.dataset == "glove":
+			# 	build_config = [
+			# 	[250, 0.2, 1, args.metric], [250, 0.2, 2, args.metric], [250, 0.2, 4, args.metric],
+			# 	[500, 0.2, 2, args.metric], [1000, 0.2, 2, args.metric], [2000, 0.2, 2, args.metric], [4000, 0.2, 2, args.metric],
+			# 	[1000, 0.2, 1, args.metric], [1000, 0.2, 4, args.metric], [1000, 0.2, 8, args.metric], [1000, 0.2, 10, args.metric],
+			# 	]
+			# 	search_config = [
+			# 	[6, args.reorder], [12, args.reorder], [18, args.reorder], [25, args.reorder],
+			# 	[38, args.reorder], [50, args.reorder],
+			# 	[75, args.reorder], [100, args.reorder],
+			# 	[150, args.reorder], [160, args.reorder], [192, args.reorder], [200, args.reorder],
+			# 	[300, args.reorder], [400, args.reorder],
+			# 	]
 
 		f = open(sweep_result_path, "w")
 		f.write("Program: " + args.program + " Topk: " + str(args.topk) + " Num_split: " + str(args.num_split)+ " Batch: "+str(args.batch)+"\n")
@@ -615,10 +568,10 @@ def run_scann():
 				top1_10, top1_100, top10_100, top1_1000, top10_1000, top100_1000 = print_more_recalls(final_neighbors[idx], gt)
 				print()
 				top1, top10, top100, top1000 = print_recall(final_neighbors[idx], gt)
-				print("Top ", args.topk, " Total latency (ms): ", total_latency[idx])
+				print("Top ", args.topk, " Total latency (ms): ", total_latency[idx]*int(args.num_split))
 				print("arcm::Latency written. End of File.\n");
 				if args.sweep:
-					f.write(str(top1)+" %\t"+str(top10)+" %\t"+str(top100)+" %\t"+str(top1000)+" %\t|\t"+str(top1_10)+" %\t"+str(top1_100)+" %\t"+str(top10_100)+" %\t"+str(top1_1000)+" %\t"+str(top10_1000)+" %\t"+str(top100_1000)+" %\t"+str(total_latency[idx])+"\n")
+					f.write(str(top1)+" %\t"+str(top10)+" %\t"+str(top100)+" %\t"+str(top1000)+" %\t|\t"+str(top1_10)+" %\t"+str(top1_100)+" %\t"+str(top10_100)+" %\t"+str(top1_1000)+" %\t"+str(top10_1000)+" %\t"+str(top100_1000)+" %\t"+str(total_latency[idx]*int(args.num_split))+"\n")
 	if args.sweep:
 		f.close()
 
@@ -684,162 +637,60 @@ def run_faiss(D):
 				[8000, int(D/4), log2kstar_, args.metric],
 				[8000, int(D/8), log2kstar_, args.metric]
 				]
-				# build_config = [
-				# 				[8000, D, log2kstar_, args.metric], [8000, int(D/2), log2kstar_, args.metric], [8000, int(D/4), log2kstar_, args.metric], [8000, int(D/8), log2kstar_, args.metric], \
-				# 				# [7000, int(D/2), log2kstar_, args.metric], [7000, int(D/4), log2kstar_, args.metric], [7000, int(D/8), log2kstar_, args.metric], \
-				# 				[6000, D, log2kstar_, args.metric], [6000, int(D/2), log2kstar_, args.metric], [6000, int(D/4), log2kstar_, args.metric], [6000, int(D/8), log2kstar_, args.metric], \
-				# 				# [5000, D, log2kstar_, args.metric], [5000, int(D/2), log2kstar_, args.metric], \
-				# 				[4000, D, log2kstar_, args.metric], [4000, int(D/2), log2kstar_, args.metric], [4000, int(D/4), log2kstar_, args.metric], [4000, int(D/8), log2kstar_, args.metric], \
-				# 				# [3500, D, log2kstar_, args.metric], [3500, int(D/2), log2kstar_, args.metric], \
-				# 				]
+				search_config = [[1, args.reorder], [2, args.reorder], [4, args.reorder], [8, args.reorder], [16, args.reorder], [32, args.reorder], [64, args.reorder], [128, args.reorder], [256, args.reorder]]
 			else:
-				# build_config = [[800, int(D/64), log2kstar_, args.metric], [800, int(D/50), log2kstar_, args.metric], [800, int(D/32), log2kstar_, args.metric], [800, int(D/25), log2kstar_, args.metric], [800, int(D/16), log2kstar_, args.metric], [800, int(D/10), log2kstar_, args.metric], [800, int(D/8), log2kstar_, args.metric], [800, int(D/5), log2kstar_, args.metric], [800, int(D/4), log2kstar_, args.metric], [800, int(D/3), log2kstar_, args.metric], [800, int(D/2), log2kstar_, args.metric], [800, D, log2kstar_, args.metric], \
-				# 				[1000, int(D/64), log2kstar_, args.metric], [1000, int(D/50), log2kstar_, args.metric], [1000, int(D/32), log2kstar_, args.metric], [1000, int(D/25), log2kstar_, args.metric], [1000, int(D/16), log2kstar_, args.metric], [1000, int(D/10), log2kstar_, args.metric], [1000, int(D/8), log2kstar_, args.metric], [1000, int(D/5), log2kstar_, args.metric], [1000, int(D/4), log2kstar_, args.metric], [1000, int(D/3), log2kstar_, args.metric], [1000, int(D/2), log2kstar_, args.metric], [1000, D, log2kstar_, args.metric], \
-				# 				[1500, int(D/64), log2kstar_, args.metric], [1500, int(D/50), log2kstar_, args.metric], [1500, int(D/32), log2kstar_, args.metric], [1500, int(D/25), log2kstar_, args.metric], [1500, int(D/16), log2kstar_, args.metric], [1500, int(D/10), log2kstar_, args.metric], [1500, int(D/8), log2kstar_, args.metric], [1500, int(D/5), log2kstar_, args.metric], [1500, int(D/4), log2kstar_, args.metric], [1500, int(D/3), log2kstar_, args.metric], [1500, int(D/2), log2kstar_, args.metric], [1500, D, log2kstar_, args.metric], \
-				# 				[2000, int(D/64), log2kstar_, args.metric], [2000, int(D/50), log2kstar_, args.metric], [2000, int(D/32), log2kstar_, args.metric], [2000, int(D/25), log2kstar_, args.metric], [2000, int(D/16), log2kstar_, args.metric], [2000, int(D/10), log2kstar_, args.metric], [2000, int(D/8), log2kstar_, args.metric], [2000, int(D/5), log2kstar_, args.metric], [2000, int(D/4), log2kstar_, args.metric], [2000, int(D/3), log2kstar_, args.metric], [2000, int(D/2), log2kstar_, args.metric], [2000, D, log2kstar_, args.metric], \
-				# 				[4000, int(D/64), log2kstar_, args.metric], [4000, int(D/50), log2kstar_, args.metric], [4000, int(D/32), log2kstar_, args.metric], [4000, int(D/25), log2kstar_, args.metric], [4000, int(D/16), log2kstar_, args.metric], [4000, int(D/10), log2kstar_, args.metric], [4000, int(D/8), log2kstar_, args.metric], [4000, int(D/5), log2kstar_, args.metric], [4000, int(D/4), log2kstar_, args.metric], [4000, int(D/3), log2kstar_, args.metric], [4000, int(D/2), log2kstar_, args.metric], [4000, D, log2kstar_, args.metric], \
-				# 				[600, int(D/25), log2kstar_, args.metric], [600, int(D/16), log2kstar_, args.metric], [600, int(D/10), log2kstar_, args.metric], [600, int(D/8), log2kstar_, args.metric], [600, int(D/5), log2kstar_, args.metric], [600, int(D/4), log2kstar_, args.metric], [600, int(D/3), log2kstar_, args.metric], [600, int(D/2), log2kstar_, args.metric], [600, D, log2kstar_, args.metric], \
-				# 				[500, int(D/25), log2kstar_, args.metric], [500, int(D/16), log2kstar_, args.metric], [500, int(D/10), log2kstar_, args.metric], [500, int(D/8), log2kstar_, args.metric], [500, int(D/5), log2kstar_, args.metric], [500, int(D/4), log2kstar_, args.metric], [500, int(D/3), log2kstar_, args.metric], [500, int(D/2), log2kstar_, args.metric], [500, D, log2kstar_, args.metric], \
-				# 				[400, int(D/25), log2kstar_, args.metric], [400, int(D/16), log2kstar_, args.metric], [400, int(D/10), log2kstar_, args.metric], [400, int(D/8), log2kstar_, args.metric], [400, int(D/5), log2kstar_, args.metric], [400, int(D/4), log2kstar_, args.metric], [400, int(D/3), log2kstar_, args.metric], [400, int(D/2), log2kstar_, args.metric], [400, D, log2kstar_, args.metric]]
 				build_config = [
 				[250, int(D/2), log2kstar_, args.metric],
 				[250, int(D/4), log2kstar_, args.metric],
 				[250, int(D/8), log2kstar_, args.metric],
 				[250, int(D/10), log2kstar_, args.metric]
 				]
-				# build_config = [
-				# 				[4000, int(D/8), log2kstar_, args.metric], [4000, int(D/5), log2kstar_, args.metric], [4000, int(D/4), log2kstar_, args.metric], [4000, int(D/3), log2kstar_, args.metric], [4000, int(D/2), log2kstar_, args.metric], [4000, D, log2kstar_, args.metric], \
-				# 				[2000, int(D/8), log2kstar_, args.metric], [2000, int(D/5), log2kstar_, args.metric], [2000, int(D/4), log2kstar_, args.metric], [2000, int(D/3), log2kstar_, args.metric], [2000, int(D/2), log2kstar_, args.metric], [2000, D, log2kstar_, args.metric], \
-				# 				[1000, int(D/8), log2kstar_, args.metric], [1000, int(D/5), log2kstar_, args.metric], [1000, int(D/4), log2kstar_, args.metric], [1000, int(D/3), log2kstar_, args.metric], [1000, int(D/2), log2kstar_, args.metric], [1000, D, log2kstar_, args.metric], \
-				# 				[800, int(D/8), log2kstar_, args.metric], [800, int(D/5), log2kstar_, args.metric], [800, int(D/4), log2kstar_, args.metric], [800, int(D/3), log2kstar_, args.metric], [800, int(D/2), log2kstar_, args.metric], [800, D, log2kstar_, args.metric], \
-				# 				[500, int(D/8), log2kstar_, args.metric], [500, int(D/5), log2kstar_, args.metric], [500, int(D/4), log2kstar_, args.metric], [500, int(D/3), log2kstar_, args.metric], [500, int(D/2), log2kstar_, args.metric], [500, D, log2kstar_, args.metric], \
-				# 				[250, int(D/10), log2kstar_, args.metric], [250, int(D/8), log2kstar_, args.metric], [250, int(D/4), log2kstar_, args.metric], [250, int(D/3), log2kstar_, args.metric], [250, int(D/2), log2kstar_, args.metric], [250, D, log2kstar_, args.metric], \
-				# 				]
-
-			# search_config = [[1, args.reorder], [16, args.reorder], [32, args.reorder], [64, args.reorder], [128, args.reorder], \
-			# 				 [256, args.reorder], [320, args.reorder], [384, args.reorder], [448, args.reorder], [512, args.reorder], [576, args.reorder], [640, args.reorder], [704, args.reorder], [768, args.reorder], \
-			# 				 [1024, args.reorder], [1280, args.reorder], [1536, args.reorder], [2048, args.reorder], [2560, args.reorder], [3072, args.reorder], [4096, args.reorder], [4608, args.reorder], \
-			# 				 [5120, args.reorder], [5632, args.reorder], [6144, args.reorder], [6656, args.reorder], [7168, args.reorder], [7680, args.reorder], \
-			# 				 [8192, args.reorder], [16384, args.reorder]]
-
-			# search_config = [[1, args.reorder], [2, args.reorder], [4, args.reorder], [8, args.reorder], [16, args.reorder], [32, args.reorder], [64, args.reorder], [128, args.reorder], [256, args.reorder]]
-			search_config = [[160, args.reorder], [192, args.reorder]]
-
-
+				search_config = [[1, args.reorder], [2, args.reorder], [4, args.reorder], [8, args.reorder], [16, args.reorder], [32, args.reorder], [64, args.reorder], [128, args.reorder], [160, args.reorder], [192, args.reorder], [256, args.reorder]]
 		else:
 			if "gist" in args.dataset:
 				build_config = [[1000, int(D/2), 8, args.metric], [1000, int(D/3), 8, args.metric], [1000, int(D/4), 8, args.metric]]	# L, m, log2(k*), metric
 			elif "sift1b" in args.dataset or "deep1b" in args.dataset:
-				# build_config = [[7000, D, 4, args.metric], [7000, int(D/2), 4, args.metric], [7000, int(D/4), 4, args.metric], \
-				# 				[7000, D, 6, args.metric], [7000, int(D/2), 6, args.metric], [7000, int(D/4), 6, args.metric], \
-				# 				[7000, D, 8, args.metric], [7000, int(D/2), 8, args.metric], [7000, int(D/4), 8, args.metric], \
-				# 				[8000, D, 4, args.metric], [8000, int(D/2), 4, args.metric], [8000, int(D/4), 4, args.metric], \
-				# 				[8000, D, 6, args.metric], [8000, int(D/2), 6, args.metric], [8000, int(D/4), 6, args.metric], \
-				# 				[8000, D, 8, args.metric], [8000, int(D/2), 8, args.metric], [8000, int(D/4), 8, args.metric], \
-				# 				[6000, D, 4, args.metric], [6000, int(D/2), 4, args.metric], [6000, int(D/4), 4, args.metric], \
-				# 				[6000, D, 6, args.metric], [6000, int(D/2), 6, args.metric], [6000, int(D/4), 6, args.metric], \
-				# 				[6000, D, 8, args.metric], [6000, int(D/2), 8, args.metric], [6000, int(D/4), 8, args.metric]]
-				if args.dataset == "sift1b":
-					build_config = [
-					[8000, D, 4, args.metric],
-					[8000, int(D/2), 4, args.metric],
-					[8000, int(D/4), 4, args.metric],
-					# [8000, int(D/2), 8, args.metric],
-					# [8000, int(D/4), 8, args.metric],
-					# [8000, int(D/8), 8, args.metric]
-					]
-				elif args.dataset == "deep1b":
-					build_config = [
-					[8000, D, 4, args.metric],
-					[8000, int(D/2), 4, args.metric],
-					[8000, int(D/4), 4, args.metric],
-					# [8000, int(D/2), 8, args.metric],
-					# [8000, int(D/4), 8, args.metric],
-					# [8000, int(D/8), 8, args.metric]
-					]
-
-				# build_config = [
-				# 				[8000, D, 8, args.metric], [8000, int(D/2), 8, args.metric], [8000, int(D/4), 8, args.metric], [8000, int(D/8), 8, args.metric], \
-				# 				# [7000, D, 8, args.metric], [7000, int(D/2), 8, args.metric], [7000, int(D/4), 8, args.metric], [7000, int(D/8), 8, args.metric], \
-				# 				[6000, D, 8, args.metric], [6000, int(D/2), 8, args.metric], [6000, int(D/4), 8, args.metric], [6000, int(D/8), 8, args.metric], \
-				# 				[4000, D, 8, args.metric], [4000, int(D/2), 8, args.metric], [4000, int(D/4), 8, args.metric], [4000, int(D/8), 8, args.metric], \
-				# 				]
-
-				search_config = [[1, args.reorder], [2, args.reorder], [4, args.reorder], [8, args.reorder], [16, args.reorder], [32, args.reorder], [64, args.reorder], [128, args.reorder], [160, args.reorder], [192, args.reorder], [256, args.reorder]]
+				build_config = [
+				[8000, D, 4, args.metric],
+				[8000, int(D/2), 4, args.metric],
+				[8000, int(D/4), 4, args.metric],
+				[8000, int(D/2), 8, args.metric],
+				[8000, int(D/4), 8, args.metric],
+				[8000, int(D/8), 8, args.metric]
+				]
+				search_config = [[1, args.reorder], [2, args.reorder], [4, args.reorder], [8, args.reorder], [16, args.reorder], [32, args.reorder], [64, args.reorder], [128, args.reorder], [256, args.reorder]]
 
 			else:
-				# build_config = [[1000, int(D/32), 4, args.metric], [1000, int(D/16), 4, args.metric], [1000, int(D/8), 4, args.metric], [1000, int(D/4), 4, args.metric], [1000, int(D/3), 4, args.metric], [1000, int(D/2), 4, args.metric], [1000, D, 4, args.metric], \
-				# 				[1000, int(D/32), 6, args.metric], [1000, int(D/16), 6, args.metric], [1000, int(D/8), 6, args.metric], [1000, int(D/4), 6, args.metric], [1000, int(D/3), 6, args.metric], [1000, int(D/2), 6, args.metric], [1000, D, 6, args.metric], \
-				# 				[1000, int(D/32), 8, args.metric], [1000, int(D/16), 8, args.metric], [1000, int(D/8), 8, args.metric], [1000, int(D/4), 8, args.metric], [1000, int(D/3), 8, args.metric], [1000, int(D/2), 8, args.metric], [1000, D, 8, args.metric], \
-				# 				[2000, int(D/32), 4, args.metric], [2000, int(D/16), 4, args.metric], [2000, int(D/8), 4, args.metric], [2000, int(D/4), 4, args.metric], [2000, int(D/3), 4, args.metric], [2000, int(D/2), 4, args.metric], [2000, D, 4, args.metric], \
-				# 				[2000, int(D/32), 6, args.metric], [2000, int(D/16), 6, args.metric], [2000, int(D/8), 6, args.metric], [2000, int(D/4), 6, args.metric], [2000, int(D/3), 6, args.metric], [2000, int(D/2), 6, args.metric], [2000, D, 6, args.metric], \
-				# 				[2000, int(D/32), 8, args.metric], [2000, int(D/16), 8, args.metric], [2000, int(D/8), 8, args.metric], [2000, int(D/4), 8, args.metric], [2000, int(D/3), 8, args.metric], [2000, int(D/2), 8, args.metric], [2000, D, 8, args.metric], \
-				# 				[800, int(D/32), 4, args.metric], [800, int(D/16), 4, args.metric], [800, int(D/8), 4, args.metric], [800, int(D/4), 4, args.metric], [800, int(D/3), 4, args.metric], [800, int(D/2), 4, args.metric], [800, D, 4, args.metric], \
-				# 				[800, int(D/32), 6, args.metric], [800, int(D/16), 6, args.metric], [800, int(D/8), 6, args.metric], [800, int(D/4), 6, args.metric], [800, int(D/3), 6, args.metric], [800, int(D/2), 6, args.metric], [800, D, 6, args.metric], \
-				# 				[800, int(D/32), 8, args.metric], [800, int(D/16), 8, args.metric], [800, int(D/8), 8, args.metric], [800, int(D/4), 8, args.metric], [800, int(D/3), 8, args.metric], [800, int(D/2), 8, args.metric], [800, D, 8, args.metric], \
-				# 				[400, int(D/8), 8, args.metric], [400, int(D/4), 8, args.metric], [400, int(D/3), 8, args.metric], [400, int(D/2), 8, args.metric], [400, D, 8, args.metric], \
-				# 				[500, int(D/8), 8, args.metric], [500, int(D/4), 8, args.metric], [500, int(D/3), 8, args.metric], [500, int(D/2), 8, args.metric], [500, D, 8, args.metric], \
-				# 				[600, int(D/8), 8, args.metric], [600, int(D/4), 8, args.metric], [600, int(D/3), 8, args.metric], [600, int(D/2), 8, args.metric], [600, D, 8, args.metric]]	# L, m, log2(k*), metric
-
 				build_config = [
 				[250, D, 4, args.metric],
 				[250, int(D/2), 4, args.metric],
 				[250, int(D/4), 4, args.metric],
-				# [250, int(D/2), 8, args.metric],
-				# [250, int(D/4), 8, args.metric],
-				# [250, int(D/8), 8, args.metric],
-				# [250, int(D/10), 8, args.metric],
+				[250, int(D/2), 8, args.metric],
+				[250, int(D/4), 8, args.metric],
+				[250, int(D/8), 8, args.metric],
+				[250, int(D/10), 8, args.metric],
 				]
-
-				# build_config = [
-				# 				[4000, int(D/10), 4, args.metric], [4000, int(D/8), 4, args.metric], [4000, int(D/5), 4, args.metric], [4000, int(D/4), 4, args.metric], [4000, int(D/3), 4, args.metric], [4000, int(D/2), 4, args.metric], [4000, D, 4, args.metric], \
-				# 				[4000, int(D/10), 6, args.metric], [4000, int(D/8), 6, args.metric], [4000, int(D/5), 6, args.metric], [4000, int(D/4), 6, args.metric], [4000, int(D/3), 6, args.metric], [4000, int(D/2), 6, args.metric], [4000, D, 6, args.metric], \
-				# 				[4000, int(D/10), 8, args.metric], [4000, int(D/8), 8, args.metric], [4000, int(D/5), 8, args.metric], [4000, int(D/4), 8, args.metric], [4000, int(D/3), 8, args.metric], [4000, int(D/2), 8, args.metric], [4000, D, 8, args.metric], \
-				# 				[2000, int(D/10), 4, args.metric], [2000, int(D/8), 4, args.metric], [2000, int(D/5), 4, args.metric], [2000, int(D/4), 4, args.metric], [2000, int(D/3), 4, args.metric], [2000, int(D/2), 4, args.metric], [2000, D, 4, args.metric], \
-				# 				[2000, int(D/10), 6, args.metric], [2000, int(D/8), 6, args.metric], [2000, int(D/5), 6, args.metric], [2000, int(D/4), 6, args.metric], [2000, int(D/3), 6, args.metric], [2000, int(D/2), 6, args.metric], [2000, D, 6, args.metric], \
-				# 				[2000, int(D/10), 8, args.metric], [2000, int(D/8), 8, args.metric], [2000, int(D/5), 8, args.metric], [2000, int(D/4), 8, args.metric], [2000, int(D/3), 8, args.metric], [2000, int(D/2), 8, args.metric], [2000, D, 8, args.metric], \
-				# 				[1000, int(D/10), 4, args.metric], [1000, int(D/8), 4, args.metric], [1000, int(D/5), 4, args.metric], [1000, int(D/4), 4, args.metric], [1000, int(D/3), 4, args.metric], [1000, int(D/2), 4, args.metric], [1000, D, 4, args.metric], \
-				# 				[1000, int(D/10), 6, args.metric], [1000, int(D/8), 6, args.metric], [1000, int(D/5), 6, args.metric], [1000, int(D/4), 6, args.metric], [1000, int(D/3), 6, args.metric], [1000, int(D/2), 6, args.metric], [1000, D, 6, args.metric], \
-				# 				[1000, int(D/10), 8, args.metric], [1000, int(D/8), 8, args.metric], [1000, int(D/5), 8, args.metric], [1000, int(D/4), 8, args.metric], [1000, int(D/3), 8, args.metric], [1000, int(D/2), 8, args.metric], [1000, D, 8, args.metric], \
-				# 				[800, int(D/10), 4, args.metric], [800, int(D/8), 4, args.metric], [800, int(D/5), 4, args.metric], [800, int(D/4), 4, args.metric], [800, int(D/3), 4, args.metric], [800, int(D/2), 4, args.metric], [800, D, 4, args.metric], \
-				# 				[800, int(D/10), 6, args.metric], [800, int(D/8), 6, args.metric], [800, int(D/5), 6, args.metric], [800, int(D/4), 6, args.metric], [800, int(D/3), 6, args.metric], [800, int(D/2), 6, args.metric], [800, D, 6, args.metric], \
-				# 				[800, int(D/10), 8, args.metric], [800, int(D/8), 8, args.metric], [800, int(D/5), 8, args.metric], [800, int(D/4), 8, args.metric], [800, int(D/3), 8, args.metric], [800, int(D/2), 8, args.metric], [800, D, 8, args.metric], \
-				# 				[500, int(D/10), 4, args.metric], [500, int(D/8), 4, args.metric], [500, int(D/5), 4, args.metric], [500, int(D/4), 4, args.metric], [500, int(D/3), 4, args.metric], [500, int(D/2), 4, args.metric], [500, D, 4, args.metric], \
-				# 				[500, int(D/10), 6, args.metric], [500, int(D/8), 6, args.metric], [500, int(D/5), 6, args.metric], [500, int(D/4), 6, args.metric], [500, int(D/3), 6, args.metric], [500, int(D/2), 6, args.metric], [500, D, 6, args.metric], \
-				# 				[500, int(D/10), 8, args.metric], [500, int(D/8), 8, args.metric], [500, int(D/5), 8, args.metric], [500, int(D/4), 8, args.metric], [500, int(D/3), 8, args.metric], [500, int(D/2), 8, args.metric], [500, D, 8, args.metric], \
-				# 				[250, int(D/10), 4, args.metric], [250, int(D/8), 4, args.metric], [250, int(D/5), 4, args.metric], [250, int(D/4), 4, args.metric], [250, int(D/3), 4, args.metric], [250, int(D/2), 4, args.metric], [250, D, 4, args.metric], \
-				# 				[250, int(D/10), 6, args.metric], [250, int(D/8), 6, args.metric], [250, int(D/5), 6, args.metric], [250, int(D/4), 6, args.metric], [250, int(D/3), 6, args.metric], [250, int(D/2), 6, args.metric], [250, D, 6, args.metric], \
-				# 				[250, int(D/10), 8, args.metric], [250, int(D/8), 8, args.metric], [250, int(D/5), 8, args.metric], [250, int(D/4), 8, args.metric], [250, int(D/3), 8, args.metric], [250, int(D/2), 8, args.metric], [250, D, 8, args.metric], \
-				# 				]	# L, m, log2(k*), metric
-
-			# search_config = [[1, args.reorder], [2, args.reorder], [4, args.reorder], [8, args.reorder], [16, args.reorder], [25, args.reorder], [30, args.reorder], [35, args.reorder], [40, args.reorder], \
-			# 				 [45, args.reorder], [50, args.reorder], [55, args.reorder], [60, args.reorder], [65, args.reorder], [75, args.reorder], [90, args.reorder], [110, args.reorder], [130, args.reorder], [150, args.reorder], \
-			# 				 [170, args.reorder], [200, args.reorder], [220, args.reorder], [250, args.reorder], [310, args.reorder], [400, args.reorder], [500, args.reorder], [800, args.reorder], [1000, args.reorder], \
-			# 				 [1250, args.reorder], [1500, args.reorder], [1750, args.reorder], [1900, args.reorder], [2000, args.reorder], [2250, args.reorder], [2500, args.reorder], [2750, args.reorder], [3000, args.reorder], [3500, args.reorder], [4000, args.reorder]]
-
-			# search_config = [[1, args.reorder], [2, args.reorder], [4, args.reorder], [8, args.reorder], [16, args.reorder], [32, args.reorder], [64, args.reorder], [128, args.reorder], [192, args.reorder], [256, args.reorder], \
-			# 				 [384, args.reorder], [512, args.reorder], [1024, args.reorder]]
 				search_config = [[1, args.reorder], [2, args.reorder], [4, args.reorder], [8, args.reorder], [16, args.reorder], [32, args.reorder], [64, args.reorder], [128, args.reorder], [160, args.reorder], [192, args.reorder], [256, args.reorder]]
 
-				if args.dataset == "sift1m" or args.dataset == "glove":
-					build_config = [
-					[250, D, 4, args.metric], [250, int(D/2), 4, args.metric], [250, int(D/4), 4, args.metric],
-					# [250, int(D/2), 8, args.metric], [250, int(D/4), 8, args.metric], [250, int(D/8), 8, args.metric], [250, int(D/10), 8, args.metric],
-					[500, int(D/2), 4, args.metric], [1000, int(D/2), 4, args.metric], [2000, int(D/2), 4, args.metric], [4000, int(D/2), 4, args.metric],
-					[1000, D, 4, args.metric], [1000, int(D/4), 4, args.metric], [1000, int(D/8), 4, args.metric], [1000, int(D/10), 4, args.metric],
-					# [1000, int(D/8), 5, args.metric], [1000, int(D/8), 6, args.metric], [1000, int(D/8), 7, args.metric], [1000, int(D/8), 8, args.metric],
-					# [1000, int(D/10), 5, args.metric], [1000, int(D/10), 6, args.metric], [1000, int(D/10), 7, args.metric], [1000, int(D/10), 8, args.metric],
-					# [1000, int(D/2), 8, args.metric], [1000, int(D/4), 8, args.metric], [1000, int(D/16), 8, args.metric], [1000, int(D/20), 8, args.metric],
-					]
-					search_config = [
-					[1, args.reorder], [2, args.reorder], [4, args.reorder], [8, args.reorder], [16, args.reorder], [32, args.reorder], [64, args.reorder], [128, args.reorder], [256, args.reorder],
-					[6, args.reorder], [12, args.reorder], [18, args.reorder], [25, args.reorder],
-					[38, args.reorder], [50, args.reorder],
-					[75, args.reorder], [100, args.reorder],
-					[150, args.reorder], [160, args.reorder],
-					[192, args.reorder], [200, args.reorder],
-					[300, args.reorder], [400, args.reorder],
-					]
+				# if args.dataset == "sift1m" or args.dataset == "glove":
+				# 	build_config = [
+				# 	[250, D, 4, args.metric], [250, int(D/2), 4, args.metric], [250, int(D/4), 4, args.metric],
+				# 	# [250, int(D/2), 8, args.metric], [250, int(D/4), 8, args.metric], [250, int(D/8), 8, args.metric], [250, int(D/10), 8, args.metric],
+				# 	[500, int(D/2), 4, args.metric], [1000, int(D/2), 4, args.metric], [2000, int(D/2), 4, args.metric], [4000, int(D/2), 4, args.metric],
+				# 	[1000, D, 4, args.metric], [1000, int(D/4), 4, args.metric], [1000, int(D/8), 4, args.metric], [1000, int(D/10), 4, args.metric],
+				# 	# [1000, int(D/8), 5, args.metric], [1000, int(D/8), 6, args.metric], [1000, int(D/8), 7, args.metric], [1000, int(D/8), 8, args.metric],
+				# 	# [1000, int(D/10), 5, args.metric], [1000, int(D/10), 6, args.metric], [1000, int(D/10), 7, args.metric], [1000, int(D/10), 8, args.metric],
+				# 	# [1000, int(D/2), 8, args.metric], [1000, int(D/4), 8, args.metric], [1000, int(D/16), 8, args.metric], [1000, int(D/20), 8, args.metric],
+				# 	]
+				# 	search_config = [
+				# 	[1, args.reorder], [2, args.reorder], [4, args.reorder], [8, args.reorder], [16, args.reorder], [32, args.reorder], [64, args.reorder], [128, args.reorder], [256, args.reorder],
+				# 	[6, args.reorder], [12, args.reorder], [18, args.reorder], [25, args.reorder],
+				# 	[38, args.reorder], [50, args.reorder],
+				# 	[75, args.reorder], [100, args.reorder],
+				# 	[150, args.reorder], [160, args.reorder],
+				# 	[192, args.reorder], [200, args.reorder],
+				# 	[300, args.reorder], [400, args.reorder],
+				# 	]
 
 		f = open(sweep_result_path, "w")
 		f.write("Program: " + args.program + ("GPU" if args.is_gpu else "") + " Topk: " + str(args.topk) + " Num_split: " + str(args.num_split)+ " Batch: "+str(args.batch)+"\n")
