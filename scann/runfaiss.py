@@ -112,7 +112,7 @@ def prepare_coarse_quantizer(preproc, cent_cachefile, ncent, is_gpu):
     return coarse_quantizer
 
 
-def prepare_trained_index(preproc, coarse_quantizer, ncent, pqflat_str):
+def prepare_trained_index(preproc, coarse_quantizer, ncent, pqflat_str, is_gpu):
 
     d = preproc.d_out
     if pqflat_str == 'Flat':
@@ -156,7 +156,6 @@ def prepare_trained_index(preproc, coarse_quantizer, ncent, pqflat_str):
 
 
 def add_vectors(index_cpu, preproc, is_gpu, addBatchSize):
-
     # copy to GPU
     if is_gpu:
         index = copyToGpu(index_cpu)
@@ -173,7 +172,6 @@ def add_vectors(index_cpu, preproc, is_gpu, addBatchSize):
             i0, nb, time.time() - t0), end=' ')
         sys.stdout.flush()
     print("Add time: %.3f s" % (time.time() - t0))
-
     # copy to CPU
     if is_gpu:
         index_all = index_cpu
@@ -355,7 +353,7 @@ def build_faiss(args, log2kstar, cacheroot, coarse_dir, split, N_, D, index_key,
         # train index
         coarse_quantizer = prepare_coarse_quantizer(preproc, cent_cachefile, ncentroid, args.is_gpu)
         if split == 0:
-            index_trained = prepare_trained_index(preproc, coarse_quantizer, ncentroid, pqflat_str)
+            index_trained = prepare_trained_index(preproc, coarse_quantizer, ncentroid, pqflat_str, args.is_gpu)
         else:
             index_trained = faiss.read_index(first_index_cachefile)
             index_trained.ntotal = 0
@@ -415,7 +413,7 @@ def check_cached(cacheroot, args, dbname, split, num_split, index_key, log2kstar
         print("Cache file exists!")
         return True
 
-def faiss_search(index, preproc, args, reorder, w):
+def faiss_search(index, preproc, args, reorder, w, csize):
     # search environment
     # index.use_precomputed_table = usePrecomputed
     # if args.is_gpu:
@@ -456,7 +454,7 @@ def faiss_search(index, preproc, args, reorder, w):
         for i0, xs in dataset_iterator(query, preproc, args.batch):
             i1 = i0 + xs.shape[0]
             start = time.time()
-            Di, Ii, SOWi = index_ready.search(xs, args.topk, None, None, None, w)
+            Di, Ii, SOWi = index_ready.search(xs, args.topk, None, None, None, w, csize)
             total_latency += 1000*(time.time()-start)
             I[i0:i1] = Ii
             D[i0:i1] = Di
@@ -472,7 +470,7 @@ def faiss_search(index, preproc, args, reorder, w):
         i0=0
         i1 = i0 + query.shape[0]
         start = time.time()
-        Di, Ii, SOWi = index_ready.search(query, args.topk, None, None, None, w)
+        Di, Ii, SOWi = index_ready.search(query, args.topk, None, None, None, w, csize)
         total_latency = 1000*(time.time()-start)
         I[i0:i1] = Ii
         D[i0:i1] = Di
