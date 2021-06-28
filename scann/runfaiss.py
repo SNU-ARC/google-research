@@ -136,12 +136,15 @@ def prepare_trained_index(preproc, coarse_quantizer, ncent, pqflat_str):
         m, log2kstar = map(int, pqflat_str[2:].split("x"))
         assert m < 56 or useFloat16, "PQ%d will work only with -float16" % m
 
-        print("making an IVFPQ index, m = %d, log2kstar = %d" % (m, log2kstar))
-        idx_model = faiss.IndexIVFPQ(coarse_quantizer, d, ncent, m, log2kstar, fmetric)
+        if log2kstar == 4 and is_gpu == False:
+            idx_model = faiss.IndexIVFPQFastScan(coarse_quantizer, d, ncent, m, log2kstar, fmetric)
+            print("making an IndexIVFPQFastScan index, m = %d, log2kstar = %d" % (m, log2kstar))
+        else:
+            idx_model = faiss.IndexIVFPQ(coarse_quantizer, d, ncent, m, log2kstar, fmetric)
+            print("making an IVFPQ index, m = %d, log2kstar = %d" % (m, log2kstar))
 
     coarse_quantizer.this.disown()
     idx_model.own_fields = True
-
     # finish training on CPU
     t0 = time.time()
     print("Training vector codes")
@@ -258,7 +261,7 @@ def dataset_iterator(x, preproc, bs):
     return rate_limited_imap(prepare_block, block_ranges)
 
 
-def build_faiss(args, cacheroot, coarse_dir, split, N_, D, index_key, is_cached, query_, train=None, base=None):
+def build_faiss(args, log2kstar, cacheroot, coarse_dir, split, N_, D, index_key, is_cached, query_, train=None, base=None):
 
     # set global variables
     name1_to_metric = {
@@ -317,15 +320,23 @@ def build_faiss(args, cacheroot, coarse_dir, split, N_, D, index_key, is_cached,
 
     cent_cachefile = '%s%s_cent_%s_%s%s_%s.npy' % (
         coarse_dir, args.metric, dbname, preproc_str, ivf_str, D)
-    print(cent_cachefile)
 
     index_cachefile = '%s%s_%s_%s_%s_%s%s,%s.index' % (
         cacheroot, args.metric, dbname, split, args.num_split, preproc_str, ivf_str, pqflat_str)
-    print(index_cachefile)
 
     first_index_cachefile = '%s%s_%s_0_%s_%s%s,%s.index' % (
         cacheroot, args.metric, dbname, args.num_split, preproc_str, ivf_str, pqflat_str)
+
+    if  log2kstar == 4 and args.is_gpu==False:
+        if preproc_str:
+            preproc_cachefile = preproc_cachefile + "fs"
+        cent_cachefile = cent_cachefile + "fs"
+        index_cachefile = index_cachefile + "fs"
+        first_index_cachefile = first_index_cachefile + "fs"
+    print(preproc_cachefile)
+    print(cent_cachefile)
     print(index_cachefile)
+    print(first_index_cachefile)
 
     # GPU resources
     if args.is_gpu:
@@ -388,12 +399,14 @@ def build_faiss(args, cacheroot, coarse_dir, split, N_, D, index_key, is_cached,
 
     return index, preproc
 
-def check_cached(cacheroot, args, dbname, split, num_split, index_key):
+def check_cached(cacheroot, args, dbname, split, num_split, index_key, log2kstar):
     preproc_str, ivf_str, pqflat_str = process_index_key(index_key)
     if preproc_str == None:
         preproc_str = ''
     index_cachefile = '%s%s_%s_%s_%s_%s%s,%s.index' % (
         cacheroot, args.metric, dbname, split, num_split, preproc_str, ivf_str, pqflat_str)
+    if log2kstar==4 and args.is_gpu==False:
+        index_cachefile = index_cachefile + "fs"
     print("Checking ", index_cachefile)
     if not index_cachefile or not os.path.exists(index_cachefile):
         print("Cache file does not exist..")
@@ -438,20 +451,33 @@ def faiss_search(index, preproc, args, reorder, w):
     total_latency = 0.0
     iter = 0
     previous_end = 0
-    for i0, xs in dataset_iterator(query, preproc, args.batch):
-        i1 = i0 + xs.shape[0]
+    if args.is_gpu == True:
+        print("Sending ", args.batch, " queries at once")
+        for i0, xs in dataset_iterator(query, preproc, args.batch):
+            i1 = i0 + xs.shape[0]
+            start = time.time()
+            Di, Ii, SOWi = index_ready.search(xs, args.topk, None, None, None, w)
+            total_latency += 1000*(time.time()-start)
+            I[i0:i1] = Ii
+            D[i0:i1] = Di
+            curr_batch = i1 - i0
+            chunk_size = curr_batch * (w+1)
+            # print("start =", previous_end, ", chunk_size =", chunk_size)
+            # SOW[ chunk_size*iter : chunk_size*iter+chunk_size ] = SOWi
+            SOW[ previous_end : previous_end+chunk_size ] = SOWi
+            previous_end = chunk_size*iter+chunk_size
+            iter += 1
+    else:
+        print("Sending ", query.shape[0], " queries at once")
+        i0=0
+        i1 = i0 + query.shape[0]
         start = time.time()
-        Di, Ii, SOWi = index_ready.search(xs, args.topk, None, None, None, w)
-        total_latency += 1000*(time.time()-start)
+        Di, Ii, SOWi = index_ready.search(query, args.topk, None, None, None, w)
+        total_latency = 1000*(time.time()-start)
         I[i0:i1] = Ii
         D[i0:i1] = Di
-        curr_batch = i1 - i0
+        curr_batch = query.shape[0]
         chunk_size = curr_batch * (w+1)
-        # print("start =", previous_end, ", chunk_size =", chunk_size)
-        # SOW[ chunk_size*iter : chunk_size*iter+chunk_size ] = SOWi
-        SOW[ previous_end : previous_end+chunk_size ] = SOWi
-        previous_end = chunk_size*iter+chunk_size
-        iter += 1
-    # for i in range(nq*(w+1)):
-    #     print("SOW[", i, "] =", SOW[i])
+        SOW[i0:chunk_size] = SOWi
+
     return I, D, SOW, total_latency

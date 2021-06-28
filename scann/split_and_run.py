@@ -856,6 +856,8 @@ def run_faiss(D):
 				trace_w, _ = search_config[sc_list[-1]]
 				trace_result_path = "../../ANNA_chisel/simulator/final_trace/Final_Config_SIFT1BAMAZON1_trace_"+args.program+("GPU_" if args.is_gpu else "_")+args.dataset+"_topk_"+str(args.topk)+"_num_split_"+str(args.num_split)+"_batch_"+str(args.batch)+"_"+args.metric+"_L_"+str(trace_L)+"_m_"+str(trace_m)+"_w_"+str(trace_w)+"_threshold_"+str(trace_threshold)+"_log2kstar_"+str(trace_log2kstar)
 				# neighbor_result_path = trace_result_path
+			else:
+				trace_result_path = "./"
 			SOW = np.zeros((queries.shape[0], 1))
 			w_, _ = search_config[sc_list[-1]]
 			SOW_elements = np.zeros((queries.shape[0], w_))
@@ -865,13 +867,13 @@ def run_faiss(D):
 				num_per_split = int(N/args.num_split) if split < args.num_split-1 else N-base_idx
 				searcher_dir, searcher_path = get_searcher_path(split)
 
-				is_cached = check_cached(searcher_dir, args, args.dataset, split, args.num_split, index_key_manual)
+				is_cached = check_cached(searcher_dir, args, args.dataset, split, args.num_split, index_key_manual, log2kstar)
 				args.m = faiss_m
 
 				# if is_cached:
 					# index, preproc = build_faiss(args, searcher_dir, coarse_dir, split, N, padded_D, index_key_manual, is_cached, padded_queries)
 				if is_cached:
-					index, preproc = build_faiss(args, searcher_dir, coarse_dir, split, int(N/args.num_split), padded_D, index_key_manual, is_cached, padded_queries)
+					index, preproc = build_faiss(args, log2kstar, searcher_dir, coarse_dir, split, int(N/args.num_split), padded_D, index_key_manual, is_cached, padded_queries)
 				else:
 					print("[YJ] get train")
 					print("[YJ] read data")
@@ -882,7 +884,7 @@ def run_faiss(D):
 						padded_dataset = dataset
 					print("[YJ] reading done")
 					# index, preproc = build_faiss(args, searcher_dir, coarse_dir, split, N, padded_D, index_key_manual, is_cached, padded_queries, padded_train_dataset, padded_dataset)
-					index, preproc = build_faiss(args, searcher_dir, coarse_dir, split, int(N/args.num_split), padded_D, index_key_manual, is_cached, padded_queries, padded_train_dataset, padded_dataset)
+					index, preproc = build_faiss(args, log2kstar, searcher_dir, coarse_dir, split, int(N/args.num_split), padded_D, index_key_manual, is_cached, padded_queries, padded_train_dataset, padded_dataset)
 					# index, preproc = build_faiss(args, "./temp2/", "./temp2/", split, N, padded_D, index_key_manual, is_cached, padded_queries, padded_train_dataset, padded_dataset)
 
 				n = list()
