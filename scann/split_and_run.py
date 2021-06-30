@@ -902,7 +902,9 @@ def run_faiss(D):
 					# Build Faiss index
 					print(str(L)+"\t"+str(m)+"\t"+str(2**log2kstar)+"\t|\t"+str(w)+"\t"+str(reorder)+"\t"+str(metric)+"\n")		# faiss-gpu has no reorder
 					# Faiss search
-					local_neighbors, local_distances, time = faiss_search(index, preproc, args, reorder, w, args.csize)
+					queries_per_thread = (int) (qN / args.batch)
+					effective_csize = min(args.csize, queries_per_thread)
+					local_neighbors, local_distances, time = faiss_search(index, preproc, args, reorder, w, effective_csize)
 					total_latency[idx] = total_latency[idx] + time
 					n.append((local_neighbors+base_idx).astype(np.int32))
 					d.append(local_distances.astype(np.float32))
