@@ -413,7 +413,7 @@ def check_cached(cacheroot, args, dbname, split, num_split, index_key, log2kstar
         print("Cache file exists!")
         return True
 
-def faiss_search(index, preproc, args, reorder, w):
+def faiss_search(index, preproc, args, reorder, w, csize):
     # search environment
     # index.use_precomputed_table = usePrecomputed
     # if args.is_gpu:
@@ -451,7 +451,7 @@ def faiss_search(index, preproc, args, reorder, w):
         for i0, xs in dataset_iterator(query, preproc, args.batch):
             i1 = i0 + xs.shape[0]
             start = time.time()
-            Di, Ii = index_ready.search(xs, args.topk)
+            Di, Ii = index_ready.search(xs, args.topk, csize)
             total_latency += 1000*(time.time()-start)
             I[i0:i1] = Ii
             D[i0:i1] = Di
@@ -460,7 +460,7 @@ def faiss_search(index, preproc, args, reorder, w):
         i0=0
         i1 = i0 + query.shape[0]
         start = time.time()
-        Di, Ii = index_ready.search(query, args.topk)
+        Di, Ii = index_ready.search(query, args.topk, csize)
         total_latency = 1000*(time.time()-start)
         I[i0:i1] = Ii
         D[i0:i1] = Di

@@ -20,6 +20,7 @@ parser.add_argument('--L', type=int, default=-1, help='# of coarse codewords')
 parser.add_argument('--w', type=int, default=-1, help='# of clusters to search')
 parser.add_argument('--m', type=int, default=-1, help='# of dimension chunks')
 parser.add_argument('--batch', type=int, default=1, help='query batch size')
+parser.add_argument('--csize', type=int, default=10000, help='query size in fast scan cache')
 
 ## ScaNN parameters
 parser.add_argument('--coarse_training_size', type=int, default=250000, help='coarse training sample size')
@@ -500,7 +501,7 @@ def run_scann():
 			# 	]
 
 		f = open(sweep_result_path, "w")
-		f.write("Program: " + args.program + " Topk: " + str(args.topk) + " Num_split: " + str(args.num_split)+ " Batch: "+str(args.batch)+"\n")
+		f.write("Program: " + args.program + " Topk: " + str(args.topk) + " Num_split: " + str(args.num_split)+ " Batch: "+str(args.batch)+" CSize: "+str(args.csize)+"\n")
 		f.write("L\tThreashold\tm\t|\tw\tr\tMetric\n")
 	else:
 		# assert D%args.m == 0
@@ -833,7 +834,7 @@ def run_faiss(D):
 				'''
 
 		f = open(sweep_result_path, "w")
-		f.write("Program: " + args.program + ("GPU" if args.is_gpu else "") + " Topk: " + str(args.topk) + " Num_split: " + str(args.num_split)+ " Batch: "+str(args.batch)+"\n")
+		f.write("Program: " + args.program + ("GPU" if args.is_gpu else "") + " Topk: " + str(args.topk) + " Num_split: " + str(args.num_split)+ " Batch: "+str(args.batch)+" CSize: "+str(args.csize)+"\n")
 		f.write("L\tm\tk_star\t|\tw\tReorder\tMetric\n")
 	else:
 		if args.opq != -1:
@@ -901,7 +902,7 @@ def run_faiss(D):
 					# Build Faiss index
 					print(str(L)+"\t"+str(m)+"\t"+str(2**log2kstar)+"\t|\t"+str(w)+"\t"+str(reorder)+"\t"+str(metric)+"\n")		# faiss-gpu has no reorder
 					# Faiss search
-					local_neighbors, local_distances, time = faiss_search(index, preproc, args, reorder, w)
+					local_neighbors, local_distances, time = faiss_search(index, preproc, args, reorder, w, args.csize)
 					total_latency[idx] = total_latency[idx] + time
 					n.append((local_neighbors+base_idx).astype(np.int32))
 					d.append(local_distances.astype(np.float32))
@@ -938,7 +939,7 @@ def run_annoy(D):
 		build_config = [(args.metric, 50), (args.metric, 100), (args.metric, 150), (args.metric, 200), (args.metric, 250), (args.metric, 300), (args.metric, 400)]
 		search_config = [100, 200, 400, 1000, 2000, 4000, 10000, 20000, 40000, 100000, 200000, 400000]
 		f = open(sweep_result_path, "w")
-		f.write("Program: " + args.program + " Topk: " + str(args.topk) + " Num_split: " + str(args.num_split)+ " Batch: "+str(args.batch)+"\n")
+		f.write("Program: " + args.program + " Topk: " + str(args.topk) + " Num_split: " + str(args.num_split)+ " Batch: "+str(args.batch)+" CSize: "+str(args.csize)+"\n")
 		f.write("Num trees\t|\tNum search\tReorder\tMetric\n")
 	else:
 		build_config = [(args.metric, args.n_trees)]
