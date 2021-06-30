@@ -451,7 +451,7 @@ def faiss_search(index, preproc, args, reorder, w, csize):
         for i0, xs in dataset_iterator(query, preproc, args.batch):
             i1 = i0 + xs.shape[0]
             start = time.time()
-            Di, Ii = index_ready.search(xs, args.topk, csize)
+            Di, Ii = index_ready.search(xs, args.topk, None, None, w, csize)
             total_latency += 1000*(time.time()-start)
             I[i0:i1] = Ii
             D[i0:i1] = Di
@@ -460,7 +460,7 @@ def faiss_search(index, preproc, args, reorder, w, csize):
         i0=0
         i1 = i0 + query.shape[0]
         start = time.time()
-        Di, Ii = index_ready.search(query, args.topk, csize)
+        Di, Ii = index_ready.search(query, args.topk, None, None, w, csize)
         total_latency = 1000*(time.time()-start)
         I[i0:i1] = Ii
         D[i0:i1] = Di
