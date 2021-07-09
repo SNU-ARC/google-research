@@ -502,7 +502,8 @@ def run_scann():
 
 			if args.trace:
 				trace_w, _ = search_config[sc_list[-1]]
-				trace_result_path = "../../ANNA_chisel/simulator/final_trace/Final_Config_SIFT1BAMAZON1_trace_"+args.program+("GPU_" if args.is_gpu else "_")+args.dataset+"_topk_"+str(args.topk)+"_num_split_"+str(args.num_split)+"_batch_"+str(args.batch)+"_CSize_"+str(args.csize)+"_"+args.metric+"_L_"+str(trace_L)+"_m_"+str(trace_m)+"_w_"+str(trace_w)+"_threshold_"+str(trace_threshold)+"_log2kstar_"+str(trace_log2kstar)
+				#trace_result_path = "../../ANNA_chisel/simulator/final_trace/Final_Config_SIFT1BAMAZON1_trace_"+args.program+("GPU_" if args.is_gpu else "_")+args.dataset+"_topk_"+str(args.topk)+"_num_split_"+str(args.num_split)+"_batch_"+str(args.batch)+"_CSize_"+str(args.csize)+"_"+args.metric+"_L_"+str(trace_L)+"_m_"+str(trace_m)+"_w_"+str(trace_w)+"_threshold_"+str(trace_threshold)+"_log2kstar_"+str(trace_log2kstar)
+				trace_result_path = "./trace/trace_"+args.program+("GPU_" if args.is_gpu else "_")+args.dataset+"_topk_"+str(args.topk)+"_num_split_"+str(args.num_split)+"_batch_"+str(args.batch)+"_CSize_"+str(args.csize)+"_"+args.metric+"_L_"+str(trace_L)+"_m_"+str(trace_m)+"_w_"+str(trace_w)+"_threshold_"+str(trace_threshold)+"_log2kstar_"+str(trace_log2kstar)
 
 			w_, _ = search_config[sc_list[-1]]
 			SOW = np.zeros((queries.shape[0], 1))
@@ -855,7 +856,8 @@ def run_faiss(D):
 
 			if args.trace:
 				trace_w, _ = search_config[sc_list[-1]]
-				trace_result_path = "../../ANNA_chisel/simulator/final_trace/Final_Config_SIFT1BAMAZON1_trace_"+args.program+("GPU_" if args.is_gpu else "_")+args.dataset+"_topk_"+str(args.topk)+"_num_split_"+str(args.num_split)+"_batch_"+str(args.batch)+"_CSize_"+str(args.csize)+"_"+args.metric+"_L_"+str(trace_L)+"_m_"+str(trace_m)+"_w_"+str(trace_w)+"_threshold_"+str(trace_threshold)+"_log2kstar_"+str(trace_log2kstar)
+				# trace_result_path = "../../ANNA_chisel/simulator/final_trace/Final_Config_SIFT1BAMAZON1_trace_"+args.program+("GPU_" if args.is_gpu else "_")+args.dataset+"_topk_"+str(args.topk)+"_num_split_"+str(args.num_split)+"_batch_"+str(args.batch)+"_CSize_"+str(args.csize)+"_"+args.metric+"_L_"+str(trace_L)+"_m_"+str(trace_m)+"_w_"+str(trace_w)+"_threshold_"+str(trace_threshold)+"_log2kstar_"+str(trace_log2kstar)
+				trace_result_path = "./trace/trace_"+args.program+("GPU_" if args.is_gpu else "_")+args.dataset+"_topk_"+str(args.topk)+"_num_split_"+str(args.num_split)+"_batch_"+str(args.batch)+"_CSize_"+str(args.csize)+"_"+args.metric+"_L_"+str(trace_L)+"_m_"+str(trace_m)+"_w_"+str(trace_w)+"_threshold_"+str(trace_threshold)+"_log2kstar_"+str(trace_log2kstar)
 				# neighbor_result_path = trace_result_path
 			else:
 				trace_result_path = "./"
@@ -900,7 +902,7 @@ def run_faiss(D):
 					# Build Faiss index
 					print(str(L)+"\t"+str(m)+"\t"+str(2**log2kstar)+"\t|\t"+str(w)+"\t"+str(reorder)+"\t"+str(metric)+"\n")		# faiss-gpu has no reorder
 					# Faiss search
-					local_neighbors, local_distances, local_SOW, time = faiss_search(index, preproc, args, reorder, w, args.csize)
+					local_neighbors, local_distances, local_SOW, local_trace, time = faiss_search(index, preproc, args, reorder, w, args.csize)
 					total_latency[idx] = total_latency[idx] + time
 					(local_neighbors+base_idx).astype(np.int32).tofile(neighbor_result_path+"_neighbor")
 					local_distances.astype(np.float32).tofile(neighbor_result_path+"_distance")
@@ -972,6 +974,12 @@ def run_faiss(D):
 							trace_f.write(str(int(current_SOW_elements[i, j]))+"\t")
 						trace_f.write("\n")
 					trace_f.close()
+					trace_f = open(trace_result_path+"_cluster_length", "w")
+					tracelen, _ = np.shape(local_trace)
+					for i in range(tracelen):
+						trace_f.write(str(int(local_trace[i][0]))+"\n")
+					trace_f.close()
+
 				# for i in range(qN):
 				# 	print("current_SOW(sow)[", i, "] =", current_SOW[i])
 				# w, _ = search_config[sc_list[idx]]
