@@ -270,6 +270,8 @@ class SingleMachineSearcherBase : public UntypedSingleMachineSearcherBase {
                                const SearchParameters& params,
                                NNResultsVector* result,
                                unsigned long long int* SOW = nullptr,
+                               unsigned long long int* trace = nullptr,
+                               int l = 0,
                                size_t begin = 0,
                                size_t curSize = 0,
                                int arcm_w = 0) const;
@@ -277,16 +279,20 @@ class SingleMachineSearcherBase : public UntypedSingleMachineSearcherBase {
   Status FindNeighbors(const DatapointPtr<T>& query,
                        NNResultsVector* result,
                        unsigned long long int* SOW = nullptr,
+                       unsigned long long int* trace = nullptr,
+                       int l = 0,
                        size_t begin = 0,
                        size_t curSize = 0,
                        int arcm_w = 0) const {
-    return FindNeighbors(query, default_search_parameters_, result, SOW, begin, curSize, arcm_w);
+    return FindNeighbors(query, default_search_parameters_, result, SOW, trace, l, begin, curSize, arcm_w);
   }
 
   Status FindNeighborsNoSortNoExactReorder(const DatapointPtr<T>& query,
                                            const SearchParameters& params,
                                            NNResultsVector* result,
                                            unsigned long long int* SOW = nullptr,
+                                           unsigned long long int* trace = nullptr,
+                                           int l = 0,
                                            size_t begin = 0,
                                            size_t curSize = 0,
                                            int arcm_w = 0) const;
@@ -294,6 +300,8 @@ class SingleMachineSearcherBase : public UntypedSingleMachineSearcherBase {
   Status FindNeighborsBatched(const TypedDataset<T>& queries,
                               MutableSpan<NNResultsVector> results,
                               unsigned long long int* SOW = nullptr,
+                              unsigned long long int* trace = nullptr,
+                              int l = 0,
                               size_t begin = 0,
                               size_t curSize = 0,
                               int arcm_w = 0) const;
@@ -301,6 +309,8 @@ class SingleMachineSearcherBase : public UntypedSingleMachineSearcherBase {
                               ConstSpan<SearchParameters> params,
                               MutableSpan<NNResultsVector> results,
                               unsigned long long int* SOW = nullptr,
+                              unsigned long long int* trace = nullptr,
+                              int l = 0,
                               size_t begin = 0,
                               size_t curSize = 0,
                               int arcm_w = 0) const;
@@ -308,6 +318,8 @@ class SingleMachineSearcherBase : public UntypedSingleMachineSearcherBase {
       const TypedDataset<T>& queries, ConstSpan<SearchParameters> params,
       MutableSpan<NNResultsVector> results,
       unsigned long long int* SOW = nullptr,
+      unsigned long long int* trace = nullptr,
+      int l = 0,
       size_t begin = 0,
       size_t curSize = 0,
       int arcm_w = 0) const;
@@ -501,6 +513,8 @@ class SingleMachineSearcherBase : public UntypedSingleMachineSearcherBase {
                                    const SearchParameters& params,
                                    NNResultsVector* result,
                                    unsigned long long int* SOW = nullptr,
+                                   unsigned long long int* trace = nullptr,
+                                   int l = 0,
                                    size_t begin = 0,
                                    size_t curSize = 0,
                                    int arcm_w = 0) const = 0;
@@ -509,6 +523,8 @@ class SingleMachineSearcherBase : public UntypedSingleMachineSearcherBase {
       const TypedDataset<T>& queries, ConstSpan<SearchParameters> params,
       MutableSpan<NNResultsVector> results,
       unsigned long long int* SOW = nullptr,
+      unsigned long long int* trace = nullptr,
+      int l = 0,
       size_t begin = 0,
       size_t curSize = 0,
       int arcm_w = 0) const;

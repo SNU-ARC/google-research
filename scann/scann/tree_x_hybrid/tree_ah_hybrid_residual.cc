@@ -461,6 +461,8 @@ Status TreeAHHybridResidual::FindNeighborsImpl(const DatapointPtr<float>& query,
                                                const SearchParameters& params,
                                                NNResultsVector* result,
                                                unsigned long long int* SOW,
+                                               unsigned long long int* trace,
+                                               int l,
                                                size_t begin,
                                                size_t curSize,
                                                int arcm_w) const {
@@ -501,6 +503,8 @@ Status TreeAHHybridResidual::FindNeighborsImpl(const DatapointPtr<float>& query,
     // printf("%ld\t", list_length);
     // printf("arcm::center_to_search[%d].distance_to_center = %f, center_to_search[%d]->node.LeafId() = %ld, list_length = %ld\n", i, centers_to_search[i].distance_to_center, i, (centers_to_search[i].node)->LeafId(), datapoints_by_token_[(centers_to_search[i].node)->LeafId()].size());
   }
+  for(int i = 0; i < l; ++i)
+    trace[i] = datapoints_by_token_[i].size();
   // printf("\n");
   /* arcm::...here! SOW computation has ended. */
 
@@ -537,6 +541,8 @@ Status TreeAHHybridResidual::FindNeighborsBatchedImpl(
     const TypedDataset<float>& queries, ConstSpan<SearchParameters> params,
     MutableSpan<NNResultsVector> results,
     unsigned long long int* SOW,
+    unsigned long long int* trace,
+    int l,
     size_t begin,
     size_t curSize,
     int arcm_w) const {
@@ -601,7 +607,7 @@ Status TreeAHHybridResidual::FindNeighborsBatchedImpl(
     for(int num_query = 0; num_query < queries_by_leaf[leaf_id].size(); ++num_query){
       // printf("queries_by_leaf.size() = %ld, queries_by_leaf[%d].size() = %ld\n", queries_by_leaf.size(), leaf_id, queries_by_leaf[leaf_id].size());
       auto q_idx = queries_by_leaf[leaf_id][num_query].query_index;
-      qid_ll_dist[q_idx].push_back( std::make_pair(datapoints_by_token_[leaf_id].size(), queries_by_leaf[leaf_id][num_query].distance_to_center) );
+      qid_ll_dist[q_idx].push_back( std::make_pair(leaf_id, queries_by_leaf[leaf_id][num_query].distance_to_center) );
       // printf("q_idx = %ld, list_length = %ld, distance_to_center = %f\n", q_idx, datapoints_by_token_[leaf_id].size(), queries_by_leaf[leaf_id][num_query].distance_to_center);
       // sow[q_idx] += datapoints_by_token_[leaf_id].size();
       // printf("%ld\t", datapoints_by_token_[leaf_id].size());
@@ -615,21 +621,24 @@ Status TreeAHHybridResidual::FindNeighborsBatchedImpl(
       unsigned long long int list_length = 0;
       list_length = elem.first;
       sow[ qid*(arcm_w + 1) + sow_inner_idx ] = list_length;
-      sow[ qid*(arcm_w + 1) + arcm_w ] += list_length;
+      //sow[ qid*(arcm_w + 1) + arcm_w ] += list_length;
       sow_inner_idx++;
     }
   }
+
+  for(int i = 0; i < l; ++i)
+    trace[i] = datapoints_by_token_[i].size();
 
   // for (auto& elem : qid_ll_dist[0]){
   //   printf("%ld (%f)\t", elem.first, elem.second);
   // }
   // printf("\n");
   // std::cout << " Is data all good ? : " << sum_data << std::endl;
-  int SOW_idx = begin * (arcm_w + 1);
+  //int SOW_idx = begin * (arcm_w + 1);
   // printf("begin = %d, curSize = %d\n", begin, curSize);
-  for (int i = 0; i < centers_to_search.size() * (arcm_w + 1) ; i++){
-    SOW[SOW_idx + i] = sow[i];
-  }
+  //for (int i = 0; i < centers_to_search.size() * (arcm_w + 1) ; i++){
+  //  SOW[SOW_idx + i] = sow[i];
+  //}
   // int idx = 0;
   // for (int i = begin; ; i++){
   //   SOW[i] = sow[idx++];

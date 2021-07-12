@@ -53,6 +53,8 @@ class BruteForceSearcher final : public SingleMachineSearcherBase<T> {
                            const SearchParameters& params,
                            NNResultsVector* result,
                            unsigned long long int* SOW = nullptr,
+                           unsigned long long int* trace = nullptr,
+                           int l = 0,
                            size_t begin = 0,
                            size_t curSize = 0,
                            int arcm_w = 0) const final;
@@ -61,6 +63,8 @@ class BruteForceSearcher final : public SingleMachineSearcherBase<T> {
       const TypedDataset<T>& queries, ConstSpan<SearchParameters> params,
       MutableSpan<NNResultsVector> results,
       unsigned long long int* SOW = nullptr,
+      unsigned long long int* trace = nullptr,
+      int l = 0,
       size_t begin = 0,
       size_t curSize = 0,
       int arcm_w = 0) const final;

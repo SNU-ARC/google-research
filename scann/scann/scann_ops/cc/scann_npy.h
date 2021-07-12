@@ -47,11 +47,11 @@ class ScannNumpy {
              const bool& load_coarse, const std::string& coarse_path,
              const bool& load_fine, const std::string& fine_path,
              int training_threads);
-  std::tuple<pybind11::array_t<float>, pybind11::array_t<DatapointIndex>, pybind11::array_t<float>> Search(
-      const np_row_major_arr<float>& query, int final_nn, int pre_reorder_nn,
+  std::tuple<pybind11::array_t<float>, pybind11::array_t<float>, pybind11::array_t<DatapointIndex>, pybind11::array_t<float>> Search(
+      const np_row_major_arr<float>& query, int l, int final_nn, int pre_reorder_nn,
       int leaves);
-  std::tuple<pybind11::array_t<float>, pybind11::array_t<DatapointIndex>, pybind11::array_t<float>>
-  SearchBatched(const np_row_major_arr<float>& queries, int final_nn,
+  std::tuple<pybind11::array_t<float>, pybind11::array_t<float>, pybind11::array_t<DatapointIndex>, pybind11::array_t<float>>
+  SearchBatched(const np_row_major_arr<float>& queries, int l, int final_nn,
                 int pre_reorder_nn, int leaves, int batch_size, bool parallel = false);
   void Serialize(std::string path, std::string coarse_dir, bool load_coarse, std::string fine_dir, bool load_fine);
 

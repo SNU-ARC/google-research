@@ -188,6 +188,8 @@ Status ScalarQuantizedBruteForceSearcher::FindNeighborsImpl(
     const DatapointPtr<float>& query, const SearchParameters& params,
     NNResultsVector* result,
     unsigned long long int* SOW,
+    unsigned long long int* trace,
+    int l,
     size_t begin,
     size_t curSize,
     int arcm_w) const {

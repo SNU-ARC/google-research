@@ -154,6 +154,8 @@ Status Searcher<T>::FindNeighborsImpl(const DatapointPtr<T>& query,
                                       const SearchParameters& params,
                                       NNResultsVector* result,
                                       unsigned long long int* SOW,
+                                      unsigned long long int* trace,
+                                      int l,
                                       size_t begin,
                                       size_t curSize,
                                       int arcm_w) const {
@@ -188,6 +190,8 @@ Status Searcher<T>::FindNeighborsBatchedImpl(
     const TypedDataset<T>& queries, ConstSpan<SearchParameters> params,
     MutableSpan<NNResultsVector> results,
     unsigned long long int* SOW,
+    unsigned long long int* trace,
+    int l,
     size_t begin,
     size_t curSize,
     int arcm_w) const {
@@ -202,7 +206,7 @@ Status Searcher<T>::FindNeighborsBatchedImpl(
       crowding_enabled_for_any_query ||
       opts_.quantization_scheme() == AsymmetricHasherConfig::PRODUCT_AND_BIAS) {
     return SingleMachineSearcherBase<T>::FindNeighborsBatchedImpl(
-        queries, params, results, SOW, begin, curSize, arcm_w);
+        queries, params, results, SOW, trace, l, begin, curSize, arcm_w);
   }
   return FindNeighborsBatchedInternal<
       asymmetric_hashing_internal::IdentityPostprocessFunctor>(

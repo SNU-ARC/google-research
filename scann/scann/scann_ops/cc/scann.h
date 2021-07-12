@@ -57,6 +57,8 @@ class ScannInterface {
   Status Search(const DatapointPtr<float> query, NNResultsVector* res,
                 int final_nn, int pre_reorder_nn, int leaves,
                 unsigned long long int* SOW = nullptr,
+                unsigned long long int* trace = nullptr,
+                int l = 0,
                 size_t begin = 0,
                 size_t curSize = 0,
                 int arcm_w = 0) const; // [ANNA] SOW
@@ -64,6 +66,8 @@ class ScannInterface {
                        MutableSpan<NNResultsVector> res, int final_nn,
                        int pre_reorder_nn, int leaves,
                        unsigned long long int* SOW = nullptr,
+                       unsigned long long int* trace = nullptr,
+                       int l = 0,
                        size_t begin = 0,
                        size_t curSize = 0,
                        int arcm_w = 0) const;
@@ -72,6 +76,8 @@ class ScannInterface {
                                int pre_reorder_nn, int leaves,
                                int batch_size,
                                unsigned long long int* SOW = nullptr,
+                               unsigned long long int* trace = nullptr,
+                               int l = 0,
                                size_t begin = 0,
                                size_t curSize = 0,
                                int arcm_w = 0) const;   // [ANNA] batch_size, SOW

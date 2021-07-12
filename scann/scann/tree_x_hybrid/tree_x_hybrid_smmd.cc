@@ -349,6 +349,8 @@ Status TreeXHybridSMMD<T>::FindNeighborsImpl(const DatapointPtr<T>& query,
                                              const SearchParameters& params,
                                              NNResultsVector* result,
                                              unsigned long long int* SOW,
+                                             unsigned long long int* trace,
+                                             int l,
                                              size_t begin,
                                              size_t curSize,
                                              int arcm_w) const {
@@ -413,6 +415,9 @@ Status TreeXHybridSMMD<T>::FindNeighborsImpl(const DatapointPtr<T>& query,
     // SOW[0] += datapoints_by_token_[query_tokens[num_center]].size();
   }
 
+  for(int i = 0; i < l; ++i)
+    trace[i] = datapoints_by_token_[i].size();
+
   // printf("arcm::query_tokens.size() = %d\n", query_tokens.size());
   // for (int i = 0; i < query_tokens.size(); i++){
   //   printf("%d\t", datapoints_by_token_[query_tokens[i]].size());
@@ -439,6 +444,8 @@ Status TreeXHybridSMMD<T>::FindNeighborsBatchedImpl(
     const TypedDataset<T>& queries, ConstSpan<SearchParameters> params,
     MutableSpan<NNResultsVector> results,
     unsigned long long int* SOW,
+    unsigned long long int* trace,
+    int l,
     size_t begin,
     size_t curSize,
     int arcm_w) const {
@@ -541,20 +548,23 @@ Status TreeXHybridSMMD<T>::FindNeighborsBatchedImpl(
     for(int num_center = 0; num_center < query_tokens[q_idx].size(); ++num_center){
       // printf("num_center = %d\n", num_center);
       // printf("query_tokens[q_idx][num_center] = %d\n", query_tokens[q_idx][num_center]);
-      unsigned long long int list_length = datapoints_by_token_[query_tokens[q_idx][num_center]].size();
-      sow[q_idx*(arcm_w+1)+num_center] = list_length;
-      sow[q_idx*(arcm_w+1)+arcm_w] += datapoints_by_token_[query_tokens[q_idx][num_center]].size();
+      //unsigned long long int list_length = datapoints_by_token_[query_tokens[q_idx][num_center]].size();
+      sow[q_idx*(arcm_w+1)+num_center] = query_tokens[q_idx][num_center];
+      //sow[q_idx*(arcm_w+1)+arcm_w] += datapoints_by_token_[query_tokens[q_idx][num_center]].size();
       // sow[q_idx] += datapoints_by_token_[query_tokens[q_idx][num_center]].size();
     }
   }
+  
+  for(int i = 0; i < l; ++i)
+    trace[i] = datapoints_by_token_[i].size();
   // for(int leaf_id = 0; leaf_id < datapoints_by_token_.size(); ++leaf_id)
     // sum_data += datapoints_by_token_[leaf_id].size();
   // std::cout << " Is data all good ? : " << sum_data << std::endl;
-  int SOW_idx = begin * (arcm_w + 1);
+  //int SOW_idx = begin * (arcm_w + 1);
   // printf("begin = %d, curSize = %d\n", begin, curSize);
-  for (int i = 0; i < queries.size() * (arcm_w + 1) ; i++){
-    SOW[SOW_idx + i] = sow[i];
-  }
+  //for (int i = 0; i < queries.size() * (arcm_w + 1) ; i++){
+  //  SOW[SOW_idx + i] = sow[i];
+  //}
   // for (int i = begin; ; i++){
   //   SOW[i] = sow[idx++];
   //   if (idx == sow.size())

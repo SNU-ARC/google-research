@@ -279,6 +279,8 @@ Status SingleMachineSearcherBase<T>::FindNeighbors(
     const DatapointPtr<T>& query, const SearchParameters& params,
     NNResultsVector* result,
     unsigned long long int* SOW,
+    unsigned long long int* trace,
+    int l,
     size_t begin,
     size_t curSize,
     int arcm_w) const {
@@ -287,7 +289,7 @@ Status SingleMachineSearcherBase<T>::FindNeighbors(
   DCHECK(result);
   DCHECK_LE((compressed_reordering_enabled() + exact_reordering_enabled()), 1);
   SCANN_RETURN_IF_ERROR(
-      FindNeighborsNoSortNoExactReorder(query, params, result, SOW, begin, curSize, arcm_w));
+      FindNeighborsNoSortNoExactReorder(query, params, result, SOW, trace, l, begin, curSize, arcm_w));
 
   if (reordering_helper_) {
     SCANN_RETURN_IF_ERROR(ReorderResults(query, params, result));
@@ -301,6 +303,8 @@ Status SingleMachineSearcherBase<T>::FindNeighborsNoSortNoExactReorder(
     const DatapointPtr<T>& query, const SearchParameters& params,
     NNResultsVector* result,
     unsigned long long int* SOW,
+    unsigned long long int* trace,
+    int l,
     size_t begin,
     size_t curSize,
     int arcm_w) const {
@@ -328,13 +332,15 @@ Status SingleMachineSearcherBase<T>::FindNeighborsNoSortNoExactReorder(
                   static_cast<uint64_t>(dataset()->dimensionality())));
   }
 
-  return FindNeighborsImpl(query, params, result, SOW, begin, curSize, arcm_w);
+  return FindNeighborsImpl(query, params, result, SOW, trace, l, begin, curSize, arcm_w);
 }
 
 template <typename T>
 Status SingleMachineSearcherBase<T>::FindNeighborsBatched(
     const TypedDataset<T>& queries, MutableSpan<NNResultsVector> result,
     unsigned long long int* SOW,
+    unsigned long long int* trace,
+    int l,
     size_t begin,
     size_t curSize,
     int arcm_w) const {
@@ -342,7 +348,7 @@ Status SingleMachineSearcherBase<T>::FindNeighborsBatched(
   for (auto& p : params) {
     p.SetUnspecifiedParametersFrom(default_search_parameters_);
   }
-  return FindNeighborsBatched(queries, params, result, SOW, begin, curSize, arcm_w);
+  return FindNeighborsBatched(queries, params, result, SOW, trace, l, begin, curSize, arcm_w);
 }
 
 template <typename T>
@@ -350,12 +356,14 @@ Status SingleMachineSearcherBase<T>::FindNeighborsBatched(
     const TypedDataset<T>& queries, ConstSpan<SearchParameters> params,
     MutableSpan<NNResultsVector> results,
     unsigned long long int* SOW,
+    unsigned long long int* trace,
+    int l,
     size_t begin,
     size_t curSize,
     int arcm_w) const {
   DCHECK_LE((compressed_reordering_enabled() + exact_reordering_enabled()), 1);
   SCANN_RETURN_IF_ERROR(
-      FindNeighborsBatchedNoSortNoExactReorder(queries, params, results, SOW, begin, curSize, arcm_w));
+      FindNeighborsBatchedNoSortNoExactReorder(queries, params, results, SOW, trace, l, begin, curSize, arcm_w));
 
   if (reordering_helper_) {
     for (DatapointIndex i = 0; i < queries.size(); ++i) {
@@ -375,6 +383,8 @@ Status SingleMachineSearcherBase<T>::FindNeighborsBatchedNoSortNoExactReorder(
     const TypedDataset<T>& queries, ConstSpan<SearchParameters> params,
     MutableSpan<NNResultsVector> results,
     unsigned long long int* SOW,
+    unsigned long long int* trace,
+    int l,
     size_t begin,
     size_t curSize,
     int arcm_w) const {
@@ -417,7 +427,7 @@ Status SingleMachineSearcherBase<T>::FindNeighborsBatchedNoSortNoExactReorder(
         queries.dimensionality(), dataset()->dimensionality());
   }
 
-  return FindNeighborsBatchedImpl(queries, params, results, SOW, begin, curSize, arcm_w);
+  return FindNeighborsBatchedImpl(queries, params, results, SOW, trace, l, begin, curSize, arcm_w);
 }
 
 template <typename T>
@@ -494,6 +504,8 @@ Status SingleMachineSearcherBase<T>::FindNeighborsBatchedImpl(
     const TypedDataset<T>& queries, ConstSpan<SearchParameters> params,
     MutableSpan<NNResultsVector> results,
     unsigned long long int* SOW,
+    unsigned long long int* trace,
+    int l,
     size_t begin,
     size_t curSize,
     int arcm_w) const {
@@ -501,7 +513,7 @@ Status SingleMachineSearcherBase<T>::FindNeighborsBatchedImpl(
   DCHECK_EQ(queries.size(), results.size());
   for (DatapointIndex i = 0; i < queries.size(); ++i) {
     SCANN_RETURN_IF_ERROR(
-        FindNeighborsImpl(queries[i], params[i], &results[i], SOW, begin, curSize, arcm_w));
+        FindNeighborsImpl(queries[i], params[i], &results[i], SOW, trace, l, begin, curSize, arcm_w));
   }
 
   return OkStatus();

@@ -294,18 +294,20 @@ Status BruteForceSearcher<T>::FindNeighborsBatchedImpl(
     const TypedDataset<T>& queries, ConstSpan<SearchParameters> params,
     MutableSpan<NNResultsVector> results,
     unsigned long long int* SOW,
+    unsigned long long int* trace,
+    int l,
     size_t begin,
     size_t curSize,
     int arcm_w) const {
   if (!supports_low_level_batching_ || !queries.IsDense()) {
     return SingleMachineSearcherBase<T>::FindNeighborsBatchedImpl(
-        queries, params, results, SOW, begin, curSize, arcm_w);
+        queries, params, results, SOW, trace, l, begin, curSize, arcm_w);
   }
 
   for (const SearchParameters& p : params) {
     if (p.restricts_enabled()) {
       return SingleMachineSearcherBase<T>::FindNeighborsBatchedImpl(
-          queries, params, results, SOW, begin, curSize, arcm_w);
+          queries, params, results, SOW, trace, l, begin, curSize, arcm_w);
     }
   }
   const DenseDataset<T>& database =
@@ -321,6 +323,8 @@ Status BruteForceSearcher<T>::FindNeighborsImpl(const DatapointPtr<T>& query,
                                                 const SearchParameters& params,
                                                 NNResultsVector* result,
                                                 unsigned long long int* SOW,
+                                                unsigned long long int* trace,
+                                                int l,
                                                 size_t begin,
                                                 size_t curSize,
                                                 int arcm_w) const {

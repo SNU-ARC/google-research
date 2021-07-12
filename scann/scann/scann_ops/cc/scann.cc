@@ -185,6 +185,8 @@ Status ScannInterface::Search(const DatapointPtr<float> query,
                               NNResultsVector* res, int final_nn,
                               int pre_reorder_nn, int leaves,
                               unsigned long long int* SOW,
+                              unsigned long long int* trace,
+                              int l,
                               size_t begin,
                               size_t curSize,
                               int arcm_w) const { // [ANNA] SOW added
@@ -208,7 +210,7 @@ Status ScannInterface::Search(const DatapointPtr<float> query,
   }
   scann_->SetUnspecifiedParametersToDefaults(&params);
   arcm_w = leaves;
-  return scann_->FindNeighbors(query, params, res, SOW, arcm_w);
+  return scann_->FindNeighbors(query, params, res, SOW, trace, l, arcm_w);
 }
 
 Status ScannInterface::SearchBatched(const DenseDataset<float>& queries,
@@ -216,6 +218,8 @@ Status ScannInterface::SearchBatched(const DenseDataset<float>& queries,
                                      int final_nn, int pre_reorder_nn,
                                      int leaves,
                                      unsigned long long int* SOW,
+                                     unsigned long long int* trace,
+                                     int l,
                                      size_t begin,
                                      size_t curSize,
                                      int arcm_w) const {
@@ -246,7 +250,7 @@ Status ScannInterface::SearchBatched(const DenseDataset<float>& queries,
     scann_->SetUnspecifiedParametersToDefaults(&p);
   }
   arcm_w = leaves;
-  auto test = scann_->FindNeighborsBatched(queries, params, MakeMutableSpan(res), SOW, begin, curSize, arcm_w);
+  auto test = scann_->FindNeighborsBatched(queries, params, MakeMutableSpan(res), SOW, trace, l, begin, curSize, arcm_w);
   return test;
 }
 
@@ -256,6 +260,8 @@ Status ScannInterface::SearchBatchedParallel(const DenseDataset<float>& queries,
                                              int leaves,
                                              int batch_size,
                                              unsigned long long int* SOW,
+                                             unsigned long long int* trace,
+                                             int l,
                                              size_t begin_,
                                              size_t curSize_,
                                              int arcm_w) const {    // [ANNA] batch_size added
@@ -278,7 +284,7 @@ Status ScannInterface::SearchBatchedParallel(const DenseDataset<float>& queries,
         DenseDataset<float> curQueryDataset(queryCopy, curSize);
         arcm_w = leaves;
         return SearchBatched(curQueryDataset, {res.begin() + begin, curSize},
-                             final_nn, pre_reorder_nn, leaves, SOW, begin, curSize, arcm_w);
+                             final_nn, pre_reorder_nn, leaves, SOW, trace, l, begin, curSize, arcm_w);
       });
 }
 

@@ -39,13 +39,14 @@ class ScannSearcher(object):
 
   def search(self,
              q,
+             l,
              final_num_neighbors=None,
              pre_reorder_num_neighbors=None,
              leaves_to_search=None):
     final_nn = -1 if final_num_neighbors is None else final_num_neighbors
     pre_nn = -1 if pre_reorder_num_neighbors is None else pre_reorder_num_neighbors
     leaves = -1 if leaves_to_search is None else leaves_to_search
-    return self.searcher.search(q, final_nn, pre_nn, leaves)
+    return self.searcher.search(q, l, final_nn, pre_nn, leaves)
 
   def search_batched(self,
                      queries,

@@ -557,9 +557,10 @@ def run_scann():
 					print(str(num_leaves)+"\t"+str(threshold)+"\t"+str(int(D/dims))+"\t|\t"+str(leaves_to_search)+"\t"+str(reorder)+"\t"+str(metric)+"\n")
 					if args.batch > 1:
 						start = time.time()
-						local_SOW, local_neighbors, local_distances = searcher.search_batched_parallel(queries, leaves_to_search=leaves_to_search, pre_reorder_num_neighbors=reorder, final_num_neighbors=args.topk, batch_size=batch_size)
+						local_SOW, local_trace, local_neighbors, local_distances = searcher.search_batched_parallel(queries, args.L, leaves_to_search=leaves_to_search, pre_reorder_num_neighbors=reorder, final_num_neighbors=args.topk, batch_size=batch_size)
 						# local_neighbors, local_distances = searcher.search_batched(queries, leaves_to_search=leaves_to_search, pre_reorder_num_neighbors=reorder, final_num_neighbors=args.topk)
 						end = time.time()
+						trace = local_trace
 						local_distances[local_neighbors==2147483647] =  math.inf if metric=="squared_l2" else -math.inf 		# 2147483647: maximum integer value
 						total_latency[idx] = total_latency[idx] + 1000*(end - start)
 						n.append(local_neighbors+base_idx)
@@ -596,19 +597,20 @@ def run_scann():
 						# ScaNN search
 						def single_query(query, base_idx):
 							start = time.time()
-							local_SOW, local_neighbors, local_distances = searcher.search(query, leaves_to_search=leaves_to_search, pre_reorder_num_neighbors=reorder, final_num_neighbors=args.topk)
+							local_SOW, local_trace, local_neighbors, local_distances = searcher.search(query, args.L, leaves_to_search=leaves_to_search, pre_reorder_num_neighbors=reorder, final_num_neighbors=args.topk)
 							local_distances[local_neighbors==2147483647] =  math.inf if metric=="squared_l2" else -math.inf 		# 2147483647: maximum integer value
-							return (time.time() - start, local_SOW, (local_neighbors, local_distances))
+							return (time.time() - start, local_SOW, local_trace, (local_neighbors, local_distances))
 						# ScaNN search
 						print("Entering ScaNN searcher")
 						local_results = [single_query(q, base_idx) for q in queries]
-						total_latency[idx] += (np.sum(np.array([time for time, local_SOW, _ in local_results]).reshape(queries.shape[0], 1)))*1000
-						nd = [nd for _, local_SOW, nd in local_results]
+						total_latency[idx] += (np.sum(np.array([time for time, local_SOW, local_trace, _ in local_results]).reshape(queries.shape[0], 1)))*1000
+						nd = [nd for _, local_SOW, local_trace, nd in local_results]
 						idx_SOW = 0
 						outer_idx_SOW_elements = 0
 						inner_idx_SOW_elements = 0
 						if idx == len(sc_list) - 1:
-							for time_, local_SOW_, nd_ in local_results:
+							for time_, local_SOW_, local_trace_, nd_ in local_results:
+								trace = local_trace_
 								w_plus_1, _ = np.shape(local_SOW_)
 								for i in range(w_plus_1):
 									if i != w_plus_1 - 1:
@@ -637,6 +639,13 @@ def run_scann():
 
 			SOW_list.append(SOW)
 			SOW_elements_list.append(SOW_elements)
+
+			trace_f = open(trace_result_path+"_cluster_length", "w")
+			tracelen, _ = np.shape(trace)
+			for i in range(tracelen):
+				trace_f.write(str(int(trace[i][0]))+"\n")
+			trace_f.close()
+				
 
 			final_neighbors, _ = sort_neighbors(distances, neighbors)
 			for idx in range(len(sc_list)):
