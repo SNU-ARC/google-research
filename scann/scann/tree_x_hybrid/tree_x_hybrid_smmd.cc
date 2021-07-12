@@ -403,13 +403,13 @@ Status TreeXHybridSMMD<T>::FindNeighborsImpl(const DatapointPtr<T>& query,
   }
   for (int num_center = 0; num_center < query_tokens.size(); ++num_center) {
     // printf("query_tokens[num_center] = %d\n", query_tokens[num_center]);
-    printf("query_tokens[num_center] = %d\n", query_tokens[num_center]);
-    unsigned long long int list_length = datapoints_by_token_[query_tokens[num_center]].size();
-    SOW[num_center] = list_length;
+    //printf("query_tokens[num_center] = %d %d\n", query_tokens[num_center], datapoints_by_token_.size());
+    //unsigned long long int list_length = datapoints_by_token_[query_tokens[num_center]].size();
+    SOW[num_center] = query_tokens[num_center];
     // printf("%ld\t", list_length);
     // if (num_center == 0)
     //   printf("list_length at num_center 0 is %ld, SOW[0] is %ld, query_tokens.size() is %ld, arcm_w is %d\n", list_length, SOW[0], query_tokens.size(), arcm_w);
-    SOW[arcm_w] += list_length;
+    // SOW[arcm_w] += list_length;
     // SOW[0] += datapoints_by_token_[query_tokens[num_center]].size();
   }
 

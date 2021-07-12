@@ -494,9 +494,9 @@ Status TreeAHHybridResidual::FindNeighborsImpl(const DatapointPtr<float>& query,
   for (int i = 0; i < centers_to_search.size(); i++){
     unsigned long long int list_length = 0;
     int leaf_id = centers_to_search[i].node->LeafId();
-    list_length = datapoints_by_token_[leaf_id].size();
-    SOW[i] = list_length;
-    SOW[arcm_w] += list_length;
+    //list_length = datapoints_by_token_[leaf_id].size();
+    SOW[i] = leaf_id;
+    //SOW[arcm_w] += list_length;
     // SOW[0] += list_length;
     // printf("%ld\t", list_length);
     // printf("arcm::center_to_search[%d].distance_to_center = %f, center_to_search[%d]->node.LeafId() = %ld, list_length = %ld\n", i, centers_to_search[i].distance_to_center, i, (centers_to_search[i].node)->LeafId(), datapoints_by_token_[(centers_to_search[i].node)->LeafId()].size());
