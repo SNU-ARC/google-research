@@ -112,7 +112,7 @@ def prepare_coarse_quantizer(preproc, cent_cachefile, ncent, is_gpu):
     return coarse_quantizer
 
 
-def prepare_trained_index(preproc, coarse_quantizer, ncent, pqflat_str):
+def prepare_trained_index(preproc, coarse_quantizer, ncent, pqflat_str, is_gpu):
 
     d = preproc.d_out
     if pqflat_str == 'Flat':
@@ -355,7 +355,7 @@ def build_faiss(args, log2kstar, cacheroot, coarse_dir, split, N_, D, index_key,
         # train index
         coarse_quantizer = prepare_coarse_quantizer(preproc, cent_cachefile, ncentroid, args.is_gpu)
         if split == 0:
-            index_trained = prepare_trained_index(preproc, coarse_quantizer, ncentroid, pqflat_str)
+            index_trained = prepare_trained_index(preproc, coarse_quantizer, ncentroid, pqflat_str, args.is_gpu)
         else:
             index_trained = faiss.read_index(first_index_cachefile)
             index_trained.ntotal = 0
