@@ -549,7 +549,7 @@ Status TreeXHybridSMMD<T>::FindNeighborsBatchedImpl(
       // printf("num_center = %d\n", num_center);
       // printf("query_tokens[q_idx][num_center] = %d\n", query_tokens[q_idx][num_center]);
       //unsigned long long int list_length = datapoints_by_token_[query_tokens[q_idx][num_center]].size();
-      sow[q_idx*(arcm_w+1)+num_center] = query_tokens[q_idx][num_center];
+      SOW[(q_idx+begin)*(arcm_w+1)+num_center] = query_tokens[q_idx][num_center];
       //sow[q_idx*(arcm_w+1)+arcm_w] += datapoints_by_token_[query_tokens[q_idx][num_center]].size();
       // sow[q_idx] += datapoints_by_token_[query_tokens[q_idx][num_center]].size();
     }

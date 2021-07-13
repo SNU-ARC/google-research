@@ -599,7 +599,7 @@ Status TreeAHHybridResidual::FindNeighborsBatchedImpl(
   /* arcm::Below code computes SOW from here until... */
   // unsigned long long int sum_data = 0L;
   // vector<unsigned long long int> sow(queries.size(), 0L);
-  vector<unsigned long long int> sow(centers_to_search.size() * (arcm_w + 1), 0L);
+  //vector<unsigned long long int> sow(centers_to_search.size() * (arcm_w + 1), 0L);
   std::unordered_map< DatapointIndex, vector<pair<unsigned long long int, float> > > qid_ll_dist;
   // printf("arcm_w = %d\n", arcm_w); // w
   for(int leaf_id = 0; leaf_id < queries_by_leaf.size(); ++leaf_id){ // L sized
@@ -620,7 +620,7 @@ Status TreeAHHybridResidual::FindNeighborsBatchedImpl(
     for (auto& elem : qid_ll_dist[qid]) {
       unsigned long long int list_length = 0;
       list_length = elem.first;
-      sow[ qid*(arcm_w + 1) + sow_inner_idx ] = list_length;
+      SOW[(qid+begin)*(arcm_w+1)+ sow_inner_idx] = list_length;
       //sow[ qid*(arcm_w + 1) + arcm_w ] += list_length;
       sow_inner_idx++;
     }
