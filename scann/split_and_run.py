@@ -360,9 +360,6 @@ def sort_neighbors(distances, neighbors):
 def prepare_eval():
 	gt = get_groundtruth()
 	queries = get_queries()
-	gt = gt[0:1000, :]
-	queries = queries[0:1000, :]
-	qN = 1000
 	print("gt shape: ", np.shape(gt))
 	print("queries shape: ", np.shape(queries))
 	# print("gt: ", gt[0])
@@ -379,12 +376,12 @@ def print_recall(final_neighbors, gt):
 	top10 = compute_recall(final_neighbors[:,:10], gt[:, :10])
 	top100 = compute_recall(final_neighbors[:,:100], gt[:, :100])
 	top1000 = compute_recall(final_neighbors[:,:1000], gt[:, :1000])
-	# top1000_10000 = compute_recall(final_neighbors[:,:10000], gt[:, :1000])
+	top1000_10000 = compute_recall(final_neighbors[:,:10000], gt[:, :1000])
 	print("Recall 1@1:", top1)
 	print("Recall 10@10:", top10)
 	print("Recall 100@100:", top100)
 	print("Recall 1000@1000:", top1000)
-	# print("Recall 1000@10000:", top1000_10000)
+	print("Recall 1000@10000:", top1000_10000)
 	return top1, top10, top100, top1000
 
 def get_searcher_path(split):
