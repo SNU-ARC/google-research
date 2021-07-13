@@ -20,6 +20,7 @@ parser.add_argument('--L', type=int, default=-1, help='# of coarse codewords')
 parser.add_argument('--w', type=int, default=-1, help='# of clusters to search')
 parser.add_argument('--m', type=int, default=-1, help='# of dimension chunks')
 parser.add_argument('--batch', type=int, default=1, help='query batch size')
+parser.add_argument('--csize', type=int, default=10000, help='query size in fast scan cache')
 
 ## ScaNN parameters
 parser.add_argument('--coarse_training_size', type=int, default=250000, help='coarse training sample size')
@@ -166,6 +167,31 @@ def fvecs_write(fname, m):
 	m1[:, 1:] = m.view('int32')
 	m1.tofile(fname)
 
+def txt_to_fvecs(fname):
+	txt_arr = np.loadtxt(fname)
+	if "_clognormal" in fname:
+		if "query" in fname:
+			fvecs_write(dataset_basedir + "clognormal1m_query.fvecs", txt_arr)
+		else:
+			fvecs_write(dataset_basedir + "clognormal1m_base.fvecs", txt_arr)
+	elif "_cnormal" in fname:
+		if "query" in fname:
+			fvecs_write(dataset_basedir + "cnormal1m_query.fvecs", txt_arr)
+		else:
+			fvecs_write(dataset_basedir + "cnormal1m_base.fvecs", txt_arr)
+	elif "_lognormal" in fname:
+		if "query" in fname:
+			fvecs_write(dataset_basedir + "lognormal1m_query.fvecs", txt_arr)
+		else:
+			fvecs_write(dataset_basedir + "lognormal1m_base.fvecs", txt_arr)
+	elif "_normal" in fname:
+		if "query" in fname:
+			fvecs_write(dataset_basedir + "normal1m_query.fvecs", txt_arr)
+		else:
+			fvecs_write(dataset_basedir + "normal1m_base.fvecs", txt_arr)
+
+
+
 def read_data(dataset_path, offset_=None, shape_=None, base=True):
 	if "sift1m" in args.dataset:
 		file = dataset_path + "sift_base.fvecs" if base else dataset_path
@@ -175,6 +201,18 @@ def read_data(dataset_path, offset_=None, shape_=None, base=True):
 		return mmap_fvecs(file, offset_=offset_, shape_=shape_)
 	elif "deepm96" in args.dataset:
 		file = dataset_path + "deepm96_base.fvecs" if base else dataset_path
+		return mmap_fvecs(file, offset_=offset_, shape_=shape_)
+	elif args.dataset == "clognormal1m":
+		file = dataset_path + "clognormal1m_base.fvecs" if base else dataset_path
+		return mmap_fvecs(file, offset_=offset_, shape_=shape_)
+	elif args.dataset == "cnormal1m":
+		file = dataset_path + "cnormal1m_base.fvecs" if base else dataset_path
+		return mmap_fvecs(file, offset_=offset_, shape_=shape_)
+	elif args.dataset == "lognormal1m":
+		file = dataset_path + "lognormal1m_base.fvecs" if base else dataset_path
+		return mmap_fvecs(file, offset_=offset_, shape_=shape_)
+	elif args.dataset == "normal1m":
+		file = dataset_path + "normal1m_base.fvecs" if base else dataset_path
 		return mmap_fvecs(file, offset_=offset_, shape_=shape_)
 	elif "music1m" in args.dataset:
 		# file = dataset_path + "database_music100.bin" if base else dataset_path
@@ -210,7 +248,7 @@ def read_data(dataset_path, offset_=None, shape_=None, base=True):
 def write_split_data(split_data_path, split_data):
 	if "sift1b" in args.dataset:
 		bvecs_write(split_data_path, split_data)
-	elif "sift1m" in args.dataset or "gist" in args.dataset or "deep1m" in args.dataset or "deepm96" in args.dataset or "deep1b" in args.dataset or "music1m" in args.dataset:
+	elif "sift1m" in args.dataset or "gist" in args.dataset or "deep1m" in args.dataset or "deepm96" in args.dataset or "deep1b" in args.dataset or "music1m" in args.dataset or args.dataset == "clognormal1m" or args.dataset == "cnormal1m" or args.dataset == "lognormal1m" or args.dataset == "normal1m":
 		fvecs_write(split_data_path, split_data)
 	elif "glove" in args.dataset:
 		hf = h5py.File(split_data_path, 'w')
@@ -219,7 +257,7 @@ def write_split_data(split_data_path, split_data):
 	print("arcm::write_split_data done\n");
 
 def write_gt_data(gt_data):
-	if "sift1b" in args.dataset or "sift1m" in args.dataset or "gist" in args.dataset or "deep1m" in args.dataset or "deepm96" in args.dataset or "deep1b" in args.dataset or "music1m" in args.dataset:
+	if "sift1b" in args.dataset or "sift1m" in args.dataset or "gist" in args.dataset or "deep1m" in args.dataset or "deepm96" in args.dataset or "deep1b" in args.dataset or "music1m" in args.dataset or args.dataset == "clognormal1m" or args.dataset == "cnormal1m" or args.dataset == "lognormal1m" or args.dataset == "normal1m":
 		ivecs_write(groundtruth_path, gt_data)
 	elif "glove" in args.dataset:
 		hf = h5py.File(groundtruth_path, 'w')
@@ -255,10 +293,7 @@ def split(filename, num_iter, N, D):
 					if "glove" in args.dataset:
 						trainset = np.random.choice(split_size, int(sampling_rate*split_size), replace=False)
 						write_split_data(split_dataset_path + args.metric + "_learn" + str(args.num_split) + "_" + str(split), dataset[count*num_per_split:][trainset])
-					elif "music1m" in args.dataset:
-						trainset = np.random.choice(split_size, int(sampling_rate*split_size), replace=False)
-						write_split_data(split_dataset_path + "learn" + str(args.num_split) + "_" + str(split), dataset[count*num_per_split:][trainset])
-					elif "deepm96" in args.dataset:
+					elif "music1m" in args.dataset or "deepm96" in args.dataset or args.dataset == "clognormal1m" or args.dataset == "cnormal1m" or args.dataset == "lognormal1m" or args.dataset == "normal1m":
 						trainset = np.random.choice(split_size, int(sampling_rate*split_size), replace=False)
 						write_split_data(split_dataset_path + "learn" + str(args.num_split) + "_" + str(split), dataset[count*num_per_split:][trainset])
 					num_split_list.append(dataset[count*num_per_split:].shape[0])
@@ -272,10 +307,7 @@ def split(filename, num_iter, N, D):
 				if "glove" in args.dataset:
 					trainset = np.random.choice(split_size, int(sampling_rate*split_size), replace=False)
 					write_split_data(split_dataset_path + args.metric + "_learn" + str(args.num_split) + "_" + str(split), dataset[count*num_per_split:(count+1)*num_per_split][trainset])
-				elif "music1m" in args.dataset:
-					trainset = np.random.choice(split_size, int(sampling_rate*split_size), replace=False)
-					write_split_data(split_dataset_path + "learn" + str(args.num_split) + "_" + str(split), dataset[count*num_per_split:(count+1)*num_per_split][trainset])
-				elif "deepm96" in args.dataset:
+				elif "music1m" in args.dataset or "deepm96" in args.dataset or args.dataset == "clognormal1m" or args.dataset == "cnormal1m" or args.dataset == "lognormal1m" or args.dataset == "normal1m":
 					trainset = np.random.choice(split_size, int(sampling_rate*split_size), replace=False)
 					write_split_data(split_dataset_path + "learn" + str(args.num_split) + "_" + str(split), dataset[count*num_per_split:(count+1)*num_per_split][trainset])
 				num_split_list.append(dataset[count*num_per_split:(count+1)*num_per_split].shape[0])
@@ -500,7 +532,7 @@ def run_scann():
 			# 	]
 
 		f = open(sweep_result_path, "w")
-		f.write("Program: " + args.program + " Topk: " + str(args.topk) + " Num_split: " + str(args.num_split)+ " Batch: "+str(args.batch)+"\n")
+		f.write("Program: " + args.program + " Topk: " + str(args.topk) + " Num_split: " + str(args.num_split)+ " Batch: "+str(args.batch)+" CSize: "+str(args.csize)+"\n")
 		f.write("L\tThreashold\tm\t|\tw\tr\tMetric\n")
 	else:
 		# assert D%args.m == 0
@@ -833,7 +865,7 @@ def run_faiss(D):
 				'''
 
 		f = open(sweep_result_path, "w")
-		f.write("Program: " + args.program + ("GPU" if args.is_gpu else "") + " Topk: " + str(args.topk) + " Num_split: " + str(args.num_split)+ " Batch: "+str(args.batch)+"\n")
+		f.write("Program: " + args.program + ("GPU" if args.is_gpu else "") + " Topk: " + str(args.topk) + " Num_split: " + str(args.num_split)+ " Batch: "+str(args.batch)+" CSize: "+str(args.csize)+"\n")
 		f.write("L\tm\tk_star\t|\tw\tReorder\tMetric\n")
 	else:
 		if args.opq != -1:
@@ -901,7 +933,9 @@ def run_faiss(D):
 					# Build Faiss index
 					print(str(L)+"\t"+str(m)+"\t"+str(2**log2kstar)+"\t|\t"+str(w)+"\t"+str(reorder)+"\t"+str(metric)+"\n")		# faiss-gpu has no reorder
 					# Faiss search
-					local_neighbors, local_distances, time = faiss_search(index, preproc, args, reorder, w)
+					queries_per_thread = (int) (qN / args.batch)
+					effective_csize = min(args.csize, queries_per_thread)
+					local_neighbors, local_distances, time = faiss_search(index, preproc, args, reorder, w, effective_csize)
 					total_latency[idx] = total_latency[idx] + time
 					n.append((local_neighbors+base_idx).astype(np.int32))
 					d.append(local_distances.astype(np.float32))
@@ -938,7 +972,7 @@ def run_annoy(D):
 		build_config = [(args.metric, 50), (args.metric, 100), (args.metric, 150), (args.metric, 200), (args.metric, 250), (args.metric, 300), (args.metric, 400)]
 		search_config = [100, 200, 400, 1000, 2000, 4000, 10000, 20000, 40000, 100000, 200000, 400000]
 		f = open(sweep_result_path, "w")
-		f.write("Program: " + args.program + " Topk: " + str(args.topk) + " Num_split: " + str(args.num_split)+ " Batch: "+str(args.batch)+"\n")
+		f.write("Program: " + args.program + " Topk: " + str(args.topk) + " Num_split: " + str(args.num_split)+ " Batch: "+str(args.batch)+" CSize: "+str(args.csize)+"\n")
 		f.write("Num trees\t|\tNum search\tReorder\tMetric\n")
 	else:
 		build_config = [(args.metric, args.n_trees)]
@@ -1049,6 +1083,18 @@ def get_train():
 	elif "deepm96" in args.dataset:
 		filename = dataset_basedir + 'split_data/deepm96_learn1_0'
 		return mmap_fvecs(filename)
+	elif "clognormal1m" in args.dataset:
+		filename = dataset_basedir + 'split_data/clognormal1m_learn1_0'
+		return mmap_fvecs(filename)
+	elif "cnormal1m" in args.dataset:
+		filename = dataset_basedir + 'split_data/cnormal1m_learn1_0'
+		return mmap_fvecs(filename)
+	elif "lognormal1m" in args.dataset:
+		filename = dataset_basedir + 'split_data/lognormal1m_learn1_0'
+		return mmap_fvecs(filename)
+	elif "normal1m" in args.dataset:
+		filename = dataset_basedir + 'split_data/normal1m_learn1_0'
+		return mmap_fvecs(filename)
 	elif "gist" in args.dataset:
 		filename = dataset_basedir + 'gist_learn.fvecs'
 		return mmap_fvecs(filename)
@@ -1082,6 +1128,14 @@ def get_queries():
 		return mmap_fvecs(dataset_basedir + 'deep1m_query.fvecs')
 	elif "deepm96" in args.dataset:
 		return mmap_fvecs(dataset_basedir + 'deepm96_query.fvecs')
+	elif "clognormal1m" in args.dataset:
+		return mmap_fvecs(dataset_basedir + 'clognormal1m_query.fvecs')
+	elif "cnormal1m" in args.dataset:
+		return mmap_fvecs(dataset_basedir + 'cnormal1m_query.fvecs')
+	elif "lognormal1m" in args.dataset:
+		return mmap_fvecs(dataset_basedir + 'lognormal1m_query.fvecs')
+	elif "normal1m" in args.dataset:
+		return mmap_fvecs(dataset_basedir + 'normal1m_query.fvecs')
 	elif "music1m" in args.dataset:
 		# return np.fromfile(dataset_basedir + 'query_music100.bin', dtype = np.float32).reshape(qN, D)
 		return mmap_fvecs(split_dataset_path + 'query1_0')
@@ -1142,6 +1196,46 @@ elif "deepm96" in args.dataset:
 		groundtruth_path = dataset_basedir + "deepm96_"+args.metric+"_gt"
 	N=1000000
 	D=96
+	num_iter = 1
+	qN = 10000
+	index_key = "IVF4096,PQ64" #arcm::FIXME
+elif args.dataset == "clognormal1m":
+	dataset_basedir = basedir + "SYNTHETIC_1M_CLOGNORMAL/"
+	split_dataset_path = dataset_basedir+"split_data/clognormal1m_"
+	if args.split==False:
+		groundtruth_path = dataset_basedir + "clognormal1m_"+args.metric+"_gt"
+	N=1000000
+	D=128
+	num_iter = 1
+	qN = 10000
+	index_key = "IVF4096,PQ64" #arcm::FIXME
+elif args.dataset == "cnormal1m":
+	dataset_basedir = basedir + "SYNTHETIC_1M_CNORMAL/"
+	split_dataset_path = dataset_basedir+"split_data/cnormal1m_"
+	if args.split==False:
+		groundtruth_path = dataset_basedir + "cnormal1m_"+args.metric+"_gt"
+	N=1000000
+	D=128
+	num_iter = 1
+	qN = 10000
+	index_key = "IVF4096,PQ64" #arcm::FIXME
+elif args.dataset == "lognormal1m":
+	dataset_basedir = basedir + "SYNTHETIC_1M_LOGNORMAL/"
+	split_dataset_path = dataset_basedir+"split_data/lognormal1m_"
+	if args.split==False:
+		groundtruth_path = dataset_basedir + "lognormal1m_"+args.metric+"_gt"
+	N=1000000
+	D=128
+	num_iter = 1
+	qN = 10000
+	index_key = "IVF4096,PQ64" #arcm::FIXME
+elif args.dataset == "normal1m":
+	dataset_basedir = basedir + "SYNTHETIC_1M_NORMAL/"
+	split_dataset_path = dataset_basedir+"split_data/normal1m_"
+	if args.split==False:
+		groundtruth_path = dataset_basedir + "normal1m_"+args.metric+"_gt"
+	N=1000000
+	D=128
 	num_iter = 1
 	qN = 10000
 	index_key = "IVF4096,PQ64" #arcm::FIXME
@@ -1221,14 +1315,20 @@ if args.eval_split or args.sweep:
 if args.groundtruth:
 	# base
 	# arcm_base = read_data(dataset_basedir)
-	# print("base.shape =", arcm_base.shape, ", base =", arcm_base)
+	# print("base.shape =", arcm_base.shape, ", \nbase =", arcm_base)
 	# train
 	# arcm_train = get_train()
-	# print("train.shape =", arcm_train.shape, ", train =", arcm_train)
+	# print("train.shape =", arcm_train.shape, ", \ntrain =", arcm_train)
 	# query
 	# arcm_query = get_queries()
-	# print("query.shape =", arcm_query.shape, ", query =", arcm_query)
+	# print("query.shape =", arcm_query.shape, ", \nquery =", arcm_query)
 	# gt
-	# arcm_gt = ivecs_read(dataset_basedir + 'groundtruth/deep1m_groundtruth.ivecs')
-	# print("gt.shape =", arcm_gt.shape, ", gt =", arcm_gt)
+	# arcm_gt = ivecs_read(dataset_basedir + 'groundtruth/sift_groundtruth.ivecs')
+	# print("gt.shape =", arcm_gt.shape, ", \ngt =", arcm_gt)
+
 	run_groundtruth()
+
+	# fname = dataset_basedir + "1000000_128_normal_query.txt"
+	# txt_to_fvecs(fname)
+	# fname = dataset_basedir + "1000000_128_normal.txt"
+	# txt_to_fvecs(fname)
