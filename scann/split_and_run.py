@@ -639,12 +639,16 @@ def run_scann():
 
 			SOW_list.append(SOW)
 			SOW_elements_list.append(SOW_elements)
+			if args.trace:
+				s = 0
+				trace_f = open(trace_result_path+"_cluster_length", "w")
+				tracelen, _ = np.shape(trace)
+				for i in range(tracelen):
+					trace_f.write(str(int(trace[i][0]))+"\n")
+					s += int(trace[i][0])
+				trace_f.close()
 
-			trace_f = open(trace_result_path+"_cluster_length", "w")
-			tracelen, _ = np.shape(trace)
-			for i in range(tracelen):
-				trace_f.write(str(int(trace[i][0]))+"\n")
-			trace_f.close()
+				print("\nSum of Cluster Length : ",s,"\n")
 				
 
 			final_neighbors, _ = sort_neighbors(distances, neighbors)
@@ -983,11 +987,15 @@ def run_faiss(D):
 							trace_f.write(str(int(current_SOW_elements[i, j]))+"\t")
 						trace_f.write("\n")
 					trace_f.close()
+
+					s = 0
 					trace_f = open(trace_result_path+"_cluster_length", "w")
 					tracelen, _ = np.shape(local_trace)
 					for i in range(tracelen):
 						trace_f.write(str(int(local_trace[i][0]))+"\n")
+						s += int(local_trace[i][0])
 					trace_f.close()
+					print("\nSum of Cluster Length : ",s,"\n")
 
 				# for i in range(qN):
 				# 	print("current_SOW(sow)[", i, "] =", current_SOW[i])
