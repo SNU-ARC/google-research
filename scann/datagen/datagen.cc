@@ -118,7 +118,6 @@ int main(int argc, char *argv[]) {
         }
       }
       // Print
-      ofile << n << " " << d << "\n";
       for(int i=0; i<n; i++) {
         for (int j=0; j<d; j++) {
           ofile << data[i][j];
@@ -128,7 +127,6 @@ int main(int argc, char *argv[]) {
         if(i != n-1)
           ofile << "\n";
       }
-      qfile << qsize << " " << d << "\n";
       for(int i=0; i<qsize; i++) {
         for (int j=0; j<d; j++) {
           qfile << query[i][j];
